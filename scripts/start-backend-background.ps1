@@ -3,13 +3,17 @@ $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $projectRoot
 
-if (-not $env:OKXE_DATA_DIR -or [string]::IsNullOrWhiteSpace($env:OKXE_DATA_DIR)) {
-    $env:OKXE_DATA_DIR = $env:LOCALAPPDATA
+$logDir = Join-Path $projectRoot "logs"
+$defaultDbPath = Join-Path $projectRoot "data\rentals.db"
+$dataRoot = $null
+$sqlitePath = $defaultDbPath
+
+if ($env:OKXE_DATA_DIR -and -not [string]::IsNullOrWhiteSpace($env:OKXE_DATA_DIR)) {
+    $dataRoot = Join-Path $env:OKXE_DATA_DIR "okxe\data"
+    New-Item -ItemType Directory -Path $dataRoot -Force | Out-Null
+    $sqlitePath = Join-Path $dataRoot "rentals.db"
 }
 
-$dataRoot = Join-Path $env:OKXE_DATA_DIR "okxe\data"
-$logDir = Join-Path $projectRoot "logs"
-New-Item -ItemType Directory -Path $dataRoot -Force | Out-Null
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 
 $stdoutLog = Join-Path $logDir "backend.stdout.log"
@@ -34,5 +38,6 @@ $process = Start-Process `
 Write-Host "Backend started in background."
 Write-Host "PID: $($process.Id)"
 Write-Host "URL: http://localhost:3000"
+Write-Host "SQLite path: $sqlitePath"
 Write-Host "STDOUT: $stdoutLog"
 Write-Host "STDERR: $stderrLog"

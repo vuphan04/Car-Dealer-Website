@@ -2,6 +2,11 @@ const nav = document.querySelector('.nav');
 const menuToggle = document.querySelector('.menu-toggle');
 const navLinks = document.querySelectorAll('.nav-link');
 const teamContainer = document.querySelector('#team-container');
+const teamMemberModal = document.querySelector('#team-member-modal');
+const teamMemberModalContent = document.querySelector('#team-member-modal-content');
+const teamMemberCloseButtons = document.querySelectorAll('[data-close-team-member]');
+const promotionCarousel = document.querySelector('#promotion-carousel');
+const testDriveButton = document.querySelector('.test-drive__button');
 
 const closeMobileMenu = () => {
     if (!nav || !menuToggle) {
@@ -41,6 +46,12 @@ const escapeHtml = (value) =>
         "'": '&#039;'
     })[character]);
 
+const renderSpecChip = (value, fallback = 'Chưa cập nhật') => {
+    const fullValue = String(value || fallback).trim();
+
+    return `<span title="${escapeHtml(fullValue)}">${escapeHtml(fullValue)}</span>`;
+};
+
 const rentalContainer = document.querySelector('.rental-container');
 const rentalViewAllButton = document.querySelector('#rental-view-all-button');
 const rentalSliderPrevButton = document.querySelector('#rental-slider-prev');
@@ -72,11 +83,29 @@ const favoriteCarsModal = document.querySelector('#favorite-cars-modal');
 const favoriteCarsGrid = document.querySelector('#favorite-cars-grid');
 const favoriteCarsCloseButtons = document.querySelectorAll('[data-close-favorites]');
 const notificationsModal = document.querySelector('#notifications-modal');
+const notificationsList = document.querySelector('#notifications-list');
 const notificationsCloseButtons = document.querySelectorAll('[data-close-notifications]');
+const notificationBadges = document.querySelectorAll('[data-notification-badge]');
+const promotionDetailModal = document.querySelector('#promotion-detail-modal');
+const promotionDetailContent = document.querySelector('#promotion-detail-content');
+const promotionDetailCloseButtons = document.querySelectorAll('[data-close-promotion-detail]');
 const featuredRentalLimit = 10;
+const homepageTeamMemberLimit = 6;
+const homepagePromotionLimit = 8;
 let rentalCars = [];
 let favoriteCars = [];
 let favoriteCarIds = new Set();
+let teamMembersState = [];
+let promotionsState = [];
+let testDriveAppointmentsState = [];
+let teamMemberCloseTimer = 0;
+let dismissedNotificationIds = new Set();
+const dismissedNotificationsStorageKey = 'okxe:dismissedPromotionNotifications';
+const promotionDateFormatter = new Intl.DateTimeFormat('vi-VN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+});
 
 const isFavoriteCar = (carId) => favoriteCarIds.has(String(carId));
 const getCarDetailUrl = (carId) => `/cars/${encodeURIComponent(carId)}`;
@@ -142,14 +171,12 @@ const renderCarMedia = (car) => {
     return `
         <div class="rental-card__media">
             <img src="${primaryImage}" alt="${car.name}" class="rental-card__image">
-            ${images.length > 1 ? `
-                <div class="rental-card__thumbs" aria-label="Ảnh khác của ${car.name}">
-                    ${thumbnails.map((image, index) => `
-                        <img src="${image}" alt="Ảnh ${index + 2} của ${car.name}">
-                    `).join('')}
-                    ${remainingImages ? `<span class="rental-card__thumb-count">+${remainingImages}</span>` : ''}
-                </div>
-            ` : ''}
+            <div class="rental-card__thumbs${images.length > 1 ? '' : ' rental-card__thumbs--empty'}" ${images.length > 1 ? `aria-label="Ảnh khác của ${car.name}"` : 'aria-hidden="true"'}>
+                ${images.length > 1 ? thumbnails.map((image, index) => `
+                    <img src="${image}" alt="Ảnh ${index + 2} của ${car.name}">
+                `).join('') : ''}
+                ${remainingImages ? `<span class="rental-card__thumb-count">+${remainingImages}</span>` : ''}
+            </div>
         </div>
     `;
 };
@@ -160,20 +187,21 @@ const renderCarCard = (car) => `
             <i class="bx ${isFavoriteCar(car.id) ? 'bxs-heart' : 'bx-heart'}" aria-hidden="true"></i>
         </button>
         ${renderCarMedia(car)}
-        <span class="rental-category">${car.category}</span>
-        <h3>${car.name}</h3>
-        <p>${car.type}</p>
-        <div class="rental-details">
-            <span>${car.year}</span>
-            <span>${car.fuel}</span>
-            <span>${car.mileage}</span>
-            <span>${car.seats}</span>
+        <div class="rental-card__summary">
+            <span class="rental-category">${car.category}</span>
+            <h3>${car.name}</h3>
+            <p>${car.type}</p>
         </div>
-        <div class="rental-extra">
-            <span>${car.gearbox}</span>
-            <span>${car.origin}</span>
-            <span>${car.condition}</span>
-            <span>${car.color}</span>
+        <div class="rental-specs">
+            ${renderSpecChip(car.year, 'Năm')}
+            ${renderSpecChip(car.fuel, 'Nhiên liệu')}
+            ${renderSpecChip(car.mileage, 'Số km')}
+            ${renderSpecChip(car.seats, 'Số chỗ')}
+            ${renderSpecChip(car.gearbox, 'Hộp số')}
+            ${renderSpecChip(car.drivetrain, 'Dẫn động')}
+            ${renderSpecChip(car.origin, 'Xuất xứ')}
+            ${renderSpecChip(car.condition, 'Tình trạng')}
+            ${renderSpecChip(car.color, 'Màu sắc')}
         </div>
         <div class="rental-meta">
             <span class="price">${car.price}</span>
@@ -196,10 +224,11 @@ const renderFavoriteCarListItem = (car) => {
                     <p>${car.type}</p>
                 </div>
                 <div class="favorite-car-item__chips">
-                    <span>${car.year}</span>
-                    <span>${car.fuel}</span>
-                    <span>${car.mileage}</span>
-                    <span>${car.seats}</span>
+                    ${renderSpecChip(car.year, 'Năm')}
+                    ${renderSpecChip(car.fuel, 'Nhiên liệu')}
+                    ${renderSpecChip(car.mileage, 'Số km')}
+                    ${renderSpecChip(car.seats, 'Số chỗ')}
+                    ${renderSpecChip(car.drivetrain, 'Dẫn động')}
                 </div>
             </div>
             <div class="favorite-car-item__side">
@@ -446,7 +475,12 @@ const getFilteredAllCars = () => {
     }
 
     return rentalCars.filter((car) =>
-        normalizeSearchValue(car.name).includes(keyword)
+        normalizeSearchValue([
+            car.name,
+            car.brand,
+            car.category,
+            car.drivetrain,
+        ].join(' ')).includes(keyword)
     );
 };
 
@@ -783,7 +817,314 @@ const closeFavoriteCarsModal = () => {
     document.body.classList.remove('favorite-cars-modal-open');
 };
 
-const openNotificationsModal = () => {
+const loadDismissedNotificationIds = () => {
+    try {
+        const parsedIds = JSON.parse(localStorage.getItem(dismissedNotificationsStorageKey) || '[]');
+        dismissedNotificationIds = new Set(
+            Array.isArray(parsedIds) ? parsedIds.map((id) => String(id)) : []
+        );
+    } catch (error) {
+        dismissedNotificationIds = new Set();
+    }
+};
+
+const saveDismissedNotificationIds = () => {
+    try {
+        localStorage.setItem(
+            dismissedNotificationsStorageKey,
+            JSON.stringify([...dismissedNotificationIds])
+        );
+    } catch (error) {
+        // Nếu trình duyệt chặn localStorage, vẫn xóa tạm trong phiên hiện tại.
+    }
+};
+
+const getNotificationKey = (type, id) => `${type}:${id}`;
+
+const testDriveNotificationLabels = {
+    approved: {
+        meta: 'Lái thử',
+        title: 'Đồng ý cho phép lái thử',
+        icon: 'bxs-check-circle',
+        footer: 'OkXe đã đồng ý lịch lái thử của bạn.'
+    },
+    cancelled: {
+        meta: 'Lịch hẹn',
+        title: 'Hủy lịch hẹn',
+        icon: 'bxs-x-circle',
+        footer: 'Lịch hẹn lái thử đã được hủy.'
+    },
+    pending: {
+        meta: 'Lịch hẹn',
+        title: 'Cần đổi khung giờ lái thử',
+        icon: 'bxs-time-five',
+        footer: 'Khung giờ bạn chọn cần được sắp xếp lại. OkXe sẽ liên hệ để hỗ trợ đổi lịch.'
+    },
+    registered: {
+        meta: 'Lái thử',
+        title: 'Đã nhận đăng ký lái thử',
+        icon: 'bxs-calendar-check',
+        footer: 'Lịch hẹn đang chờ nhân viên xác nhận.'
+    }
+};
+
+const getTestDriveNotificationState = (appointment = {}) => {
+    const status = String(appointment.status || '').trim().toLowerCase();
+    const hasStatusNote = String(appointment.statusNote || '').trim().length > 0;
+
+    if (status === 'approved') {
+        return 'approved';
+    }
+
+    if (status === 'cancelled') {
+        return 'cancelled';
+    }
+
+    if (status === 'pending' && hasStatusNote) {
+        return 'pending';
+    }
+
+    return 'registered';
+};
+
+const getCustomerTestDriveStatusNote = (statusNote = '') => {
+    const note = String(statusNote || '').trim();
+
+    if (!note) {
+        return '';
+    }
+
+    return note
+        .replace(
+            'Vui lòng liên hệ với khách hàng để đổi khung giờ.',
+            'OkXe sẽ liên hệ để hỗ trợ bạn đổi sang khung giờ phù hợp.'
+        )
+        .replace(
+            'Nhân viên sẽ liên hệ để hỗ trợ đổi sang khung giờ khác.',
+            'OkXe sẽ liên hệ để hỗ trợ bạn đổi sang khung giờ phù hợp.'
+        );
+};
+
+const getTestDriveNotificationKey = (appointment = {}) =>
+    getNotificationKey(
+        'test-drive',
+        [
+            appointment.id,
+            getTestDriveNotificationState(appointment),
+            appointment.updatedAt || appointment.createdAt || ''
+        ].join(':')
+    );
+
+const isNotificationDismissed = (type, id) =>
+    dismissedNotificationIds.has(getNotificationKey(type, id))
+    || (type === 'promotion' && dismissedNotificationIds.has(String(id || '')));
+
+const getNotificationPromotions = (promotions = promotionsState) =>
+    [...promotions]
+        .filter((promotion) => promotion?.showOnHome !== false)
+        .filter((promotion) => !isNotificationDismissed('promotion', promotion.id))
+        .sort((first, second) => {
+            const firstTime = new Date(first.createdAt || first.startsAt || 0).getTime();
+            const secondTime = new Date(second.createdAt || second.startsAt || 0).getTime();
+
+            return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
+        });
+
+const getNotificationTestDriveAppointments = () =>
+    [...testDriveAppointmentsState]
+        .filter((appointment) => !dismissedNotificationIds.has(getTestDriveNotificationKey(appointment)))
+        .sort((first, second) => {
+            const firstTime = new Date(first.createdAt || 0).getTime();
+            const secondTime = new Date(second.createdAt || 0).getTime();
+
+            return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
+        });
+
+const updateNotificationBadge = () => {
+    const notificationCount = getNotificationPromotions().length + getNotificationTestDriveAppointments().length;
+
+    notificationBadges.forEach((badge) => {
+        badge.textContent = notificationCount > 9 ? '9+' : String(notificationCount);
+        badge.hidden = notificationCount <= 0;
+    });
+};
+
+const renderPromotionNotifications = (promotions = promotionsState) => {
+    if (!notificationsList) {
+        updateNotificationBadge();
+        return;
+    }
+
+    const notificationPromotions = getNotificationPromotions(promotions);
+    const notificationAppointments = getNotificationTestDriveAppointments();
+    const notifications = [
+        ...notificationAppointments.map((appointment) => ({ type: 'test-drive', item: appointment })),
+        ...notificationPromotions.map((promotion) => ({ type: 'promotion', item: promotion }))
+    ].sort((first, second) => {
+        const firstTime = new Date(first.item.createdAt || first.item.startsAt || 0).getTime();
+        const secondTime = new Date(second.item.createdAt || second.item.startsAt || 0).getTime();
+
+        return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
+    });
+    updateNotificationBadge();
+
+    if (!notifications.length) {
+        notificationsList.innerHTML = `
+            <article class="notification-empty">
+                <i class="bx bx-bell-off" aria-hidden="true"></i>
+                <strong>Chưa có thông báo mới</strong>
+                <p>Các cập nhật về xe yêu thích, lịch hẹn hoặc ưu đãi sẽ hiển thị tại đây.</p>
+            </article>
+        `;
+        return;
+    }
+
+    notificationsList.innerHTML = notifications.map(({ type, item }) => {
+        if (type === 'test-drive') {
+            const appointment = item;
+            const notificationState = getTestDriveNotificationState(appointment);
+            const notificationConfig = testDriveNotificationLabels[notificationState] || testDriveNotificationLabels.registered;
+            const createdText = formatPromotionDate(
+                String(appointment.updatedAt || appointment.createdAt || '').slice(0, 10),
+                'Vừa đăng ký'
+            );
+            const preferredDateText = formatPromotionDate(appointment.preferredDate, 'Chưa rõ ngày');
+            const preferredTimeText = String(appointment.preferredTimeSlot || '').trim();
+            const notificationKey = getTestDriveNotificationKey(appointment);
+            const carTitle = [appointment.carBrand, appointment.carName].filter(Boolean).join(' ') || 'Xe đã chọn';
+            const reasonText = getCustomerTestDriveStatusNote(appointment.statusNote);
+            const scheduleText = preferredTimeText
+                ? `${preferredDateText}, khung giờ ${preferredTimeText}`
+                : preferredDateText;
+            const detailText = notificationState === 'registered'
+                ? `${carTitle} - lịch dự kiến ${scheduleText}.`
+                : `${carTitle} - lịch hẹn ${scheduleText}.`;
+            const footerText = reasonText
+                ? `${notificationState === 'approved' ? 'Ghi chú' : 'Lý do'}: ${reasonText}`
+                : notificationConfig.footer;
+            const appointmentAction = notificationState === 'pending'
+                ? `
+                            <a href="/dang-ky-lai-thu.html?carId=${encodeURIComponent(String(appointment.carId || ''))}" class="notification-item__action" data-close-notifications-link>
+                                <span>Đổi lịch</span>
+                                <i class="bx bx-calendar-edit" aria-hidden="true"></i>
+                            </a>
+                        `
+                : `
+                            <button type="button" class="notification-item__action notification-item__action--danger" data-delete-test-drive-appointment="${escapeHtml(String(appointment.id || ''))}">
+                                <span>Xóa lịch</span>
+                                <i class="bx bx-trash" aria-hidden="true"></i>
+                            </button>
+                        `;
+
+            return `
+                <article class="notification-item">
+                    <button type="button" class="notification-item__delete" data-delete-notification="${escapeHtml(notificationKey)}" aria-label="Xóa thông báo đăng ký lái thử">
+                        <i class="bx bx-x" aria-hidden="true"></i>
+                    </button>
+                    <span class="notification-item__icon">
+                        <i class="bx ${escapeHtml(notificationConfig.icon)}" aria-hidden="true"></i>
+                    </span>
+                    <div class="notification-item__body">
+                        <div class="notification-item__meta">
+                            <span>${escapeHtml(notificationConfig.meta)}</span>
+                            <small>${escapeHtml(createdText)}</small>
+                        </div>
+                        <h3>${escapeHtml(notificationConfig.title)}</h3>
+                        <p>${escapeHtml(detailText)}</p>
+                        <div class="notification-item__footer">
+                            <small>${escapeHtml(footerText)}</small>
+                            ${appointmentAction}
+                        </div>
+                    </div>
+                </article>
+            `;
+        }
+
+        const promotion = item;
+        const imageUrl = String(promotion.imageUrl || '').trim();
+        const periodText = getPromotionPeriod(promotion);
+        const createdText = formatPromotionDate(
+            String(promotion.createdAt || '').slice(0, 10),
+            'Vừa cập nhật'
+        );
+        const ctaUrl = promotion.ctaUrl || '#promotions';
+        const ctaText = promotion.ctaText || 'Xem ưu đãi';
+        const notificationKey = getNotificationKey('promotion', promotion.id);
+
+        return `
+            <article class="notification-item" role="button" tabindex="0" data-promotion-notification-id="${escapeHtml(String(promotion.id || ''))}" aria-label="Xem chi tiết ${escapeHtml(promotion.title || 'khuyến mại OkXe')}">
+                <button type="button" class="notification-item__delete" data-delete-notification="${escapeHtml(notificationKey)}" aria-label="Xóa thông báo ${escapeHtml(promotion.title || 'khuyến mại OkXe')}">
+                    <i class="bx bx-x" aria-hidden="true"></i>
+                </button>
+                <span class="notification-item__icon">
+                    ${imageUrl
+                        ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(promotion.title || 'Khuyến mại OkXe')}">`
+                        : '<i class="bx bxs-purchase-tag" aria-hidden="true"></i>'}
+                </span>
+                <div class="notification-item__body">
+                    <div class="notification-item__meta">
+                        <span>Khuyến mại mới</span>
+                        <small>${escapeHtml(createdText)}</small>
+                    </div>
+                    <h3>${escapeHtml(promotion.title || 'Ưu đãi mới từ OkXe')}</h3>
+                    <p>${escapeHtml(promotion.summary || 'OkXe vừa cập nhật một chương trình ưu đãi mới dành cho khách hàng.')}</p>
+                    <div class="notification-item__footer">
+                        <small>${escapeHtml(periodText)}</small>
+                        <a href="${escapeHtml(ctaUrl)}" data-close-notifications-link>
+                            <span>${escapeHtml(ctaText)}</span>
+                            <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+                        </a>
+                    </div>
+                </div>
+            </article>
+        `;
+    }).join('');
+};
+
+const deleteNotification = (notificationId) => {
+    const normalizedNotificationId = String(notificationId || '');
+
+    if (!normalizedNotificationId) {
+        return;
+    }
+
+    dismissedNotificationIds.add(normalizedNotificationId);
+    saveDismissedNotificationIds();
+    renderPromotionNotifications();
+};
+
+const deleteTestDriveAppointment = async (appointmentId) => {
+    const normalizedAppointmentId = String(appointmentId || '').trim();
+
+    if (!normalizedAppointmentId) {
+        return;
+    }
+
+    const isConfirmed = window.confirm('Bạn có chắc muốn xóa lịch lái thử này?');
+
+    if (!isConfirmed) {
+        return;
+    }
+
+    try {
+        const { response, data } = await requestJson(`/api/test-drive/appointments/${encodeURIComponent(normalizedAppointmentId)}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể xóa lịch hẹn lái thử.');
+        }
+
+        testDriveAppointmentsState = testDriveAppointmentsState.filter((appointment) =>
+            String(appointment.id || '') !== normalizedAppointmentId
+        );
+        renderPromotionNotifications();
+    } catch (error) {
+        window.alert(error.message || 'Không thể xóa lịch hẹn lái thử lúc này.');
+    }
+};
+
+const openNotificationsModal = async () => {
     if (!notificationsModal) {
         return;
     }
@@ -795,9 +1136,23 @@ const openNotificationsModal = () => {
         return;
     }
 
+    if (notificationsList) {
+        notificationsList.innerHTML = `
+            <article class="notification-empty">
+                <i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i>
+                <strong>Đang tải thông báo</strong>
+                <p>OkXe đang kiểm tra các khuyến mại mới nhất dành cho bạn.</p>
+            </article>
+        `;
+    }
+
     notificationsModal.classList.add('is-open');
     notificationsModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('notifications-modal-open');
+
+    await syncPromotions();
+    await syncTestDriveAppointments();
+    renderPromotionNotifications();
 };
 
 const closeNotificationsModal = () => {
@@ -808,6 +1163,54 @@ const closeNotificationsModal = () => {
     notificationsModal.classList.remove('is-open');
     notificationsModal.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('notifications-modal-open');
+};
+
+const openPromotionDetailModal = (promotion) => {
+    if (!promotionDetailModal || !promotionDetailContent || !promotion) {
+        return;
+    }
+
+    const imageUrl = String(promotion.imageUrl || '').trim();
+    const ctaUrl = promotion.ctaUrl || '#promotions';
+    const ctaText = promotion.ctaText || 'Xem ưu đãi';
+
+    promotionDetailContent.innerHTML = `
+        <article class="promotion-detail">
+            <div class="promotion-detail__media">
+                ${imageUrl
+                    ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(promotion.title || 'Khuyến mại OkXe')}">`
+                    : '<i class="bx bxs-purchase-tag" aria-hidden="true"></i>'}
+            </div>
+            <div class="promotion-detail__body">
+                <div class="promotion-detail__meta">
+                    <span>${escapeHtml(promotion.badgeText || 'Khuyến mại')}</span>
+                    <small>${escapeHtml(getPromotionPeriod(promotion))}</small>
+                </div>
+                <h2 id="promotion-detail-title">${escapeHtml(promotion.title || 'Ưu đãi OkXe')}</h2>
+                <p class="promotion-detail__summary">${escapeHtml(promotion.summary || 'OkXe vừa cập nhật một chương trình ưu đãi mới.')}</p>
+                <p class="promotion-detail__content">${escapeHtml(promotion.content || promotion.summary || 'Liên hệ OkXe để nhận thông tin chi tiết về chương trình khuyến mại này.')}</p>
+                <a class="promotion-detail__button" href="${escapeHtml(ctaUrl)}" data-close-promotion-detail-link>
+                    <span>${escapeHtml(ctaText)}</span>
+                    <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+                </a>
+            </div>
+        </article>
+    `;
+
+    closeNotificationsModal();
+    promotionDetailModal.classList.add('is-open');
+    promotionDetailModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('promotion-detail-modal-open');
+};
+
+const closePromotionDetailModal = () => {
+    if (!promotionDetailModal) {
+        return;
+    }
+
+    promotionDetailModal.classList.remove('is-open');
+    promotionDetailModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('promotion-detail-modal-open');
 };
 
 rentalViewAllButton?.addEventListener('click', (event) => {
@@ -860,43 +1263,237 @@ homeSearchForm?.addEventListener('submit', async (event) => {
 const getTeamMemberImage = (member) =>
     String(member?.avatarUrl || '').trim() || '../images/sale1.png';
 
+const getTeamContactLinks = (member) => {
+    const phone = String(member?.phone || '').trim();
+    const phoneHref = phone.replace(/[^\d+]/g, '');
+    const email = String(member?.email || '').trim().toLowerCase();
+
+    return { phone, phoneHref, email };
+};
+
+const closeTeamMemberModal = () => {
+    if (!teamMemberModal) {
+        return;
+    }
+
+    teamMemberModal.classList.remove('is-open');
+    teamMemberModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('team-modal-open');
+    window.clearTimeout(teamMemberCloseTimer);
+    teamMemberCloseTimer = window.setTimeout(() => {
+        teamMemberModal.hidden = true;
+    }, 220);
+};
+
+const openTeamMemberModal = (member) => {
+    if (!teamMemberModal || !teamMemberModalContent || !member) {
+        return;
+    }
+
+    const { phone, phoneHref, email } = getTeamContactLinks(member);
+    const fullName = member.fullName || 'Nhân viên OkXe';
+    const salesTitle = member.salesTitle || 'Nhân viên kinh doanh';
+    const experience = member.salesExperience || 'Chưa cập nhật kinh nghiệm';
+    const bio = member.salesBio || 'Chưa cập nhật mô tả.';
+
+    teamMemberModalContent.innerHTML = `
+        <div class="team-member-profile">
+            <div class="team-member-profile__media">
+                <img src="${escapeHtml(getTeamMemberImage(member))}" alt="Ảnh đại diện ${escapeHtml(fullName)}">
+                <span>${escapeHtml(salesTitle)}</span>
+            </div>
+            <div class="team-member-profile__body">
+                <p class="team-member-profile__eyebrow">Thông tin nhân viên</p>
+                <h2 id="team-member-modal-title">${escapeHtml(fullName)}</h2>
+                <p class="team-member-profile__summary">${escapeHtml(bio)}</p>
+                <div class="team-member-profile__actions">
+                    ${phone ? `
+                        <a href="tel:${escapeHtml(phoneHref)}" class="team-member-profile__action">
+                            <i class="bx bx-phone-call" aria-hidden="true"></i>
+                            <span>${escapeHtml(phone)}</span>
+                        </a>
+                    ` : ''}
+                    ${email ? `
+                        <a href="mailto:${escapeHtml(email)}" class="team-member-profile__action team-member-profile__action--mail">
+                            <i class="bx bx-envelope" aria-hidden="true"></i>
+                            <span>${escapeHtml(email)}</span>
+                        </a>
+                    ` : ''}
+                </div>
+                <dl class="team-member-profile__details">
+                    <div>
+                        <dt>Chức danh</dt>
+                        <dd>${escapeHtml(salesTitle)}</dd>
+                    </div>
+                    <div>
+                        <dt>Kinh nghiệm</dt>
+                        <dd>${escapeHtml(experience)}</dd>
+                    </div>
+                    <div>
+                        <dt>Email</dt>
+                        <dd>${email ? escapeHtml(email) : 'Chưa cập nhật'}</dd>
+                    </div>
+                    <div>
+                        <dt>Số điện thoại/Zalo</dt>
+                        <dd>${phone ? escapeHtml(phone) : 'Chưa cập nhật'}</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+    `;
+
+    window.clearTimeout(teamMemberCloseTimer);
+    teamMemberModal.hidden = false;
+    teamMemberModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('team-modal-open');
+    window.requestAnimationFrame(() => {
+        teamMemberModal.classList.add('is-open');
+    });
+};
+
+const updateTeamCarouselControls = () => {
+    if (!teamContainer) {
+        return;
+    }
+
+    const viewport = teamContainer.querySelector('.team-carousel__viewport');
+    const prevButton = teamContainer.querySelector('[data-team-slide-direction="-1"]');
+    const nextButton = teamContainer.querySelector('[data-team-slide-direction="1"]');
+    const dots = Array.from(teamContainer.querySelectorAll('[data-team-slide-index]'));
+
+    if (!viewport || !prevButton || !nextButton) {
+        return;
+    }
+
+    const maxScrollLeft = viewport.scrollWidth - viewport.clientWidth;
+    const canScroll = maxScrollLeft > 1;
+    const activeIndex = Math.round(viewport.scrollLeft / Math.max(viewport.clientWidth, 1));
+
+    prevButton.disabled = !canScroll || viewport.scrollLeft <= 1;
+    nextButton.disabled = !canScroll || viewport.scrollLeft >= maxScrollLeft - 1;
+
+    dots.forEach((dot, index) => {
+        dot.classList.toggle('is-active', index === activeIndex);
+        dot.setAttribute('aria-current', index === activeIndex ? 'true' : 'false');
+    });
+};
+
+const renderTeamCarouselDots = () => {
+    const viewport = teamContainer?.querySelector('.team-carousel__viewport');
+    const dotsContainer = teamContainer?.querySelector('.team-carousel__dots');
+
+    if (!viewport || !dotsContainer) {
+        return;
+    }
+
+    const pageCount = Math.max(1, Math.ceil((viewport.scrollWidth - viewport.clientWidth) / Math.max(viewport.clientWidth, 1)) + 1);
+
+    dotsContainer.innerHTML = pageCount > 1
+        ? Array.from({ length: pageCount }, (_, index) => `
+            <button type="button" class="team-carousel__dot${index === 0 ? ' is-active' : ''}" data-team-slide-index="${index}" aria-label="Xem trang nhân viên ${index + 1}" aria-current="${index === 0 ? 'true' : 'false'}"></button>
+        `).join('')
+        : '';
+};
+
+const scrollTeamCarousel = (direction) => {
+    const viewport = teamContainer?.querySelector('.team-carousel__viewport');
+
+    if (!viewport) {
+        return;
+    }
+
+    viewport.scrollBy({
+        left: direction * viewport.clientWidth,
+        behavior: 'smooth'
+    });
+};
+
+const goToTeamCarouselPage = (pageIndex) => {
+    const viewport = teamContainer?.querySelector('.team-carousel__viewport');
+
+    if (!viewport) {
+        return;
+    }
+
+    viewport.scrollTo({
+        left: pageIndex * viewport.clientWidth,
+        behavior: 'smooth'
+    });
+};
+
 const renderTeamMembers = (teamMembers = []) => {
     if (!teamContainer) {
         return;
     }
 
-    if (!teamMembers.length) {
+    const visibleTeamMembers = teamMembers.slice(0, homepageTeamMemberLimit);
+
+    teamMembersState = visibleTeamMembers;
+
+    if (!visibleTeamMembers.length) {
         teamContainer.innerHTML = `
             <article class="team-empty">
                 <i class="bx bx-user-voice" aria-hidden="true"></i>
-                <p>Admin chưa chọn nhân viên kinh doanh nổi bật để hiển thị trên trang chủ.</p>
+                <p>Admin chưa chọn tư vấn bán hàng nổi bật để hiển thị trên trang chủ.</p>
             </article>
         `;
         return;
     }
 
-    teamContainer.innerHTML = teamMembers.map((member) => {
-        const phone = String(member.phone || '').trim();
-        const phoneHref = phone.replace(/[^\d+]/g, '');
+    const memberCards = visibleTeamMembers.map((member) => {
+        const { phone, phoneHref, email } = getTeamContactLinks(member);
+        const memberId = String(member.id || '');
+        const fullName = member.fullName || 'Nhân viên kinh doanh OkXe';
 
         return `
             <article class="team-box">
-                <img src="${escapeHtml(getTeamMemberImage(member))}" alt="${escapeHtml(member.fullName || 'Nhân viên kinh doanh OkXe')}" class="team-img">
+                <button type="button" class="team-photo-button" data-team-member-id="${escapeHtml(memberId)}" aria-label="Xem thông tin ${escapeHtml(fullName)}">
+                    <img src="${escapeHtml(getTeamMemberImage(member))}" alt="${escapeHtml(fullName)}" class="team-img">
+                </button>
                 <div class="team-data">
                     <span class="team-role">${escapeHtml(member.salesTitle || 'Nhân viên kinh doanh')}</span>
                     <h3>${escapeHtml(member.fullName || 'Nhân viên OkXe')}</h3>
                     <p>${escapeHtml(member.salesExperience || 'Tư vấn xe cũ chuyên nghiệp')}</p>
-                    ${member.salesBio ? `<em>${escapeHtml(member.salesBio)}</em>` : ''}
-                    ${phone ? `
-                        <a class="team-contact" href="tel:${escapeHtml(phoneHref)}">
-                            <i class="bx bx-phone-call" aria-hidden="true"></i>
-                            <span>${escapeHtml(phone)}</span>
-                        </a>
+                    ${phone || email ? `
+                        <div class="team-contact-list">
+                            ${phone ? `
+                                <a class="team-contact" href="tel:${escapeHtml(phoneHref)}" aria-label="Gọi ${escapeHtml(phone)}" title="${escapeHtml(phone)}">
+                                    <i class="bx bx-phone-call" aria-hidden="true"></i>
+                                </a>
+                            ` : ''}
+                            ${email ? `
+                                <a class="team-contact" href="mailto:${escapeHtml(email)}" aria-label="Gửi email ${escapeHtml(email)}" title="${escapeHtml(email)}">
+                                    <i class="bx bx-envelope" aria-hidden="true"></i>
+                                </a>
+                            ` : ''}
+                        </div>
                     ` : ''}
                 </div>
             </article>
         `;
     }).join('');
+
+    teamContainer.innerHTML = `
+        <div class="team-carousel" aria-label="Danh sách tư vấn bán hàng nổi bật">
+            <button type="button" class="team-carousel__button team-carousel__button--prev" data-team-slide-direction="-1" aria-label="Xem nhân viên trước">
+                <i class="bx bx-chevron-left" aria-hidden="true"></i>
+            </button>
+            <div class="team-carousel__viewport">
+                ${memberCards}
+            </div>
+            <button type="button" class="team-carousel__button team-carousel__button--next" data-team-slide-direction="1" aria-label="Xem nhân viên tiếp theo">
+                <i class="bx bx-chevron-right" aria-hidden="true"></i>
+            </button>
+            <div class="team-carousel__dots" aria-label="Chọn trang nhân viên"></div>
+        </div>
+    `;
+
+    const viewport = teamContainer.querySelector('.team-carousel__viewport');
+    viewport?.addEventListener('scroll', updateTeamCarouselControls, { passive: true });
+    window.requestAnimationFrame(() => {
+        renderTeamCarouselDots();
+        updateTeamCarouselControls();
+    });
 };
 
 const syncTeamMembers = async () => {
@@ -908,7 +1505,7 @@ const syncTeamMembers = async () => {
         const { response, data } = await requestJson('/api/team-members');
 
         if (!response.ok) {
-            throw new Error(data.message || 'Không thể tải đội ngũ nhân viên.');
+            throw new Error(data.message || 'Không thể tải đội ngũ tư vấn bán hàng.');
         }
 
         renderTeamMembers(data.teamMembers || []);
@@ -916,11 +1513,304 @@ const syncTeamMembers = async () => {
         teamContainer.innerHTML = `
             <article class="team-empty">
                 <i class="bx bx-error-circle" aria-hidden="true"></i>
-                <p>Không thể tải đội ngũ nhân viên lúc này.</p>
+                <p>Không thể tải đội ngũ tư vấn bán hàng lúc này.</p>
             </article>
         `;
     }
 };
+
+teamContainer?.addEventListener('click', (event) => {
+    const slideButton = event.target.closest('[data-team-slide-direction]');
+    const dotButton = event.target.closest('[data-team-slide-index]');
+    const trigger = event.target.closest('[data-team-member-id]');
+
+    if (slideButton) {
+        scrollTeamCarousel(Number(slideButton.dataset.teamSlideDirection || 1));
+        return;
+    }
+
+    if (dotButton) {
+        goToTeamCarouselPage(Number(dotButton.dataset.teamSlideIndex || 0));
+        return;
+    }
+
+    if (!trigger) {
+        return;
+    }
+
+    const member = teamMembersState.find((item) =>
+        String(item.id || '') === String(trigger.dataset.teamMemberId || '')
+    );
+
+    openTeamMemberModal(member);
+});
+
+window.addEventListener('resize', () => {
+    renderTeamCarouselDots();
+    updateTeamCarouselControls();
+    renderPromotionCarouselDots();
+    updatePromotionCarouselControls();
+});
+
+teamMemberCloseButtons.forEach((button) => {
+    button.addEventListener('click', closeTeamMemberModal);
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && teamMemberModal?.classList.contains('is-open')) {
+        closeTeamMemberModal();
+    }
+});
+
+const formatPromotionDate = (value, fallback = '') => {
+    if (!value) {
+        return fallback;
+    }
+
+    const date = new Date(`${value}T00:00:00`);
+
+    return Number.isNaN(date.getTime()) ? fallback : promotionDateFormatter.format(date);
+};
+
+const getPromotionPeriod = (promotion) => {
+    const startsAt = formatPromotionDate(promotion?.startsAt);
+    const endsAt = formatPromotionDate(promotion?.endsAt);
+
+    if (startsAt && endsAt) {
+        return `${startsAt} - ${endsAt}`;
+    }
+
+    if (startsAt) {
+        return `Từ ${startsAt}`;
+    }
+
+    if (endsAt) {
+        return `Đến ${endsAt}`;
+    }
+
+    return 'Đang áp dụng';
+};
+
+const getPromotionPreview = (promotion) => {
+    const content = String(promotion?.content || '').trim().replace(/\s+/g, ' ');
+
+    if (!content) {
+        return '';
+    }
+
+    return content.length > 150 ? `${content.slice(0, 150)}...` : content;
+};
+
+const updatePromotionCarouselControls = () => {
+    if (!promotionCarousel) {
+        return;
+    }
+
+    const viewport = promotionCarousel.querySelector('.promotion-carousel__viewport');
+    const prevButton = promotionCarousel.querySelector('[data-promotion-slide-direction="-1"]');
+    const nextButton = promotionCarousel.querySelector('[data-promotion-slide-direction="1"]');
+    const dots = Array.from(promotionCarousel.querySelectorAll('[data-promotion-slide-index]'));
+
+    if (!viewport || !prevButton || !nextButton) {
+        return;
+    }
+
+    const maxScrollLeft = viewport.scrollWidth - viewport.clientWidth;
+    const canScroll = maxScrollLeft > 1;
+    const activeIndex = Math.round(viewport.scrollLeft / Math.max(viewport.clientWidth, 1));
+
+    prevButton.disabled = !canScroll || viewport.scrollLeft <= 1;
+    nextButton.disabled = !canScroll || viewport.scrollLeft >= maxScrollLeft - 1;
+
+    dots.forEach((dot, index) => {
+        dot.classList.toggle('is-active', index === activeIndex);
+        dot.setAttribute('aria-current', index === activeIndex ? 'true' : 'false');
+    });
+};
+
+const renderPromotionCarouselDots = () => {
+    const viewport = promotionCarousel?.querySelector('.promotion-carousel__viewport');
+    const dotsContainer = promotionCarousel?.querySelector('.promotion-carousel__dots');
+
+    if (!viewport || !dotsContainer) {
+        return;
+    }
+
+    const pageCount = Math.max(1, Math.ceil((viewport.scrollWidth - viewport.clientWidth) / Math.max(viewport.clientWidth, 1)) + 1);
+
+    dotsContainer.innerHTML = pageCount > 1
+        ? Array.from({ length: pageCount }, (_, index) => `
+            <button type="button" class="promotion-carousel__dot${index === 0 ? ' is-active' : ''}" data-promotion-slide-index="${index}" aria-label="Xem trang khuyến mại ${index + 1}" aria-current="${index === 0 ? 'true' : 'false'}"></button>
+        `).join('')
+        : '';
+};
+
+const scrollPromotionCarousel = (direction) => {
+    const viewport = promotionCarousel?.querySelector('.promotion-carousel__viewport');
+
+    if (!viewport) {
+        return;
+    }
+
+    viewport.scrollBy({
+        left: direction * viewport.clientWidth,
+        behavior: 'smooth'
+    });
+};
+
+const goToPromotionCarouselPage = (pageIndex) => {
+    const viewport = promotionCarousel?.querySelector('.promotion-carousel__viewport');
+
+    if (!viewport) {
+        return;
+    }
+
+    viewport.scrollTo({
+        left: pageIndex * viewport.clientWidth,
+        behavior: 'smooth'
+    });
+};
+
+const renderPromotions = (promotions = []) => {
+    if (!promotionCarousel) {
+        return;
+    }
+
+    const visiblePromotions = promotions.slice(0, homepagePromotionLimit);
+    promotionsState = visiblePromotions;
+
+    if (!visiblePromotions.length) {
+        promotionCarousel.innerHTML = `
+            <article class="promotion-empty">
+                <i class="bx bxs-purchase-tag" aria-hidden="true"></i>
+                <p>Hiện chưa có thông tin khuyến mại được hiển thị.</p>
+            </article>
+        `;
+        renderPromotionNotifications();
+        return;
+    }
+
+    const promotionCards = visiblePromotions.map((promotion) => {
+        const imageUrl = String(promotion.imageUrl || '').trim();
+        const preview = getPromotionPreview(promotion);
+        const ctaUrl = promotion.ctaUrl || '#footer';
+        const ctaText = promotion.ctaText || 'Xem ưu đãi';
+
+        return `
+            <article class="promotion-card" role="button" tabindex="0" data-promotion-card-id="${escapeHtml(String(promotion.id || ''))}" aria-label="Xem chi tiết ${escapeHtml(promotion.title || 'khuyến mại OkXe')}">
+                <div class="promotion-card__media">
+                    ${imageUrl
+                        ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(promotion.title || 'Khuyến mại OkXe')}">`
+                        : '<i class="bx bxs-purchase-tag" aria-hidden="true"></i>'}
+                </div>
+                <div class="promotion-card__body">
+                    <div class="promotion-card__meta">
+                        <span>${escapeHtml(promotion.badgeText || 'Khuyến mại')}</span>
+                        <small>${escapeHtml(getPromotionPeriod(promotion))}</small>
+                    </div>
+                    <h3>${escapeHtml(promotion.title || 'Ưu đãi OkXe')}</h3>
+                    <p>${escapeHtml(promotion.summary || 'Liên hệ OkXe để nhận thông tin ưu đãi mới nhất.')}</p>
+                    ${preview ? `<p class="promotion-card__detail">${escapeHtml(preview)}</p>` : ''}
+                    <a class="promotion-card__button" href="${escapeHtml(ctaUrl)}">
+                        <span>${escapeHtml(ctaText)}</span>
+                        <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+                    </a>
+                </div>
+            </article>
+        `;
+    }).join('');
+
+    promotionCarousel.innerHTML = `
+        <div class="promotion-carousel__shell" aria-label="Danh sách thông tin khuyến mại">
+            <button type="button" class="promotion-carousel__button promotion-carousel__button--prev" data-promotion-slide-direction="-1" aria-label="Xem khuyến mại trước">
+                <i class="bx bx-chevron-left" aria-hidden="true"></i>
+            </button>
+            <div class="promotion-carousel__viewport">
+                ${promotionCards}
+            </div>
+            <button type="button" class="promotion-carousel__button promotion-carousel__button--next" data-promotion-slide-direction="1" aria-label="Xem khuyến mại tiếp theo">
+                <i class="bx bx-chevron-right" aria-hidden="true"></i>
+            </button>
+            <div class="promotion-carousel__dots" aria-label="Chọn trang khuyến mại"></div>
+        </div>
+    `;
+
+    const viewport = promotionCarousel.querySelector('.promotion-carousel__viewport');
+    viewport?.addEventListener('scroll', updatePromotionCarouselControls, { passive: true });
+    window.requestAnimationFrame(() => {
+        renderPromotionCarouselDots();
+        updatePromotionCarouselControls();
+    });
+    renderPromotionNotifications();
+};
+
+const syncPromotions = async () => {
+    if (!promotionCarousel) {
+        return;
+    }
+
+    try {
+        const { response, data } = await requestJson('/api/promotions');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải thông tin khuyến mại.');
+        }
+
+        renderPromotions(data.promotions || []);
+    } catch (error) {
+        promotionCarousel.innerHTML = `
+            <article class="promotion-empty">
+                <i class="bx bx-error-circle" aria-hidden="true"></i>
+                <p>Không thể tải thông tin khuyến mại lúc này.</p>
+            </article>
+        `;
+    }
+};
+
+promotionCarousel?.addEventListener('click', (event) => {
+    const slideButton = event.target.closest('[data-promotion-slide-direction]');
+    const dotButton = event.target.closest('[data-promotion-slide-index]');
+    const promotionCard = event.target.closest('[data-promotion-card-id]');
+
+    if (slideButton) {
+        scrollPromotionCarousel(Number(slideButton.dataset.promotionSlideDirection || 1));
+        return;
+    }
+
+    if (dotButton) {
+        goToPromotionCarouselPage(Number(dotButton.dataset.promotionSlideIndex || 0));
+        return;
+    }
+
+    if (!promotionCard || event.target.closest('a, button')) {
+        return;
+    }
+
+    const promotion = promotionsState.find((item) =>
+        String(item.id || '') === String(promotionCard.dataset.promotionCardId || '')
+    );
+
+    openPromotionDetailModal(promotion);
+});
+
+promotionCarousel?.addEventListener('keydown', (event) => {
+    if (!['Enter', ' '].includes(event.key)) {
+        return;
+    }
+
+    const promotionCard = event.target.closest('[data-promotion-card-id]');
+
+    if (!promotionCard || event.target.closest('a, button')) {
+        return;
+    }
+
+    event.preventDefault();
+    const promotion = promotionsState.find((item) =>
+        String(item.id || '') === String(promotionCard.dataset.promotionCardId || '')
+    );
+
+    openPromotionDetailModal(promotion);
+});
 
 const syncCars = async () => {
     if (!rentalContainer) {
@@ -1384,6 +2274,28 @@ const syncFavoriteCars = async () => {
     refreshFavoriteUi();
 };
 
+const syncTestDriveAppointments = async () => {
+    if (!currentUser) {
+        testDriveAppointmentsState = [];
+        renderPromotionNotifications();
+        return;
+    }
+
+    try {
+        const { response, data } = await requestJson('/api/test-drive/appointments');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải lịch lái thử.');
+        }
+
+        testDriveAppointmentsState = Array.isArray(data.appointments) ? data.appointments : [];
+    } catch (error) {
+        testDriveAppointmentsState = [];
+    }
+
+    renderPromotionNotifications();
+};
+
 const syncCurrentUser = async () => {
     try {
         const { response, data } = await requestJson('/api/auth/me');
@@ -1391,14 +2303,17 @@ const syncCurrentUser = async () => {
         if (!response.ok || !data.user) {
             updateAuthUi(null);
             await syncFavoriteCars();
+            await syncTestDriveAppointments();
             return;
         }
 
         updateAuthUi(data.user);
         await syncFavoriteCars();
+        await syncTestDriveAppointments();
     } catch (error) {
         updateAuthUi(null);
         await syncFavoriteCars();
+        await syncTestDriveAppointments();
     }
 };
 
@@ -1415,6 +2330,8 @@ const handleEscapeKey = (event) => {
         closeSearchResultsModal();
     } else if (favoriteCarsModal?.classList.contains('is-open')) {
         closeFavoriteCarsModal();
+    } else if (promotionDetailModal?.classList.contains('is-open')) {
+        closePromotionDetailModal();
     } else if (notificationsModal?.classList.contains('is-open')) {
         closeNotificationsModal();
     } else if (profileModal?.classList.contains('is-open')) {
@@ -1517,6 +2434,16 @@ notificationOpenButtons.forEach((button) => {
     });
 });
 
+testDriveButton?.addEventListener('click', (event) => {
+    if (currentUser) {
+        return;
+    }
+
+    event.preventDefault();
+    setFormFeedback(loginFeedback, 'Vui lòng đăng nhập để đăng ký lái thử.');
+    openLoginModal();
+});
+
 if (profileModal) {
     profileCloseButtons.forEach((button) => {
         button.addEventListener('click', closeProfileModal);
@@ -1531,11 +2458,79 @@ if (profileModal) {
 
 if (notificationsModal) {
     notificationsModal.addEventListener('click', (event) => {
+        if (event.target.closest('[data-close-notifications-link]')) {
+            closeNotificationsModal();
+            return;
+        }
+
+        const deleteAppointmentButton = event.target.closest('[data-delete-test-drive-appointment]');
+
+        if (deleteAppointmentButton) {
+            event.preventDefault();
+            event.stopPropagation();
+            deleteTestDriveAppointment(deleteAppointmentButton.dataset.deleteTestDriveAppointment);
+            return;
+        }
+
+        const deleteButton = event.target.closest('[data-delete-notification]');
+
+        if (deleteButton) {
+            event.preventDefault();
+            event.stopPropagation();
+            deleteNotification(deleteButton.dataset.deleteNotification);
+            return;
+        }
+
+        const notificationItem = event.target.closest('[data-promotion-notification-id]');
+
+        if (notificationItem) {
+            const promotion = promotionsState.find((item) =>
+                String(item.id || '') === String(notificationItem.dataset.promotionNotificationId || '')
+            );
+
+            openPromotionDetailModal(promotion);
+            return;
+        }
+
         if (event.target === notificationsModal) {
             closeNotificationsModal();
         }
     });
+
+    notificationsModal.addEventListener('keydown', (event) => {
+        if (!['Enter', ' '].includes(event.key)) {
+            return;
+        }
+
+        const notificationItem = event.target.closest('[data-promotion-notification-id]');
+
+        if (!notificationItem || event.target.closest('a, button')) {
+            return;
+        }
+
+        event.preventDefault();
+        const promotion = promotionsState.find((item) =>
+            String(item.id || '') === String(notificationItem.dataset.promotionNotificationId || '')
+        );
+
+        openPromotionDetailModal(promotion);
+    });
 }
+
+promotionDetailCloseButtons.forEach((button) => {
+    button.addEventListener('click', closePromotionDetailModal);
+});
+
+promotionDetailModal?.addEventListener('click', (event) => {
+    if (event.target.closest('[data-close-promotion-detail-link]')) {
+        closePromotionDetailModal();
+        return;
+    }
+
+    if (event.target === promotionDetailModal) {
+        closePromotionDetailModal();
+    }
+});
 
 chooseAvatarButton?.addEventListener('click', () => {
     profileAvatarInput?.click();
@@ -1690,6 +2685,7 @@ if (loginForm) {
 
             updateAuthUi(data.user);
             await syncFavoriteCars();
+            await syncTestDriveAppointments();
             setFormFeedback(loginFeedback, data.message || 'Đăng nhập thành công.', 'success');
             loginForm.reset();
 
@@ -1737,6 +2733,7 @@ if (signupForm) {
 
             updateAuthUi(data.user);
             await syncFavoriteCars();
+            await syncTestDriveAppointments();
             setFormFeedback(signupFeedback, data.message || 'Tạo tài khoản thành công.', 'success');
             signupForm.reset();
 
@@ -1908,11 +2905,14 @@ if (logoutButton) {
         } finally {
             updateAuthUi(null);
             await syncFavoriteCars();
+            await syncTestDriveAppointments();
             setButtonLoading(logoutButton, false, 'Đăng xuất');
         }
     });
 }
 
+loadDismissedNotificationIds();
 syncCars();
 syncTeamMembers();
+syncPromotions();
 syncCurrentUser();

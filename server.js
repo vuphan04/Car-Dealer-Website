@@ -9,24 +9,38 @@ const {
   authenticateUser,
   createCar,
   createPasswordResetOtp,
+  createPromotion,
   createSession,
+  createTestDriveAppointment,
   createUser,
   countAdminUsers,
   deleteCar,
+  deletePromotion,
   deleteSession,
+  deleteTestDriveAppointment,
   deleteUser,
   employeeRoles,
   getCarById,
+  getTestDriveAppointmentById,
   getUserById,
   getUserBySession,
   isFavoriteCarByUser,
+  listAvailableTestDriveCars,
   listCars,
   listFavoriteCarsByUser,
+  listHomepagePromotions,
   listHomepageTeamMembers,
+  listPublicPromotions,
+  listPublicTeamMembers,
+  listPromotions,
+  listTestDriveAppointments,
+  listTestDriveAppointmentsByUser,
   listUsers,
   removeFavoriteCarForUser,
   resetPasswordWithOtp,
   updateCar,
+  updatePromotion,
+  updateTestDriveAppointmentStatus,
   updateUserProfile,
   updateUserSelfProfile,
   updateUserRole,
@@ -50,6 +64,7 @@ const uploadsPath = path.join(
 );
 const carUploadsPath = path.join(uploadsPath, 'cars');
 const avatarUploadsPath = path.join(uploadsPath, 'avatars');
+const promotionUploadsPath = path.join(uploadsPath, 'promotions');
 const uploadJsonParser = express.json({ limit: '80mb' });
 const profileJsonParser = express.json({ limit: '8mb' });
 const maxCarImages = 10;
@@ -131,23 +146,30 @@ const normalizeSalesTitle = (title) => {
     : 'Nhân viên kinh doanh';
 };
 
-const normalizeAdminUserProfilePayload = (payload = {}, role = 'customer') => {
+const normalizeAdminUserProfilePayload = (payload = {}, role = 'customer', profile = {}) => {
   const normalizedRole = String(role || '').trim().toLowerCase();
   const homeDisplayOrder = Number(payload.homeDisplayOrder || 0);
 
   return {
-    phone: String(payload.phone || '').trim(),
+    phone: String(profile.phone || '').trim(),
+    citizenId: String(profile.citizenId || '').trim(),
+    birthDate: String(profile.birthDate || '').trim(),
+    gender: String(profile.gender || '').trim(),
     avatarUrl: String(payload.avatarUrl || '').trim(),
     salesTitle: normalizeSalesTitle(payload.salesTitle),
     salesSpecialty: String(payload.salesSpecialty || '').trim().slice(0, 120),
     salesExperience: String(payload.salesExperience || '').trim().slice(0, 80),
-    salesBio: String(payload.salesBio || '').trim().slice(0, 220),
-    showOnHome: manageableCreateRoles.has(normalizedRole)
+    salesBio: String(payload.salesBio || '').trim(),
+    showOnHome: normalizedRole === 'staff'
       ? normalizeBoolean(payload.showOnHome)
       : false,
     homeDisplayOrder: Number.isFinite(homeDisplayOrder)
       ? Math.max(0, Math.trunc(homeDisplayOrder))
       : 0,
+    addressProvince: String(profile.addressProvince || '').trim(),
+    addressDistrict: String(profile.addressDistrict || '').trim(),
+    addressWard: String(profile.addressWard || '').trim(),
+    addressDetail: String(profile.addressDetail || '').trim(),
   };
 };
 
@@ -401,12 +423,25 @@ const saveUploadedAvatar = (file) => {
   return `/uploads/avatars/${fileName}`;
 };
 
+const saveUploadedPromotionImage = (file, fallbackBaseName = 'promotion') => {
+  const parsedImage = parseUploadedImage(file, fallbackBaseName);
+  fs.mkdirSync(promotionUploadsPath, { recursive: true });
+
+  const fileName = `${Date.now()}-${randomUUID()}-${parsedImage.baseName}${parsedImage.extension}`;
+  const filePath = path.join(promotionUploadsPath, fileName);
+
+  fs.writeFileSync(filePath, parsedImage.buffer);
+
+  return `/uploads/promotions/${fileName}`;
+};
+
 const carOptionFields = {
   category: ['Sedan', 'SUV', 'Thể thao'],
   type: ['Tự động', 'Số sàn'],
   fuel: ['Xăng', 'Diesel', 'Hybrid', 'Điện'],
   seats: ['4 chỗ', '5 chỗ', '7 chỗ', '9 chỗ'],
   gearbox: ['Số Sàn', 'Tự động'],
+  drivetrain: ['FWD - Dẫn động cầu trước', 'RWD - Dẫn động cầu sau', 'Dẫn động 4 bánh'],
   origin: ['Nhập khẩu', 'Trong nước'],
   condition: ['Xe mới', 'Xe cũ'],
   actionText: ['Còn xe', 'Xe đã bán'],
@@ -431,6 +466,19 @@ const carOptionAliases = {
     'tự động / tay': 'Tự động',
     'số tự động': 'Tự động',
   },
+  drivetrain: {
+    fwd: 'FWD - Dẫn động cầu trước',
+    'dẫn động cầu trước': 'FWD - Dẫn động cầu trước',
+    'dan dong cau truoc': 'FWD - Dẫn động cầu trước',
+    rwd: 'RWD - Dẫn động cầu sau',
+    'dẫn động cầu sau': 'RWD - Dẫn động cầu sau',
+    'dan dong cau sau': 'RWD - Dẫn động cầu sau',
+    awd: 'Dẫn động 4 bánh',
+    '4wd': 'Dẫn động 4 bánh',
+    'dẫn động bốn bánh': 'Dẫn động 4 bánh',
+    'dẫn động 4 bánh': 'Dẫn động 4 bánh',
+    'dan dong 4 banh': 'Dẫn động 4 bánh',
+  },
   actionText: {
     'mua ngay': 'Còn xe',
     'còn hàng': 'Còn xe',
@@ -448,6 +496,7 @@ const carOptionLabels = {
   fuel: 'nhiên liệu',
   seats: 'số chỗ',
   gearbox: 'hộp số',
+  drivetrain: 'dẫn động',
   origin: 'xuất xứ',
   condition: 'tình trạng',
   actionText: 'nút hành động',
@@ -491,6 +540,7 @@ const validateCarPayload = (car = {}) => {
     mileageValue: Number(car.mileageValue || 0),
     seats: normalizeCarOptionField('seats', car.seats),
     gearbox: normalizeCarOptionField('gearbox', car.gearbox),
+    drivetrain: normalizeCarOptionField('drivetrain', car.drivetrain),
     origin: normalizeCarOptionField('origin', car.origin),
     condition: normalizeCarOptionField('condition', car.condition),
     color: String(car.color || '').trim(),
@@ -507,6 +557,7 @@ const validateCarPayload = (car = {}) => {
     ['mileageText', 'Vui lòng nhập số km hiển thị.'],
     ['seats', 'Vui lòng nhập số chỗ.'],
     ['gearbox', 'Vui lòng nhập hộp số.'],
+    ['drivetrain', 'Vui lòng chọn dẫn động của xe.'],
     ['origin', 'Vui lòng nhập xuất xứ.'],
     ['condition', 'Vui lòng nhập tình trạng xe.'],
     ['color', 'Vui lòng nhập màu sắc.'],
@@ -555,6 +606,183 @@ const validateCarPayload = (car = {}) => {
 
 const normalizeShortText = (value, maxLength = 120) =>
   String(value || '').trim().replace(/\s+/g, ' ').slice(0, maxLength);
+
+const normalizePromotionDate = (value) => String(value || '').trim();
+
+const isValidPromotionDate = (value) => {
+  if (!value) {
+    return true;
+  }
+
+  const [year, month, day] = value.split('-').map(Number);
+  const promotionDate = new Date(year, month - 1, day);
+
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    promotionDate.getFullYear() === year &&
+    promotionDate.getMonth() === month - 1 &&
+    promotionDate.getDate() === day &&
+    !Number.isNaN(promotionDate.getTime());
+};
+
+const getLocalDateInputValue = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+const isSafePromotionUrl = (value) => {
+  const normalizedValue = String(value || '').trim();
+
+  return !normalizedValue || /^(#|\/(?!\/)|https?:\/\/|mailto:|tel:)/i.test(normalizedValue);
+};
+
+const validatePromotionPayload = (promotion = {}) => {
+  const displayOrder = Number(promotion.displayOrder || 0);
+  const normalizedPromotion = {
+    title: normalizeShortText(promotion.title, 160),
+    summary: normalizeShortText(promotion.summary, 240),
+    content: String(promotion.content || '').trim().slice(0, 4000),
+    badgeText: normalizeShortText(promotion.badgeText || promotion.badge, 40) || 'Khuyến mại',
+    imageUrl: String(promotion.imageUrl || promotion.image || '').trim().slice(0, 500),
+    ctaText: normalizeShortText(promotion.ctaText, 60) || 'Xem ưu đãi',
+    ctaUrl: String(promotion.ctaUrl || '#footer').trim().slice(0, 500) || '#footer',
+    startsAt: normalizePromotionDate(promotion.startsAt || promotion.startDate),
+    endsAt: normalizePromotionDate(promotion.endsAt || promotion.endDate),
+    showOnHome: normalizeBoolean(promotion.showOnHome),
+    displayOrder: Number.isFinite(displayOrder) ? Math.max(0, Math.trunc(displayOrder)) : 0,
+  };
+
+  if (normalizedPromotion.title.length < 3) {
+    return { error: 'Tiêu đề khuyến mại phải có ít nhất 3 ký tự.' };
+  }
+
+  if (!normalizedPromotion.summary) {
+    return { error: 'Vui lòng nhập mô tả ngắn cho khuyến mại.' };
+  }
+
+  if (!normalizedPromotion.content) {
+    return { error: 'Vui lòng nhập nội dung khuyến mại.' };
+  }
+
+  if (!isSafePromotionUrl(normalizedPromotion.imageUrl)) {
+    return { error: 'Đường dẫn ảnh khuyến mại không hợp lệ.' };
+  }
+
+  if (!isSafePromotionUrl(normalizedPromotion.ctaUrl)) {
+    return { error: 'Đường dẫn nút khuyến mại không hợp lệ.' };
+  }
+
+  if (!isValidPromotionDate(normalizedPromotion.startsAt)) {
+    return { error: 'Ngày bắt đầu khuyến mại không hợp lệ.' };
+  }
+
+  if (!isValidPromotionDate(normalizedPromotion.endsAt)) {
+    return { error: 'Ngày kết thúc khuyến mại không hợp lệ.' };
+  }
+
+  if (
+    normalizedPromotion.startsAt &&
+    normalizedPromotion.endsAt &&
+    normalizedPromotion.startsAt > normalizedPromotion.endsAt
+  ) {
+    return { error: 'Ngày bắt đầu không được sau ngày kết thúc.' };
+  }
+
+  return { promotion: normalizedPromotion };
+};
+
+const testDriveTimeSlots = new Set([
+  '08:00-09:00',
+  '09:00-10:00',
+  '10:00-11:00',
+  '13:30-14:30',
+  '14:30-15:30',
+  '15:30-16:30',
+]);
+
+const validateTestDriveAppointmentPayload = (appointment = {}) => {
+  const normalizedAppointment = {
+    fullName: normalizeShortText(appointment.fullName, 120),
+    phone: normalizeShortText(appointment.phone, 30),
+    carId: Number(appointment.carId || 0),
+    preferredDate: String(appointment.preferredDate || '').trim(),
+    preferredTimeSlot: normalizeShortText(appointment.preferredTimeSlot || appointment.timeSlot, 30),
+  };
+
+  if (normalizedAppointment.fullName.length < 2) {
+    return { error: 'Vui lòng nhập họ và tên.' };
+  }
+
+  const phoneDigits = normalizedAppointment.phone.replace(/\D/g, '');
+  const hasValidPhoneFormat = /^\+?[0-9\s.-]{8,20}$/.test(normalizedAppointment.phone);
+
+  if (!normalizedAppointment.phone || !hasValidPhoneFormat || phoneDigits.length < 8 || phoneDigits.length > 15) {
+    return { error: 'Số điện thoại liên hệ không hợp lệ.' };
+  }
+
+  if (!Number.isInteger(normalizedAppointment.carId) || normalizedAppointment.carId <= 0) {
+    return { error: 'Vui lòng chọn xe muốn lái thử.' };
+  }
+
+  if (!isValidPromotionDate(normalizedAppointment.preferredDate)) {
+    return { error: 'Ngày dự kiến không hợp lệ.' };
+  }
+
+  if (!normalizedAppointment.preferredDate) {
+    return { error: 'Vui lòng chọn ngày dự kiến lái thử.' };
+  }
+
+  if (normalizedAppointment.preferredDate < getLocalDateInputValue()) {
+    return { error: 'Ngày dự kiến lái thử không được trước ngày hôm nay.' };
+  }
+
+  if (!testDriveTimeSlots.has(normalizedAppointment.preferredTimeSlot)) {
+    return { error: 'Vui lòng chọn khung giờ lái thử.' };
+  }
+
+  return { appointment: normalizedAppointment };
+};
+
+const testDriveStatusLabels = {
+  approved: 'Đồng ý cho phép lái thử',
+  cancelled: 'Hủy lịch hẹn',
+  pending: 'Chờ xác nhận',
+};
+
+const validateTestDriveStatusPayload = (payload = {}) => {
+  const status = String(payload.status || '').trim().toLowerCase();
+  const statusNote = normalizeShortText(payload.statusNote || payload.reason || payload.note, 500);
+  const preferredDate = String(payload.preferredDate || '').trim();
+  const preferredTimeSlot = normalizeShortText(payload.preferredTimeSlot || payload.timeSlot, 30);
+
+  if (!Object.prototype.hasOwnProperty.call(testDriveStatusLabels, status)) {
+    return { error: 'Trạng thái lịch lái thử không hợp lệ.' };
+  }
+
+  if (preferredDate && !isValidPromotionDate(preferredDate)) {
+    return { error: 'Ngày lái thử mới không hợp lệ.' };
+  }
+
+  if (preferredDate && preferredDate < getLocalDateInputValue()) {
+    return { error: 'Ngày lái thử mới không được trước ngày hôm nay.' };
+  }
+
+  if (preferredTimeSlot && !testDriveTimeSlots.has(preferredTimeSlot)) {
+    return { error: 'Khung giờ lái thử mới không hợp lệ.' };
+  }
+
+  if ((preferredDate && !preferredTimeSlot) || (!preferredDate && preferredTimeSlot)) {
+    return { error: 'Vui lòng chọn đầy đủ ngày và khung giờ lái thử mới.' };
+  }
+
+  if ((status === 'cancelled' || status === 'pending') && statusNote.length < 3) {
+    return { error: 'Vui lòng nhập lý do khi hủy hoặc treo lịch hẹn.' };
+  }
+
+  return { statusUpdate: { status, statusNote, preferredDate, preferredTimeSlot } };
+};
 
 const validateUserProfilePayload = (profile = {}) => {
   const normalizedProfile = {
@@ -659,6 +887,46 @@ app.post('/api/uploads/avatar', requireAdmin, profileJsonParser, (req, res) => {
   }
 });
 
+app.post('/api/uploads/promotion-image', requireAdmin, profileJsonParser, (req, res) => {
+  const file = req.body?.file;
+
+  if (!file) {
+    res.status(400).json({ message: 'Vui lòng chọn ảnh khuyến mại.' });
+    return;
+  }
+
+  try {
+    const imageUrl = saveUploadedPromotionImage(file);
+
+    res.status(201).json({
+      message: 'Tải ảnh khuyến mại thành công.',
+      imageUrl,
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message || 'Không thể tải ảnh khuyến mại.' });
+  }
+});
+
+app.post('/api/uploads/promotion-image/cropped', requireAdmin, profileJsonParser, (req, res) => {
+  const file = req.body?.file;
+
+  if (!file) {
+    res.status(400).json({ message: 'Vui lòng cắt ảnh banner khuyến mại trước khi tải lên.' });
+    return;
+  }
+
+  try {
+    const imageUrl = saveUploadedPromotionImage(file, 'promotion-banner');
+
+    res.status(201).json({
+      message: 'Tải ảnh banner khuyến mại thành công.',
+      imageUrl,
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message || 'Không thể tải ảnh banner khuyến mại.' });
+  }
+});
+
 app.patch('/api/auth/profile', requireUser, profileJsonParser, (req, res) => {
   const { profile, error } = validateUserProfilePayload(req.body || {});
 
@@ -711,6 +979,18 @@ app.get(['/admin-login', '/admin-login.html'], (req, res) => {
   res.sendFile(path.join(publicPath, 'admin-login.html'));
 });
 
+app.get(['/khuyen-mai', '/khuyen-mai.html'], (req, res) => {
+  res.sendFile(path.join(publicPath, 'khuyen-mai.html'));
+});
+
+app.get(['/tu-van-ban-hang', '/tu-van-ban-hang.html'], (req, res) => {
+  res.sendFile(path.join(publicPath, 'tu-van-ban-hang.html'));
+});
+
+app.get(['/dang-ky-lai-thu', '/dang-ky-lai-thu.html'], (req, res) => {
+  res.sendFile(path.join(publicPath, 'dang-ky-lai-thu.html'));
+});
+
 app.get('/cars/:id', (req, res) => {
   res.sendFile(path.join(publicPath, 'car-detail.html'));
 });
@@ -723,6 +1003,87 @@ app.get('/api/cars', (req, res) => {
 
 app.get('/api/team-members', (req, res) => {
   res.json({ teamMembers: listHomepageTeamMembers() });
+});
+
+app.get('/api/team-members/all', (req, res) => {
+  res.json({ teamMembers: listPublicTeamMembers() });
+});
+
+app.get('/api/promotions', (req, res) => {
+  res.json({ promotions: listHomepagePromotions() });
+});
+
+app.get('/api/promotions/all', (req, res) => {
+  res.json({ promotions: listPublicPromotions() });
+});
+
+app.get('/api/test-drive/cars', requireUser, (req, res) => {
+  res.json({ cars: listAvailableTestDriveCars() });
+});
+
+app.get('/api/test-drive/appointments', requireUser, (req, res) => {
+  res.json({ appointments: listTestDriveAppointmentsByUser(req.user.id) });
+});
+
+app.post('/api/test-drive/appointments', requireUser, (req, res) => {
+  const { appointment, error } = validateTestDriveAppointmentPayload(req.body || {});
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const createdAppointment = createTestDriveAppointment({
+      userId: req.user.id,
+      ...appointment,
+    });
+
+    if (!createdAppointment) {
+      res.status(400).json({ message: 'Xe đã chọn không còn trong trạng thái còn xe.' });
+      return;
+    }
+
+    const createMessage = createdAppointment.statusNote
+      ? 'Đăng ký lái thử thành công. Khung giờ này đang có lịch khác, nhân viên sẽ liên hệ để hỗ trợ đổi giờ.'
+      : 'Đăng ký lái thử thành công. Lịch hẹn đang chờ nhân viên xác nhận.';
+
+    res.status(201).json({
+      message: createMessage,
+      appointment: createdAppointment,
+    });
+  } catch (dbError) {
+    console.error('Create test drive appointment error:', dbError);
+    res.status(500).json({ message: 'Không thể đăng ký lái thử lúc này.' });
+  }
+});
+
+app.delete('/api/test-drive/appointments/:id', requireUser, (req, res) => {
+  const appointmentId = Number(req.params.id);
+
+  if (!Number.isFinite(appointmentId)) {
+    res.status(400).json({ message: 'Mã lịch hẹn lái thử không hợp lệ.' });
+    return;
+  }
+
+  try {
+    const appointment = getTestDriveAppointmentById(appointmentId);
+
+    if (!appointment || Number(appointment.userId) !== Number(req.user.id)) {
+      res.status(404).json({ message: 'Không tìm thấy lịch hẹn lái thử của bạn.' });
+      return;
+    }
+
+    const deletedAppointment = deleteTestDriveAppointment(appointmentId);
+
+    res.json({
+      message: 'Xóa lịch hẹn lái thử thành công.',
+      appointment: deletedAppointment,
+    });
+  } catch (dbError) {
+    console.error('Delete user test drive appointment error:', dbError);
+    res.status(500).json({ message: 'Không thể xóa lịch hẹn lái thử lúc này.' });
+  }
 });
 
 app.get('/api/cars/:id', (req, res) => {
@@ -874,6 +1235,167 @@ app.delete('/api/cars/:id', requireAdmin, (req, res) => {
   }
 });
 
+app.get('/api/admin/promotions', requireAdmin, (req, res) => {
+  res.json({ promotions: listPromotions() });
+});
+
+app.post('/api/admin/promotions', requireAdmin, (req, res) => {
+  const { promotion, error } = validatePromotionPayload(req.body || {});
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const createdPromotion = createPromotion(promotion);
+
+    res.status(201).json({
+      message: 'Tạo bài khuyến mại thành công.',
+      promotion: createdPromotion,
+    });
+  } catch (dbError) {
+    console.error('Create promotion error:', dbError);
+    res.status(500).json({ message: 'Không thể tạo bài khuyến mại lúc này.' });
+  }
+});
+
+app.put('/api/admin/promotions/:id', requireAdmin, (req, res) => {
+  const promotionId = Number(req.params.id);
+  const { promotion, error } = validatePromotionPayload(req.body || {});
+
+  if (!Number.isFinite(promotionId)) {
+    res.status(400).json({ message: 'Mã bài khuyến mại không hợp lệ.' });
+    return;
+  }
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const updatedPromotion = updatePromotion(promotionId, promotion);
+
+    if (!updatedPromotion) {
+      res.status(404).json({ message: 'Không tìm thấy bài khuyến mại để cập nhật.' });
+      return;
+    }
+
+    res.json({
+      message: 'Cập nhật bài khuyến mại thành công.',
+      promotion: updatedPromotion,
+    });
+  } catch (dbError) {
+    console.error('Update promotion error:', dbError);
+    res.status(500).json({ message: 'Không thể cập nhật bài khuyến mại lúc này.' });
+  }
+});
+
+app.delete('/api/admin/promotions/:id', requireAdmin, (req, res) => {
+  const promotionId = Number(req.params.id);
+
+  if (!Number.isFinite(promotionId)) {
+    res.status(400).json({ message: 'Mã bài khuyến mại không hợp lệ.' });
+    return;
+  }
+
+  try {
+    const deletedPromotion = deletePromotion(promotionId);
+
+    if (!deletedPromotion) {
+      res.status(404).json({ message: 'Không tìm thấy bài khuyến mại để xóa.' });
+      return;
+    }
+
+    res.json({
+      message: 'Xóa bài khuyến mại thành công.',
+      promotion: deletedPromotion,
+    });
+  } catch (dbError) {
+    console.error('Delete promotion error:', dbError);
+    res.status(500).json({ message: 'Không thể xóa bài khuyến mại lúc này.' });
+  }
+});
+
+app.get('/api/admin/test-drive-appointments', requireAdmin, (req, res) => {
+  res.json({ appointments: listTestDriveAppointments() });
+});
+
+app.patch('/api/admin/test-drive-appointments/:id/status', requireAdmin, (req, res) => {
+  const appointmentId = Number(req.params.id);
+  const { statusUpdate, error } = validateTestDriveStatusPayload(req.body || {});
+
+  if (!Number.isFinite(appointmentId)) {
+    res.status(400).json({ message: 'Mã lịch hẹn lái thử không hợp lệ.' });
+    return;
+  }
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const appointment = updateTestDriveAppointmentStatus(appointmentId, statusUpdate);
+
+    if (!appointment) {
+      res.status(404).json({ message: 'Không tìm thấy lịch hẹn lái thử.' });
+      return;
+    }
+
+    const statusLabel = appointment.status === 'pending' && appointment.statusNote
+      ? 'Treo lịch hẹn'
+      : testDriveStatusLabels[appointment.status];
+
+    res.json({
+      message: `Cập nhật trạng thái: ${statusLabel}.`,
+      appointment,
+    });
+  } catch (dbError) {
+    if (dbError?.code === 'TEST_DRIVE_SCHEDULE_CONFLICT') {
+      const conflict = dbError.appointment || {};
+      const conflictDate = conflict.preferredDate || statusUpdate.preferredDate || '';
+      const conflictTime = conflict.preferredTimeSlot || '';
+
+      res.status(409).json({
+        message: `Xe này đã có lịch lái thử chưa hủy${conflictDate ? ` ngày ${conflictDate}` : ''}${conflictTime ? ` khung giờ ${conflictTime}` : ''}. Vui lòng chọn khung giờ khác trước khi xác nhận.`,
+        conflict,
+      });
+      return;
+    }
+
+    console.error('Update test drive appointment status error:', dbError);
+    res.status(500).json({ message: 'Không thể cập nhật trạng thái lịch hẹn lúc này.' });
+  }
+});
+
+app.delete('/api/admin/test-drive-appointments/:id', requireAdmin, (req, res) => {
+  const appointmentId = Number(req.params.id);
+
+  if (!Number.isFinite(appointmentId)) {
+    res.status(400).json({ message: 'Mã lịch hẹn lái thử không hợp lệ.' });
+    return;
+  }
+
+  try {
+    const appointment = deleteTestDriveAppointment(appointmentId);
+
+    if (!appointment) {
+      res.status(404).json({ message: 'Không tìm thấy lịch hẹn lái thử để xóa.' });
+      return;
+    }
+
+    res.json({
+      message: 'Xóa lịch hẹn lái thử thành công.',
+      appointment,
+    });
+  } catch (dbError) {
+    console.error('Delete test drive appointment error:', dbError);
+    res.status(500).json({ message: 'Không thể xóa lịch hẹn lái thử lúc này.' });
+  }
+});
+
 app.get('/api/admin/users', requireAdmin, (req, res) => {
   const users = listUsers();
 
@@ -889,7 +1411,6 @@ app.post('/api/admin/users', requireUserManager, (req, res) => {
   const normalizedFullName = String(fullName || '').trim();
   const normalizedEmail = String(email || '').trim().toLowerCase();
   const normalizedRole = String(role || '').trim().toLowerCase();
-  const publicProfile = normalizeAdminUserProfilePayload(req.body || {}, normalizedRole);
 
   if (normalizedFullName.length < 2) {
     res.status(400).json({ message: 'Họ và tên phải có ít nhất 2 ký tự.' });
@@ -910,6 +1431,19 @@ app.post('/api/admin/users', requireUserManager, (req, res) => {
     res.status(400).json({ message: 'Chỉ được tạo tài khoản nhân viên hoặc admin.' });
     return;
   }
+
+  const profileValidation = validateUserProfilePayload(req.body || {});
+
+  if (profileValidation.error) {
+    res.status(400).json({ message: profileValidation.error });
+    return;
+  }
+
+  const publicProfile = normalizeAdminUserProfilePayload(
+    req.body || {},
+    normalizedRole,
+    profileValidation.profile
+  );
 
   try {
     const user = createUser({
@@ -938,16 +1472,27 @@ app.post('/api/admin/users', requireUserManager, (req, res) => {
 app.patch('/api/admin/users/:id', requireUserManager, (req, res) => {
   const userId = Number(req.params.id);
   const { fullName, email, password, role } = req.body || {};
-  const normalizedFullName = String(fullName || '').trim();
-  const normalizedEmail = String(email || '').trim().toLowerCase();
-  const normalizedRole = String(role || '').trim().toLowerCase();
+  const requestedFullName = String(fullName || '').trim();
+  const requestedEmail = String(email || '').trim().toLowerCase();
+  const requestedRole = String(role || '').trim().toLowerCase();
   const normalizedPassword = String(password || '');
-  const publicProfile = normalizeAdminUserProfilePayload(req.body || {}, normalizedRole);
 
   if (!Number.isFinite(userId)) {
     res.status(400).json({ message: 'Mã tài khoản không hợp lệ.' });
     return;
   }
+
+  const targetUser = getUserById(userId);
+
+  if (!targetUser) {
+    res.status(404).json({ message: 'Không tìm thấy tài khoản.' });
+    return;
+  }
+
+  const isCustomerProfileUpdate = targetUser.role === 'customer';
+  const normalizedFullName = isCustomerProfileUpdate ? targetUser.fullName : requestedFullName;
+  const normalizedEmail = isCustomerProfileUpdate ? targetUser.email : requestedEmail;
+  const normalizedRole = isCustomerProfileUpdate ? 'customer' : requestedRole;
 
   if (normalizedFullName.length < 2) {
     res.status(400).json({ message: 'Họ và tên phải có ít nhất 2 ký tự.' });
@@ -964,15 +1509,13 @@ app.patch('/api/admin/users/:id', requireUserManager, (req, res) => {
     return;
   }
 
-  if (normalizedPassword && normalizedPassword.length < 6) {
-    res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự.' });
+  if (!isCustomerProfileUpdate && !manageableCreateRoles.has(normalizedRole)) {
+    res.status(400).json({ message: 'Tài khoản nhân viên/admin chỉ được đổi giữa Nhân viên và Admin.' });
     return;
   }
 
-  const targetUser = getUserById(userId);
-
-  if (!targetUser) {
-    res.status(404).json({ message: 'Không tìm thấy tài khoản.' });
+  if (normalizedPassword && normalizedPassword.length < 6) {
+    res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 6 ký tự.' });
     return;
   }
 
@@ -986,13 +1529,38 @@ app.patch('/api/admin/users/:id', requireUserManager, (req, res) => {
     return;
   }
 
+  const profileValidation = validateUserProfilePayload(req.body || {});
+
+  if (profileValidation.error) {
+    res.status(400).json({ message: profileValidation.error });
+    return;
+  }
+
+  const publicProfile = normalizeAdminUserProfilePayload(
+    req.body || {},
+    normalizedRole,
+    profileValidation.profile
+  );
+  const updateProfile = isCustomerProfileUpdate
+    ? {
+        ...publicProfile,
+        avatarUrl: targetUser.avatarUrl || '',
+        salesTitle: targetUser.salesTitle || 'Nhân viên kinh doanh',
+        salesSpecialty: targetUser.salesSpecialty || '',
+        salesExperience: targetUser.salesExperience || '',
+        salesBio: targetUser.salesBio || '',
+        showOnHome: false,
+        homeDisplayOrder: 0,
+      }
+    : publicProfile;
+
   try {
     const user = updateUserProfile(userId, {
       fullName: normalizedFullName,
       email: normalizedEmail,
       password: normalizedPassword,
       role: normalizedRole,
-      ...publicProfile,
+      ...updateProfile,
     });
 
     res.json({

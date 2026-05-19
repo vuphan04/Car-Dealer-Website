@@ -1,26 +1,46 @@
 const inventoryGrid = document.querySelector('#inventory-grid');
 const resultCount = document.querySelector('#inventory-result-count');
-const searchForm = document.querySelector('#inventory-search-form');
-const searchInput = document.querySelector('#inventory-search-input');
-const popularTags = document.querySelector('#inventory-popular-tags');
 const sortSelect = document.querySelector('#inventory-sort');
-const filterApplyButton = document.querySelector('#inventory-filter-apply');
 const filterResetButton = document.querySelector('#inventory-filter-reset');
-const filterControls = {
-    brand: document.querySelector('#filter-brand'),
-    category: document.querySelector('#filter-category'),
-    condition: document.querySelector('#filter-condition'),
-    price: document.querySelector('#filter-price'),
-    mileage: document.querySelector('#filter-mileage'),
-    year: document.querySelector('#filter-year'),
-    fuel: document.querySelector('#filter-fuel'),
-    status: document.querySelector('#filter-status')
+const filterPanel = document.querySelector('.inventory-filter-panel');
+const filterAdvanced = document.querySelector('#inventory-filter-advanced');
+const filterToggleButton = document.querySelector('#inventory-filter-toggle');
+const priceMinInput = document.querySelector('#filter-price-min');
+const priceMaxInput = document.querySelector('#filter-price-max');
+const priceRange = document.querySelector('#filter-price-range');
+const priceMinOutput = document.querySelector('#filter-price-min-output');
+const priceMaxOutput = document.querySelector('#filter-price-max-output');
+const yearFromSelect = document.querySelector('#filter-year-from');
+const yearToSelect = document.querySelector('#filter-year-to');
+const clearYearsButton = document.querySelector('[data-filter-clear-years]');
+const compareModal = document.querySelector('#compare-modal');
+const compareSearchInput = document.querySelector('#compare-search-input');
+const comparePicker = document.querySelector('#compare-picker');
+const compareTableWrap = document.querySelector('#compare-table-wrap');
+const compareCount = document.querySelector('#compare-count');
+const compareCloseButtons = document.querySelectorAll('[data-close-compare]');
+const filterGroups = {
+    brand: document.querySelector('#filter-brand-options'),
+    condition: document.querySelector('#filter-condition-options'),
+    gearbox: document.querySelector('#filter-gearbox-options'),
+    fuel: document.querySelector('#filter-fuel-options'),
+    origin: document.querySelector('#filter-origin-options'),
+    color: document.querySelector('#filter-color-options'),
+    category: document.querySelector('#filter-category-options'),
+    seats: document.querySelector('#filter-seats-options'),
+    drivetrain: document.querySelector('#filter-drivetrain-options'),
+    imageState: document.querySelector('#filter-image-options')
 };
 
 let cars = [];
 let filteredCars = [];
 let currentUser = null;
 let favoriteCarIds = new Set();
+let selectedCompareCarIds = [];
+
+const MAX_COMPARE_CARS = 3;
+const PRICE_FILTER_MIN = 0;
+const PRICE_FILTER_MAX = 3000000000;
 
 const escapeHtml = (value) =>
     String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -39,6 +59,12 @@ const normalizeText = (value) =>
         .replace(/Đ/g, 'D')
         .toLowerCase()
         .trim();
+
+const renderSpecChip = (value, fallback = 'Chưa cập nhật') => {
+    const fullValue = String(value || fallback).trim();
+
+    return `<span title="${escapeHtml(fullValue)}">${escapeHtml(fullValue)}</span>`;
+};
 
 const requestJson = async (url, options = {}) => {
     const requestOptions = {
@@ -110,69 +136,148 @@ const parsePriceValue = (car) => {
     return value;
 };
 
-const parseMileageValue = (mileage) => {
-    const digits = String(mileage || '').replace(/[^\d]/g, '');
-
-    return Number(digits || 0);
-};
-
-const parseRange = (rangeValue) => {
-    const [minValue, maxValue] = String(rangeValue || '').split('-');
-
-    return {
-        min: minValue ? Number(minValue) : 0,
-        max: maxValue ? Number(maxValue) : Infinity
-    };
-};
-
-const isWithinRange = (value, rangeValue) => {
-    if (!rangeValue) {
-        return true;
-    }
-
-    const { min, max } = parseRange(rangeValue);
-
-    return value >= min && value <= max;
-};
-
 const getUniqueValues = (fieldName) =>
     [...new Set(cars.map((car) => String(car[fieldName] || '').trim()).filter(Boolean))]
         .sort((first, second) => first.localeCompare(second, 'vi'));
 
-const setSelectOptions = (select, placeholder, values) => {
+const setYearOptions = (select, placeholder, years) => {
     if (!select) {
         return;
     }
 
     select.innerHTML = `
         <option value="">${escapeHtml(placeholder)}</option>
-        ${values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('')}
+        ${years.map((year) => `<option value="${escapeHtml(year)}">${escapeHtml(year)}</option>`).join('')}
     `;
 };
 
-const renderFilterOptions = () => {
-    setSelectOptions(filterControls.brand, 'Tất cả thương hiệu', getUniqueValues('brand'));
-    setSelectOptions(filterControls.category, 'Tất cả phân khúc', getUniqueValues('category'));
-    setSelectOptions(filterControls.condition, 'Tất cả tình trạng', getUniqueValues('condition'));
-    setSelectOptions(filterControls.fuel, 'Tất cả nhiên liệu', getUniqueValues('fuel'));
+const renderFilterGroup = (groupName, values, allLabel = 'Tất cả') => {
+    const group = filterGroups[groupName];
 
-    const years = getUniqueValues('year').sort((first, second) => Number(second) - Number(first));
-    setSelectOptions(filterControls.year, 'Tất cả năm', years);
-};
-
-const renderPopularTags = () => {
-    if (!popularTags) {
+    if (!group) {
         return;
     }
 
-    const tags = getUniqueValues('brand').slice(0, 6);
+    const options = [
+        { value: '', label: allLabel },
+        ...values.map((value) => typeof value === 'string' ? { value, label: value } : value)
+    ];
 
-    popularTags.innerHTML = tags.map((tag) => `
-        <button type="button" data-popular-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>
+    group.innerHTML = options.map((option, index) => `
+        <button type="button" class="inventory-filter-chip${index === 0 ? ' is-active' : ''}" data-filter-name="${escapeHtml(groupName)}" data-filter-value="${escapeHtml(option.value)}">
+            <span>${escapeHtml(option.label)}</span>
+        </button>
     `).join('');
 };
 
+const formatPriceValue = (value) => {
+    const priceValue = Number(value || 0);
+
+    if (!Number.isFinite(priceValue) || priceValue <= 0) {
+        return '0';
+    }
+
+    if (priceValue >= PRICE_FILTER_MAX) {
+        return '>3 tỷ';
+    }
+
+    if (priceValue >= 1000000000) {
+        return `${(priceValue / 1000000000).toLocaleString('vi-VN', {
+            maximumFractionDigits: 1
+        })} tỷ`;
+    }
+
+    return `${Math.round(priceValue / 1000000).toLocaleString('vi-VN')} triệu`;
+};
+
+const getPriceRangeValues = () => {
+    const minPrice = Number(priceMinInput?.value || PRICE_FILTER_MIN);
+    const maxPrice = Number(priceMaxInput?.value || PRICE_FILTER_MAX);
+
+    return {
+        min: Math.min(minPrice, maxPrice),
+        max: Math.max(minPrice, maxPrice)
+    };
+};
+
+const updatePriceOutput = () => {
+    const { min, max } = getPriceRangeValues();
+
+    if (priceMinOutput) {
+        priceMinOutput.textContent = `Từ ${formatPriceValue(min)}`;
+    }
+
+    if (priceMaxOutput) {
+        priceMaxOutput.textContent = `Đến ${formatPriceValue(max)}`;
+    }
+
+    if (priceRange) {
+        const range = PRICE_FILTER_MAX - PRICE_FILTER_MIN;
+        const minPercent = range ? ((min - PRICE_FILTER_MIN) / range) * 100 : 0;
+        const maxPercent = range ? ((max - PRICE_FILTER_MIN) / range) * 100 : 100;
+
+        priceRange.style.setProperty('--price-min-percent', `${minPercent}%`);
+        priceRange.style.setProperty('--price-max-percent', `${maxPercent}%`);
+    }
+
+    if (priceMinInput && priceMaxInput) {
+        const isMinNearMax = Number(priceMinInput.value) > PRICE_FILTER_MAX * 0.82;
+
+        priceMinInput.style.zIndex = isMinNearMax ? '4' : '2';
+        priceMaxInput.style.zIndex = isMinNearMax ? '3' : '4';
+    }
+};
+
+const syncPriceInputs = (changedInput) => {
+    if (!priceMinInput || !priceMaxInput) {
+        updatePriceOutput();
+        return;
+    }
+
+    const minPrice = Number(priceMinInput.value || PRICE_FILTER_MIN);
+    const maxPrice = Number(priceMaxInput.value || PRICE_FILTER_MAX);
+
+    if (changedInput === 'min' && minPrice > maxPrice) {
+        priceMinInput.value = String(maxPrice);
+    }
+
+    if (changedInput === 'max' && maxPrice < minPrice) {
+        priceMaxInput.value = String(minPrice);
+    }
+
+    updatePriceOutput();
+};
+
+const syncYearClearState = () => {
+    const hasYearFilter = Boolean(yearFromSelect?.value || yearToSelect?.value);
+
+    clearYearsButton?.classList.toggle('is-active', !hasYearFilter);
+};
+
+const renderFilterOptions = () => {
+    renderFilterGroup('brand', getUniqueValues('brand'));
+    renderFilterGroup('condition', getUniqueValues('condition'));
+    renderFilterGroup('gearbox', getUniqueValues('gearbox'));
+    renderFilterGroup('fuel', getUniqueValues('fuel'));
+    renderFilterGroup('origin', getUniqueValues('origin'));
+    renderFilterGroup('color', getUniqueValues('color'));
+    renderFilterGroup('category', getUniqueValues('category'));
+    renderFilterGroup('seats', getUniqueValues('seats'));
+    renderFilterGroup('drivetrain', getUniqueValues('drivetrain'));
+    renderFilterGroup('imageState', [
+        { value: 'with', label: 'Xe có ảnh' },
+        { value: 'without', label: 'Xe không có ảnh' }
+    ]);
+
+    const years = getUniqueValues('year').sort((first, second) => Number(second) - Number(first));
+    setYearOptions(yearFromSelect, 'Từ năm', years);
+    setYearOptions(yearToSelect, 'Đến năm', years);
+    syncYearClearState();
+    updatePriceOutput();
+};
+
 const isFavoriteCar = (carId) => favoriteCarIds.has(String(carId));
+const isCompareCar = (carId) => selectedCompareCarIds.includes(String(carId));
 
 const renderInventoryCard = (car) => {
     const image = getCarImages(car)[0] || '../images/rental-1.png';
@@ -192,14 +297,15 @@ const renderInventoryCard = (car) => {
                 <h3>${escapeHtml(car.name || 'Xe chưa có tên')}</h3>
                 <p class="inventory-card__type">${escapeHtml(car.type || 'Chưa cập nhật')}</p>
                 <div class="inventory-card__specs">
-                    <span>${escapeHtml(car.year || 'Năm')}</span>
-                    <span>${escapeHtml(car.fuel || 'Nhiên liệu')}</span>
-                    <span>${escapeHtml(car.mileage || 'Số km')}</span>
-                    <span>${escapeHtml(car.seats || 'Số chỗ')}</span>
-                    <span>${escapeHtml(car.gearbox || 'Hộp số')}</span>
-                    <span>${escapeHtml(car.origin || 'Xuất xứ')}</span>
-                    <span>${escapeHtml(car.condition || 'Tình trạng')}</span>
-                    <span>${escapeHtml(car.color || 'Màu sắc')}</span>
+                    ${renderSpecChip(car.year, 'Năm')}
+                    ${renderSpecChip(car.fuel, 'Nhiên liệu')}
+                    ${renderSpecChip(car.mileage, 'Số km')}
+                    ${renderSpecChip(car.seats, 'Số chỗ')}
+                    ${renderSpecChip(car.gearbox, 'Hộp số')}
+                    ${renderSpecChip(car.drivetrain, 'Dẫn động')}
+                    ${renderSpecChip(car.origin, 'Xuất xứ')}
+                    ${renderSpecChip(car.condition, 'Tình trạng')}
+                    ${renderSpecChip(car.color, 'Màu sắc')}
                 </div>
                 <div class="inventory-card__footer">
                     <strong class="inventory-card__price">${escapeHtml(car.price || 'Liên hệ')}</strong>
@@ -207,9 +313,9 @@ const renderInventoryCard = (car) => {
                 </div>
                 <div class="inventory-card__actions">
                     <a class="inventory-card__detail" href="${getCarDetailUrl(car.id)}">Xem chi tiết</a>
-                    <a class="inventory-card__compare" href="${getCarDetailUrl(car.id)}" aria-label="Xem nhanh ${escapeHtml(car.name)}">
-                        <i class="bx bx-show" aria-hidden="true"></i>
-                    </a>
+                    <button type="button" class="inventory-card__compare${isCompareCar(car.id) ? ' is-active' : ''}" data-compare-car="${escapeHtml(car.id)}" aria-pressed="${isCompareCar(car.id)}" aria-label="So sánh ${escapeHtml(car.name)}">
+                        <i class="bx bx-git-compare" aria-hidden="true"></i>
+                    </button>
                 </div>
             </div>
         </article>
@@ -231,16 +337,42 @@ const renderEmptyState = (title, message) => {
     `;
 };
 
+const getFilterGroupValue = (groupName) => {
+    const activeButton = filterGroups[groupName]?.querySelector('.inventory-filter-chip.is-active');
+
+    return activeButton?.dataset.filterValue || '';
+};
+
+const getYearRange = () => {
+    const fromYear = Number(yearFromSelect?.value || 0);
+    const toYear = Number(yearToSelect?.value || 0);
+
+    if (fromYear && toYear) {
+        return {
+            min: Math.min(fromYear, toYear),
+            max: Math.max(fromYear, toYear)
+        };
+    }
+
+    return {
+        min: fromYear || 0,
+        max: toYear || Infinity
+    };
+};
+
 const getSelectedFilters = () => ({
-    keyword: normalizeText(searchInput?.value),
-    brand: normalizeText(filterControls.brand?.value),
-    category: normalizeText(filterControls.category?.value),
-    condition: normalizeText(filterControls.condition?.value),
-    price: filterControls.price?.value || '',
-    mileage: filterControls.mileage?.value || '',
-    year: normalizeText(filterControls.year?.value),
-    fuel: normalizeText(filterControls.fuel?.value),
-    status: filterControls.status?.value || ''
+    brand: normalizeText(getFilterGroupValue('brand')),
+    category: normalizeText(getFilterGroupValue('category')),
+    condition: normalizeText(getFilterGroupValue('condition')),
+    fuel: normalizeText(getFilterGroupValue('fuel')),
+    gearbox: normalizeText(getFilterGroupValue('gearbox')),
+    origin: normalizeText(getFilterGroupValue('origin')),
+    color: normalizeText(getFilterGroupValue('color')),
+    seats: normalizeText(getFilterGroupValue('seats')),
+    drivetrain: normalizeText(getFilterGroupValue('drivetrain')),
+    imageState: getFilterGroupValue('imageState'),
+    priceRange: getPriceRangeValues(),
+    yearRange: getYearRange()
 });
 
 const sortCars = (carList) => {
@@ -266,35 +398,38 @@ const applyFilters = () => {
     const filters = getSelectedFilters();
 
     filteredCars = cars.filter((car) => {
-        const searchableText = normalizeText([
-            car.name,
-            car.brand,
-            car.category,
-            car.type,
-            car.fuel,
-            car.color,
-            car.condition
-        ].join(' '));
-        const matchesKeyword = !filters.keyword || searchableText.includes(filters.keyword);
         const matchesBrand = !filters.brand || normalizeText(car.brand) === filters.brand;
         const matchesCategory = !filters.category || normalizeText(car.category) === filters.category;
         const matchesCondition = !filters.condition || normalizeText(car.condition) === filters.condition;
-        const matchesYear = !filters.year || normalizeText(car.year) === filters.year;
         const matchesFuel = !filters.fuel || normalizeText(car.fuel) === filters.fuel;
-        const matchesPrice = isWithinRange(parsePriceValue(car), filters.price);
-        const matchesMileage = isWithinRange(parseMileageValue(car.mileage), filters.mileage);
-        const matchesStatus = !filters.status
-            || (filters.status === 'sold' ? isSoldCar(car) : !isSoldCar(car));
+        const matchesGearbox = !filters.gearbox || normalizeText(car.gearbox) === filters.gearbox;
+        const matchesOrigin = !filters.origin || normalizeText(car.origin) === filters.origin;
+        const matchesColor = !filters.color || normalizeText(car.color) === filters.color;
+        const matchesSeats = !filters.seats || normalizeText(car.seats) === filters.seats;
+        const matchesDrivetrain = !filters.drivetrain || normalizeText(car.drivetrain) === filters.drivetrain;
+        const carYear = Number(car.year || 0);
+        const hasYearFilter = Boolean(filters.yearRange.min || Number.isFinite(filters.yearRange.max));
+        const matchesYear = !hasYearFilter
+            || (carYear && carYear >= filters.yearRange.min && carYear <= filters.yearRange.max);
+        const carPrice = parsePriceValue(car);
+        const priceMax = filters.priceRange.max >= PRICE_FILTER_MAX ? Infinity : filters.priceRange.max;
+        const matchesPrice = carPrice >= filters.priceRange.min && carPrice <= priceMax;
+        const hasImages = getCarImages(car).length > 0;
+        const matchesImageState = !filters.imageState
+            || (filters.imageState === 'with' ? hasImages : !hasImages);
 
-        return matchesKeyword
-            && matchesBrand
+        return matchesBrand
             && matchesCategory
             && matchesCondition
-            && matchesYear
             && matchesFuel
+            && matchesGearbox
+            && matchesOrigin
+            && matchesColor
+            && matchesSeats
+            && matchesDrivetrain
+            && matchesYear
             && matchesPrice
-            && matchesMileage
-            && matchesStatus;
+            && matchesImageState;
     });
 
     renderInventoryGrid();
@@ -312,11 +447,245 @@ const renderInventoryGrid = () => {
     }
 
     if (!visibleCars.length) {
-        renderEmptyState('Không tìm thấy xe phù hợp', 'Hãy thử đổi từ khóa tìm kiếm hoặc giảm bớt bộ lọc.');
+        renderEmptyState('Không tìm thấy xe phù hợp', 'Hãy thử giảm bớt điều kiện lọc hoặc chọn lại khoảng giá, năm sản xuất.');
         return;
     }
 
     inventoryGrid.innerHTML = visibleCars.map(renderInventoryCard).join('');
+};
+
+const getCarById = (carId) => cars.find((car) => String(car.id) === String(carId));
+
+const getCompareCars = () =>
+    selectedCompareCarIds.map(getCarById).filter(Boolean);
+
+const getCompareSearchResults = () => {
+    const keyword = normalizeText(compareSearchInput?.value);
+    const availableCars = cars.filter((car) => !isCompareCar(car.id));
+
+    if (!keyword) {
+        return availableCars.slice(0, 8);
+    }
+
+    return availableCars
+        .filter((car) => normalizeText([
+            car.name,
+            car.brand,
+            car.category,
+            car.type,
+            car.year,
+            car.fuel,
+            car.gearbox,
+            car.drivetrain
+        ].join(' ')).includes(keyword))
+        .slice(0, 10);
+};
+
+const renderComparePicker = () => {
+    if (!comparePicker) {
+        return;
+    }
+
+    const searchResults = getCompareSearchResults();
+    const isLimitReached = selectedCompareCarIds.length >= MAX_COMPARE_CARS;
+
+    if (isLimitReached) {
+        comparePicker.innerHTML = `
+            <article class="compare-picker__empty">
+                <strong>Đã chọn đủ 3 xe</strong>
+                <p>Xóa bớt một xe khỏi bảng để thêm xe khác.</p>
+            </article>
+        `;
+        return;
+    }
+
+    if (!searchResults.length) {
+        comparePicker.innerHTML = `
+            <article class="compare-picker__empty">
+                <strong>Không tìm thấy xe</strong>
+                <p>Thử nhập tên, hãng, năm sản xuất hoặc nhiên liệu khác.</p>
+            </article>
+        `;
+        return;
+    }
+
+    comparePicker.innerHTML = searchResults.map((car) => {
+        const image = getCarImages(car)[0] || '../images/rental-1.png';
+
+        return `
+            <button type="button" class="compare-picker__item" data-add-compare-car="${escapeHtml(car.id)}">
+                <img src="${escapeHtml(image)}" alt="${escapeHtml(car.name)}">
+                <span>
+                    <strong>${escapeHtml(car.name || 'Xe chưa có tên')}</strong>
+                    <small>${escapeHtml([car.year, car.fuel, car.gearbox, car.drivetrain].filter(Boolean).join(' • ') || 'Chưa cập nhật')}</small>
+                </span>
+                <i class="bx bx-plus" aria-hidden="true"></i>
+            </button>
+        `;
+    }).join('');
+};
+
+const renderCompareTable = () => {
+    if (!compareTableWrap) {
+        return;
+    }
+
+    const compareCars = getCompareCars();
+
+    if (!compareCars.length) {
+        compareTableWrap.innerHTML = `
+            <article class="compare-empty">
+                <i class="bx bx-git-compare" aria-hidden="true"></i>
+                <strong>Chưa có xe để so sánh</strong>
+                <p>Chọn xe từ danh sách bên trái hoặc nhấn nút so sánh trên card xe.</p>
+            </article>
+        `;
+        return;
+    }
+
+    const getDescriptionPreview = (description) => {
+        const normalizedDescription = String(description || '').trim();
+
+        if (!normalizedDescription) {
+            return {
+                fullText: 'Chưa cập nhật',
+                previewText: 'Chưa cập nhật',
+                hasMore: false
+            };
+        }
+
+        const maxLength = 150;
+        const hasMore = normalizedDescription.length > maxLength;
+
+        return {
+            fullText: normalizedDescription,
+            previewText: hasMore ? `${normalizedDescription.slice(0, maxLength).trim()}...` : normalizedDescription,
+            hasMore
+        };
+    };
+
+    const specRows = [
+        ['Giá bán', 'price', 'Liên hệ'],
+        ['Trạng thái', 'actionText', 'Còn xe'],
+        ['Phân khúc', 'category', 'Chưa cập nhật'],
+        ['Kiểu vận hành', 'type', 'Chưa cập nhật'],
+        ['Hãng xe', 'brand', 'Chưa cập nhật'],
+        ['Năm sản xuất', 'year', 'Chưa cập nhật'],
+        ['Nhiên liệu', 'fuel', 'Chưa cập nhật'],
+        ['Số km', 'mileage', 'Chưa cập nhật'],
+        ['Số chỗ', 'seats', 'Chưa cập nhật'],
+        ['Hộp số', 'gearbox', 'Chưa cập nhật'],
+        ['Dẫn động', 'drivetrain', 'Chưa cập nhật'],
+        ['Xuất xứ', 'origin', 'Chưa cập nhật'],
+        ['Tình trạng', 'condition', 'Chưa cập nhật'],
+        ['Màu sắc', 'color', 'Chưa cập nhật']
+    ];
+
+    compareTableWrap.innerHTML = `
+        <div class="compare-table" style="--compare-columns: ${compareCars.length}">
+            <div class="compare-table__label">Xe</div>
+            ${compareCars.map((car) => {
+                const image = getCarImages(car)[0] || '../images/rental-1.png';
+
+                return `
+                    <article class="compare-car">
+                        <img src="${escapeHtml(image)}" alt="${escapeHtml(car.name)}">
+                        <strong>${escapeHtml(car.name || 'Xe chưa có tên')}</strong>
+                        <a href="${getCarDetailUrl(car.id)}">Xem chi tiết</a>
+                        <button type="button" data-remove-compare-car="${escapeHtml(car.id)}" aria-label="Xóa ${escapeHtml(car.name)} khỏi so sánh">
+                            <i class="bx bx-x" aria-hidden="true"></i>
+                        </button>
+                    </article>
+                `;
+            }).join('')}
+            ${specRows.map(([label, fieldName, fallback]) => `
+                <div class="compare-table__label">${escapeHtml(label)}</div>
+                ${compareCars.map((car) => `<div class="compare-table__value">${escapeHtml(car[fieldName] || fallback)}</div>`).join('')}
+            `).join('')}
+            <div class="compare-table__label">Mô tả</div>
+            ${compareCars.map((car) => {
+                const description = getDescriptionPreview(car.description);
+
+                return `
+                    <div class="compare-table__value compare-description">
+                        <p data-preview-text="${escapeHtml(description.previewText)}" data-full-text="${escapeHtml(description.fullText)}">${escapeHtml(description.previewText)}</p>
+                        ${description.hasMore ? `
+                            <button type="button" data-toggle-compare-description aria-expanded="false">
+                                Xem thêm
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+};
+
+const syncCompareButtons = () => {
+    document.querySelectorAll('[data-compare-car]').forEach((button) => {
+        const isActive = isCompareCar(button.dataset.compareCar);
+
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-pressed', String(isActive));
+    });
+};
+
+const renderCompareModal = () => {
+    if (compareCount) {
+        compareCount.textContent = `Đã chọn ${selectedCompareCarIds.length}/${MAX_COMPARE_CARS} xe`;
+    }
+
+    renderComparePicker();
+    renderCompareTable();
+    syncCompareButtons();
+};
+
+const addCompareCar = (carId) => {
+    const normalizedCarId = String(carId || '');
+
+    if (!normalizedCarId || isCompareCar(normalizedCarId) || !getCarById(normalizedCarId)) {
+        return;
+    }
+
+    if (selectedCompareCarIds.length >= MAX_COMPARE_CARS) {
+        window.alert('Bạn chỉ có thể so sánh tối đa 3 xe.');
+        return;
+    }
+
+    selectedCompareCarIds = [...selectedCompareCarIds, normalizedCarId];
+    renderCompareModal();
+};
+
+const removeCompareCar = (carId) => {
+    selectedCompareCarIds = selectedCompareCarIds.filter((selectedId) => selectedId !== String(carId));
+    renderCompareModal();
+};
+
+const openCompareModal = (carId) => {
+    if (!compareModal) {
+        return;
+    }
+
+    if (carId && !isCompareCar(carId)) {
+        addCompareCar(carId);
+    } else {
+        renderCompareModal();
+    }
+
+    compareModal.classList.add('is-open');
+    compareModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('compare-modal-open');
+    compareSearchInput?.focus();
+};
+
+const closeCompareModal = () => {
+    if (!compareModal) {
+        return;
+    }
+
+    compareModal.classList.remove('is-open');
+    compareModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('compare-modal-open');
 };
 
 const syncFavoriteButtons = (carId) => {
@@ -418,51 +787,134 @@ const openCarDetailFromCard = (card) => {
     }
 };
 
-const resetFilters = () => {
-    if (searchInput) {
-        searchInput.value = '';
+const setFilterGroupValue = (button) => {
+    const group = button?.parentElement;
+
+    if (!group) {
+        return;
     }
 
-    Object.values(filterControls).forEach((control) => {
-        if (control) {
-            control.value = '';
-        }
+    group.querySelectorAll('.inventory-filter-chip').forEach((chip) => {
+        chip.classList.toggle('is-active', chip === button);
     });
+};
+
+const setAdvancedFiltersExpanded = (isExpanded) => {
+    if (!filterAdvanced || !filterToggleButton) {
+        return;
+    }
+
+    filterAdvanced.hidden = !isExpanded;
+    filterToggleButton.setAttribute('aria-expanded', String(isExpanded));
+
+    const label = filterToggleButton.querySelector('span');
+    const marker = filterToggleButton.querySelector('strong');
+
+    if (label) {
+        label.textContent = isExpanded ? 'Thu nhỏ điều kiện tìm kiếm' : 'Mở rộng điều kiện tìm kiếm';
+    }
+
+    if (marker) {
+        marker.textContent = isExpanded ? '[ - ]' : '[ + ]';
+    }
+};
+
+const resetFilters = () => {
+    Object.values(filterGroups).forEach((group) => {
+        const chips = Array.from(group?.querySelectorAll('.inventory-filter-chip') || []);
+
+        chips.forEach((chip, index) => {
+            chip.classList.toggle('is-active', index === 0);
+        });
+    });
+
+    if (yearFromSelect) {
+        yearFromSelect.value = '';
+    }
+
+    if (yearToSelect) {
+        yearToSelect.value = '';
+    }
+
+    if (priceMinInput) {
+        priceMinInput.value = String(PRICE_FILTER_MIN);
+    }
+
+    if (priceMaxInput) {
+        priceMaxInput.value = String(PRICE_FILTER_MAX);
+    }
 
     if (sortSelect) {
         sortSelect.value = 'newest';
     }
 
+    syncYearClearState();
+    syncPriceInputs();
     applyFilters();
 };
 
 const bindEvents = () => {
-    searchForm?.addEventListener('submit', (event) => {
-        event.preventDefault();
-        applyFilters();
-    });
-    searchInput?.addEventListener('input', applyFilters);
     sortSelect?.addEventListener('change', renderInventoryGrid);
-    filterApplyButton?.addEventListener('click', applyFilters);
     filterResetButton?.addEventListener('click', resetFilters);
 
-    Object.values(filterControls).forEach((control) => {
-        control?.addEventListener('change', applyFilters);
-    });
+    filterPanel?.addEventListener('click', (event) => {
+        const filterButton = event.target.closest('[data-filter-name]');
 
-    popularTags?.addEventListener('click', (event) => {
-        const button = event.target.closest('[data-popular-tag]');
-
-        if (!button || !searchInput) {
+        if (!filterButton) {
             return;
         }
 
-        searchInput.value = button.dataset.popularTag || '';
+        setFilterGroupValue(filterButton);
         applyFilters();
+    });
+
+    clearYearsButton?.addEventListener('click', () => {
+        if (yearFromSelect) {
+            yearFromSelect.value = '';
+        }
+
+        if (yearToSelect) {
+            yearToSelect.value = '';
+        }
+
+        syncYearClearState();
+        applyFilters();
+    });
+
+    [yearFromSelect, yearToSelect].forEach((select) => {
+        select?.addEventListener('change', () => {
+            syncYearClearState();
+            applyFilters();
+        });
+    });
+
+    priceMinInput?.addEventListener('input', () => {
+        syncPriceInputs('min');
+        applyFilters();
+    });
+
+    priceMaxInput?.addEventListener('input', () => {
+        syncPriceInputs('max');
+        applyFilters();
+    });
+
+    filterToggleButton?.addEventListener('click', () => {
+        const isExpanded = filterToggleButton.getAttribute('aria-expanded') === 'true';
+
+        setAdvancedFiltersExpanded(!isExpanded);
     });
 
     inventoryGrid?.addEventListener('click', handleFavoriteButtonClick);
     inventoryGrid?.addEventListener('click', (event) => {
+        const compareButton = event.target.closest('[data-compare-car]');
+
+        if (compareButton) {
+            event.preventDefault();
+            event.stopPropagation();
+            openCompareModal(compareButton.dataset.compareCar);
+            return;
+        }
+
         if (event.target.closest('a, button, input, select, textarea')) {
             return;
         }
@@ -483,6 +935,53 @@ const bindEvents = () => {
         event.preventDefault();
         openCarDetailFromCard(card);
     });
+
+    compareSearchInput?.addEventListener('input', renderComparePicker);
+    comparePicker?.addEventListener('click', (event) => {
+        const addButton = event.target.closest('[data-add-compare-car]');
+
+        if (!addButton) {
+            return;
+        }
+
+        addCompareCar(addButton.dataset.addCompareCar);
+    });
+    compareTableWrap?.addEventListener('click', (event) => {
+        const descriptionButton = event.target.closest('[data-toggle-compare-description]');
+
+        if (descriptionButton) {
+            const descriptionCell = descriptionButton.closest('.compare-description');
+            const descriptionText = descriptionCell?.querySelector('p');
+            const isExpanded = descriptionButton.getAttribute('aria-expanded') === 'true';
+
+            if (!descriptionText) {
+                return;
+            }
+
+            descriptionText.textContent = isExpanded
+                ? descriptionText.dataset.previewText || ''
+                : descriptionText.dataset.fullText || '';
+            descriptionButton.textContent = isExpanded ? 'Xem thêm' : 'Thu gọn';
+            descriptionButton.setAttribute('aria-expanded', String(!isExpanded));
+            return;
+        }
+
+        const removeButton = event.target.closest('[data-remove-compare-car]');
+
+        if (!removeButton) {
+            return;
+        }
+
+        removeCompareCar(removeButton.dataset.removeCompareCar);
+    });
+    compareCloseButtons.forEach((button) => {
+        button.addEventListener('click', closeCompareModal);
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && compareModal?.classList.contains('is-open')) {
+            closeCompareModal();
+        }
+    });
 };
 
 const loadInventory = async () => {
@@ -498,7 +997,6 @@ const loadInventory = async () => {
         cars = Array.isArray(data.cars) ? data.cars : [];
         await syncCurrentUserAndFavorites();
         renderFilterOptions();
-        renderPopularTags();
         applyFilters();
     } catch (error) {
         if (resultCount) {

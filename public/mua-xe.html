@@ -14,8 +14,9 @@
             <a href="/" class="inventory-logo">Ok<span>Xe</span></a>
             <div class="inventory-nav__links">
                 <a href="/">Trang Chủ</a>
-                <a href="/mua-xe.html" aria-current="page">Mua xe</a>
-                <a href="/#team">Nhân viên</a>
+                <a href="/mua-xe.html" aria-current="page">Tìm mua ô tô</a>
+                <a href="/khuyen-mai.html">Khuyến mại</a>
+                <a href="/tu-van-ban-hang.html">Tư vấn bán hàng</a>
                 <a href="/#footer">Liên hệ</a>
             </div>
         </nav>
@@ -30,91 +31,124 @@
             </div>
         </section>
 
-        <section class="inventory-search" aria-label="Tìm kiếm xe">
-            <form class="inventory-search__form" id="inventory-search-form">
-                <label class="inventory-search__field">
-                    <i class="bx bx-search" aria-hidden="true"></i>
-                    <input type="search" id="inventory-search-input" placeholder="Toyota Corolla Cross 2022">
-                </label>
-                <button type="submit">
-                    <i class="bx bx-search" aria-hidden="true"></i>
-                    <span>Tìm kiếm</span>
+        <section class="inventory-filter-panel" aria-label="Bộ lọc xe">
+            <div class="inventory-filter-panel__header">
+                <div>
+                    <span>Bộ lọc</span>
+                    <h2>Chọn điều kiện mua xe</h2>
+                </div>
+                <button type="button" id="inventory-filter-reset">
+                    <i class="bx bx-refresh" aria-hidden="true"></i>
+                    <span>Làm mới</span>
                 </button>
-            </form>
-            <div class="inventory-tags" aria-label="Tìm kiếm phổ biến">
-                <span>Tìm kiếm nổi bật:</span>
-                <div id="inventory-popular-tags"></div>
+            </div>
+
+            <div class="inventory-filter-rows">
+                <div class="inventory-filter-row">
+                    <span class="inventory-filter-row__label">Hãng xe:</span>
+                    <div class="inventory-filter-options" id="filter-brand-options"></div>
+                </div>
+
+                <div class="inventory-filter-row">
+                    <span class="inventory-filter-row__label">Tình trạng xe:</span>
+                    <div class="inventory-filter-options" id="filter-condition-options"></div>
+                </div>
+
+                <div class="inventory-filter-row">
+                    <span class="inventory-filter-row__label">Năm:</span>
+                    <div class="inventory-year-controls">
+                        <button type="button" class="inventory-filter-chip is-active" data-filter-clear-years>
+                            <span>Tất cả</span>
+                        </button>
+                        <label>
+                            <span class="sr-only">Từ năm</span>
+                            <select id="filter-year-from" aria-label="Từ năm">
+                                <option value="">Từ năm</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span class="sr-only">Đến năm</span>
+                            <select id="filter-year-to" aria-label="Đến năm">
+                                <option value="">Đến năm</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="inventory-filter-row">
+                    <span class="inventory-filter-row__label">Hộp số:</span>
+                    <div class="inventory-filter-options" id="filter-gearbox-options"></div>
+                </div>
+
+                <div class="inventory-filter-row inventory-filter-row--price">
+                    <span class="inventory-filter-row__label">Giới hạn giá:</span>
+                    <div class="inventory-price-filter">
+                        <div class="inventory-price-filter__summary">
+                            <output class="inventory-price-filter__value inventory-price-filter__value--min" id="filter-price-min-output" for="filter-price-min">Từ 0</output>
+                            <output class="inventory-price-filter__value inventory-price-filter__value--max" id="filter-price-max-output" for="filter-price-max">Đến &gt;3 tỷ</output>
+                        </div>
+                        <div class="inventory-price-filter__range" id="filter-price-range">
+                            <input type="range" class="inventory-price-filter__input inventory-price-filter__input--min" id="filter-price-min" min="0" max="3000000000" step="100000000" value="0" aria-label="Giá thấp nhất">
+                            <input type="range" class="inventory-price-filter__input inventory-price-filter__input--max" id="filter-price-max" min="0" max="3000000000" step="100000000" value="3000000000" aria-label="Giá cao nhất">
+                        </div>
+                        <div class="inventory-price-filter__scale" aria-hidden="true">
+                            <span>0</span>
+                            <span>500Tr</span>
+                            <span>1T</span>
+                            <span>1,5T</span>
+                            <span>2T</span>
+                            <span>&gt;3T</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="inventory-filter-advanced" id="inventory-filter-advanced" hidden>
+                <div class="inventory-filter-row">
+                    <span class="inventory-filter-row__label">Nhiên liệu:</span>
+                    <div class="inventory-filter-options" id="filter-fuel-options"></div>
+                </div>
+
+                <div class="inventory-filter-row">
+                    <span class="inventory-filter-row__label">Xuất xứ:</span>
+                    <div class="inventory-filter-options" id="filter-origin-options"></div>
+                </div>
+
+                <div class="inventory-filter-row">
+                    <span class="inventory-filter-row__label">Màu xe:</span>
+                    <div class="inventory-filter-options" id="filter-color-options"></div>
+                </div>
+
+                <div class="inventory-filter-row">
+                    <span class="inventory-filter-row__label">Kiểu dáng:</span>
+                    <div class="inventory-filter-options" id="filter-category-options"></div>
+                </div>
+
+                <div class="inventory-filter-row">
+                    <span class="inventory-filter-row__label">Số chỗ ngồi:</span>
+                    <div class="inventory-filter-options" id="filter-seats-options"></div>
+                </div>
+
+                <div class="inventory-filter-row">
+                    <span class="inventory-filter-row__label">Dẫn động:</span>
+                    <div class="inventory-filter-options" id="filter-drivetrain-options"></div>
+                </div>
+
+                <div class="inventory-filter-row">
+                    <span class="inventory-filter-row__label">Xe có ảnh?:</span>
+                    <div class="inventory-filter-options" id="filter-image-options"></div>
+                </div>
+            </div>
+
+            <div class="inventory-filter-panel__footer">
+                <button type="button" class="inventory-filter-toggle" id="inventory-filter-toggle" aria-expanded="false" aria-controls="inventory-filter-advanced">
+                    <span>Mở rộng điều kiện tìm kiếm</span>
+                    <strong>[ + ]</strong>
+                </button>
             </div>
         </section>
 
         <section class="inventory-layout" aria-label="Danh sách xe">
-            <aside class="inventory-filter" aria-label="Bộ lọc xe">
-                <div class="inventory-filter__header">
-                    <h2>Bộ lọc</h2>
-                    <button type="button" id="inventory-filter-reset">Làm mới</button>
-                </div>
-
-                <label>
-                    <span>Thương hiệu</span>
-                    <select id="filter-brand">
-                        <option value="">Tất cả thương hiệu</option>
-                    </select>
-                </label>
-                <label>
-                    <span>Phân khúc</span>
-                    <select id="filter-category">
-                        <option value="">Tất cả phân khúc</option>
-                    </select>
-                </label>
-                <label>
-                    <span>Tình trạng</span>
-                    <select id="filter-condition">
-                        <option value="">Tất cả tình trạng</option>
-                    </select>
-                </label>
-                <label>
-                    <span>Khoảng giá</span>
-                    <select id="filter-price">
-                        <option value="">Tất cả giá</option>
-                        <option value="0-500000000">Dưới 500 triệu</option>
-                        <option value="500000000-1000000000">500 triệu - 1 tỷ</option>
-                        <option value="1000000000-3000000000">1 - 3 tỷ</option>
-                        <option value="3000000000-">Trên 3 tỷ</option>
-                    </select>
-                </label>
-                <label>
-                    <span>Số km đã đi</span>
-                    <select id="filter-mileage">
-                        <option value="">Tất cả số km</option>
-                        <option value="0-10000">Dưới 10.000 km</option>
-                        <option value="10000-50000">10.000 - 50.000 km</option>
-                        <option value="50000-100000">50.000 - 100.000 km</option>
-                        <option value="100000-">Trên 100.000 km</option>
-                    </select>
-                </label>
-                <label>
-                    <span>Năm sản xuất</span>
-                    <select id="filter-year">
-                        <option value="">Tất cả năm</option>
-                    </select>
-                </label>
-                <label>
-                    <span>Nhiên liệu</span>
-                    <select id="filter-fuel">
-                        <option value="">Tất cả nhiên liệu</option>
-                    </select>
-                </label>
-                <label>
-                    <span>Trạng thái</span>
-                    <select id="filter-status">
-                        <option value="">Tất cả trạng thái</option>
-                        <option value="available">Còn xe</option>
-                        <option value="sold">Xe đã bán</option>
-                    </select>
-                </label>
-                <button type="button" class="inventory-filter__apply" id="inventory-filter-apply">Áp dụng bộ lọc</button>
-            </aside>
-
             <div class="inventory-results">
                 <div class="inventory-results__bar">
                     <div>
@@ -136,14 +170,43 @@
         </section>
     </main>
 
+    <div class="compare-modal" id="compare-modal" aria-hidden="true">
+        <div class="compare-modal__overlay" data-close-compare></div>
+        <div class="compare-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="compare-modal-title">
+            <div class="compare-modal__header">
+                <div>
+                    <span>So sánh xe</span>
+                    <h2 id="compare-modal-title">Thông số xe đang chọn</h2>
+                    <p>Tối đa 3 xe trong mỗi lần so sánh.</p>
+                </div>
+                <button type="button" class="compare-modal__close" data-close-compare aria-label="Đóng so sánh xe">
+                    <i class="bx bx-x" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <div class="compare-modal__tools">
+                <label class="compare-search">
+                    <i class="bx bx-search" aria-hidden="true"></i>
+                    <input type="search" id="compare-search-input" placeholder="Tìm xe để thêm vào so sánh">
+                </label>
+                <p id="compare-count">Đã chọn 0/3 xe</p>
+            </div>
+
+            <div class="compare-modal__body">
+                <aside class="compare-picker" id="compare-picker" aria-label="Danh sách xe có thể thêm"></aside>
+                <section class="compare-table-wrap" id="compare-table-wrap" aria-label="Bảng so sánh thông số xe"></section>
+            </div>
+        </div>
+    </div>
+
     <footer class="inventory-footer">
         <div>
             <a href="/" class="inventory-logo">Ok<span>Xe</span></a>
             <p>Giao dịch nhanh gọn, giá cạnh tranh, tư vấn rõ ràng cho từng nhu cầu mua xe.</p>
         </div>
         <div class="inventory-footer__links">
-            <a href="/mua-xe.html">Mua xe</a>
-            <a href="/#team">Nhân viên</a>
+            <a href="/mua-xe.html">Tìm mua ô tô</a>
+            <a href="/tu-van-ban-hang.html">Tư vấn bán hàng</a>
             <a href="/#footer">Liên hệ</a>
         </div>
     </footer>

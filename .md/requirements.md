@@ -9,15 +9,38 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Khi nhấn "Xem tất cả" trong mục mua xe, hệ thống mở trang con danh sách xe có ô tìm kiếm theo tên xe và bộ lọc cơ bản
 - Cho phép người dùng tìm kiếm, lọc và xem chi tiết xe
 - Khi người dùng nhấn vào card xe, hệ thống mở trang chi tiết riêng tại `/cars/:id` để xem ảnh, mô tả và thông số đầy đủ của xe.
+- Trang mua xe và trang chi tiết xe có nút so sánh; khi nhấn sẽ mở popup so sánh, cho phép tìm và thêm xe có sẵn trong danh sách để so sánh thông số và mô tả rút gọn có nút xem thêm, tối đa 3 xe mỗi lần.
 - Cho phép người dùng đăng ký, đăng nhập, quản lý tài khoản
 - Cho phép người dùng đã đăng nhập xem họ tên, email và cập nhật hồ sơ cá nhân: số điện thoại, số CCCD, ngày sinh, giới tính, ảnh đại diện và địa chỉ liên hệ.
 - Cho phép người dùng đã đăng nhập lưu xe yêu thích và xem danh sách xe yêu thích của chính mình.
 - Cho phép người dùng liên hệ mua xe hoặc đặt lịch xem xe
+- Cho phép khách hàng đã đăng nhập đăng ký lái thử tại trang con `/dang-ky-lai-thu`, nhập họ tên, số điện thoại, chọn xe đang còn xe trong database, ngày dự kiến và khung giờ lái thử.
+- Popup chọn xe trong trang đăng ký lái thử cho phép lọc nhanh xe yêu thích của khách hàng, chỉ hiển thị các xe yêu thích vẫn còn hàng để lái thử.
+- Sau khi khách hàng đăng ký lái thử thành công, lịch được lưu ở trạng thái chờ xác nhận và mục "Thông báo" của khách hàng hiển thị thông báo đã nhận đăng ký.
+- Nếu khách hàng đăng ký trùng `car_id + preferred_date + preferred_time_slot` với một lịch chưa hủy, lịch vẫn được ghi nhận nhưng phải có ghi chú trạng thái để mục "Thông báo" báo rõ khung giờ đã có khách khác và nhân viên sẽ hỗ trợ đổi giờ.
 - Có trang quản trị để quản lý xe, người dùng, đơn liên hệ và dữ liệu hệ thống
+- Trang quản trị có mục "Quản lý lịch hẹn lái thử" dưới mục quản lý xe, cho phép tài khoản `staff` và `admin` xem lịch đăng ký lái thử của khách hàng.
+- Trang quản trị lịch hẹn lái thử cho phép `staff` và `admin` cập nhật 3 trạng thái: `Đồng ý cho phép lái thử`, `Hủy lịch hẹn`, `Treo`; khi hủy hoặc treo phải nhập lý do để khách hàng xem trong mục "Thông báo".
+- Khi `staff` hoặc `admin` đồng ý lịch lái thử, backend phải kiểm tra trùng `car_id + preferred_date + preferred_time_slot`; mỗi xe chỉ có tối đa 1 lịch được đồng ý trong cùng ngày và khung giờ.
+- Với lịch lái thử đang treo do trùng lịch, khi khách hàng đồng ý đổi lịch thì `staff` hoặc `admin` có thể chọn ngày/khung giờ mới ngay trong popup cập nhật trạng thái; backend chỉ cho xác nhận nếu khung giờ mới không trùng với lịch chưa hủy khác và phải gửi thông báo lịch mới cho khách hàng.
+- Khi lịch lái thử được đồng ý, hủy hoặc treo, mục "Thông báo" của khách hàng hiển thị nội dung theo trạng thái mới; khách hàng có thể xóa lịch lái thử nếu không còn nhu cầu.
+- Trang quản trị lịch hẹn lái thử hiển thị thống kê lượt đăng ký, số lần đồng ý cho phép lái thử, số lần hủy lịch hẹn và số lịch đang treo.
+- Trang quản trị lịch hẹn lái thử tách lịch cần xử lý và lịch đã xử lý; lịch đã đồng ý hoặc đã hủy hiển thị ở box riêng bên dưới để admin/staff dễ theo dõi.
+- Trang quản trị có mục "Thông tin khuyến mại" nằm dưới mục "Khách hàng" để nhân viên/admin viết bài khuyến mại, tải ảnh minh họa bằng nút chọn ảnh, cắt ảnh banner theo tỷ lệ 2:1 trước khi lưu, sửa, xóa, bật/tắt hiển thị và sắp xếp thứ tự trên trang chủ.
+- Trang chủ hiển thị thông tin khuyến mại ngay bên dưới mục đăng ký lái thử bằng carousel trượt, chỉ lấy các bài khuyến mại đang bật hiển thị và còn trong thời gian áp dụng; khi nhấn vào card khuyến mại sẽ mở popup chi tiết bài khuyến mại.
+- Header website có mục "Khuyến mại"; khi nhấn vào sẽ mở trang con `/khuyen-mai` hiển thị tất cả khuyến mại công khai hiện có của cửa hàng bằng giao diện gọn, đẹp, đồng bộ website và có metadata SEO cơ bản.
+- Khi có bài khuyến mại đang hiển thị trên trang chủ, mục "Thông báo" của khách hàng hiển thị badge số lượng thông báo, danh sách khuyến mại mới nhất, cho phép xóa từng thông báo; khi nhấn vào thông báo khuyến mại sẽ mở popup chi tiết bài khuyến mại.
+- Trang quản trị hiển thị tài khoản admin/nhân viên đang đăng nhập ở vị trí dễ quan sát nhưng không che nội dung quản trị.
 - Trang quản trị cho phép admin nhấn vào khách hàng trong danh sách khách hàng để xem popup chi tiết hồ sơ khách hàng.
+- Trang quản trị cho phép admin nhấn vào dòng nhân viên trong danh sách nhân viên để xem popup chi tiết hồ sơ nhân viên.
+- Trang quản trị cho phép admin chỉnh sửa hồ sơ khách hàng gồm số điện thoại, CCCD, ngày sinh, giới tính và địa chỉ liên hệ; không cho chỉnh sửa họ tên và email khách hàng từ form này.
+- Form thêm/sửa nhân viên trong trang admin cho phép nhập số CCCD và địa chỉ liên hệ của nhân viên.
+- Trang chủ hiển thị đội ngũ tư vấn bán hàng nổi bật bằng card gọn, không hiển thị mô tả dài trên ảnh; khi nhấn vào ảnh tư vấn bán hàng sẽ mở popup chi tiết thông tin.
+- Card tư vấn bán hàng trên trang chủ hiển thị icon liên hệ nhanh bằng số điện thoại và email nếu có dữ liệu.
+- Header và mục đội ngũ tư vấn bán hàng trỏ tới trang con `/tu-van-ban-hang` để người dùng xem toàn bộ danh sách tư vấn bán hàng của cửa hàng, có tìm kiếm, liên hệ nhanh và nút xem thêm để đọc toàn bộ tiểu sử tư vấn; trang này luôn ưu tiên hiển thị Trưởng phòng kinh doanh ở đầu và sắp xếp theo số năm kinh nghiệm giảm dần.
 - Form thêm/sửa xe trong trang admin phải có trường nhập hãng xe là trường đầu tiên
 - Form thêm/sửa xe trong trang admin cho phép nhập mô tả xe để lưu thông tin tình trạng, tiện nghi hoặc ghi chú bán xe.
-- Form thêm/sửa xe trong trang admin dùng lựa chọn cố định cho phân khúc, kiểu vận hành, nhiên liệu, số chỗ, hộp số, xuất xứ, tình trạng và nút hành động để hạn chế nhập sai dữ liệu.
+- Form thêm/sửa xe trong trang admin dùng lựa chọn cố định cho phân khúc, kiểu vận hành, nhiên liệu, số chỗ, hộp số, dẫn động, xuất xứ, tình trạng và nút hành động để hạn chế nhập sai dữ liệu.
 - Cho phép admin tải lên một hoặc nhiều ảnh cho mỗi xe bằng nút chọn ảnh
 - Có chức năng thanh toán qua ngân hàng hoặc các ví điện tử
 ## Quy tắc chung
@@ -77,10 +100,14 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Bảng `users` có cột `role` để phân quyền tài khoản: `customer`, `staff`, `admin`.
 - Bảng `users` lưu thêm hồ sơ khách hàng trong các cột `phone`, `citizen_id`, `birth_date`, `gender`, `avatar_url`, `address_province`, `address_district`, `address_ward`, `address_detail`, `updated_at`.
 - Bảng `users` lưu thêm hồ sơ nhân viên kinh doanh hiển thị trang chủ trong các cột `sales_title`, `sales_experience`, `sales_bio`, `show_on_home`, `home_display_order`. Cột `sales_specialty` có thể còn tồn tại ở database cũ nhưng không hiển thị trên giao diện.
-- Bảng `cars` lưu hãng xe trong cột `brand`, mô tả xe trong cột `description`, ảnh chính trong cột `image` và danh sách nhiều ảnh trong cột `images_json`.
+- Trường `sales_bio` là mô tả chi tiết nhân viên, nhập bằng textarea trong admin và hiển thị đầy đủ trong popup chi tiết nhân viên ở trang chủ.
+- Bảng `cars` lưu hãng xe trong cột `brand`, mô tả xe trong cột `description`, thông số dẫn động trong cột `drivetrain`, ảnh chính trong cột `image` và danh sách nhiều ảnh trong cột `images_json`.
+- Bảng `promotions` lưu bài khuyến mại trong các cột `title`, `summary`, `content`, `badge_text`, `image_url`, `cta_text`, `cta_url`, `starts_at`, `ends_at`, `show_on_home`, `display_order`, `created_at`, `updated_at`.
 - Bảng `user_favorite_cars` lưu xe yêu thích của khách hàng bằng `user_id`, `car_id`, `created_at`, có khóa ngoại tới `users` và `cars`.
+- Bảng `test_drive_appointments` lưu lịch đăng ký lái thử của khách hàng bằng `user_id`, `car_id`, thông tin xe tại thời điểm đăng ký, `full_name`, `phone`, `preferred_date`, `preferred_time_slot`, `status`, `status_note`, `created_at`, `updated_at`.
 - Ảnh xe được upload local vào thư mục `storage/uploads/cars` hoặc thư mục được cấu hình bằng `OKXE_UPLOAD_DIR`.
 - Ảnh đại diện người dùng được upload local vào thư mục `storage/uploads/avatars` hoặc thư mục upload được cấu hình bằng `OKXE_UPLOAD_DIR`.
+- Ảnh khuyến mại được upload local vào thư mục `storage/uploads/promotions` hoặc thư mục upload được cấu hình bằng `OKXE_UPLOAD_DIR`.
 
 ### Bảo mật
 
@@ -91,6 +118,9 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Trang quản trị sử dụng trang đăng nhập nhân viên riêng tại `/admin-login`.
 - Email nhân viên/admin có thể được cấu hình bằng `STAFF_EMAILS` và `ADMIN_EMAILS` trong `.env` để tự gán quyền khi tài khoản đăng ký hoặc khi server khởi động.
 - Quyền `staff` được quản lý xe trong admin. Quyền `admin` được quản lý xe và quản lý tài khoản nhân viên, bao gồm tạo tài khoản nhân viên/admin, chỉnh sửa họ tên/email/mật khẩu/role, đổi role nhanh và xóa tài khoản.
+- Quyền `staff` hoặc `admin` được quản lý bài khuyến mại trong trang admin.
+- Trong form nhân viên/admin, trường vai trò chỉ cho chọn `staff` hoặc `admin`; không cho đổi nhân viên/admin thành khách hàng.
+- Trong mục quản lý Admin, form tạo/sửa admin không hiển thị các trường nghiệp vụ kinh doanh như vai trò, chức danh kinh doanh, kinh nghiệm, mô tả, thứ tự hiển thị và hiển thị trên trang chủ; thông tin admin cũng không hiển thị các trường này.
 - Hệ thống không cho xóa hoặc hạ quyền admin cuối cùng để tránh khóa mất quyền quản trị.
 - Không hiển thị lỗi kỹ thuật chi tiết cho người dùng cuối.
 

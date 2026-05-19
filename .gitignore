@@ -4,4 +4,6 @@ logs/
 *.log
 data/mail-previews/
 data/*.db-journal
+data/rentals.backup-before-restore-*.db
 storage/
+.tmp-runtime*/

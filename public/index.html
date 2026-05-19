@@ -20,8 +20,9 @@
             <div class="nav-panel" id="primary-navigation">
                 <div class="nav-links">
                     <a href="#" class="nav-link">Trang Chủ</a>
-                    <a href="/mua-xe.html" class="nav-link">Mua xe</a>
-                    <a href="#team" class="nav-link">Đội ngũ Nhân Viên</a>
+                    <a href="/mua-xe.html" class="nav-link">Tìm mua ô tô</a>
+                    <a href="/khuyen-mai.html" class="nav-link">Khuyến mại</a>
+                    <a href="/tu-van-ban-hang.html" class="nav-link">Đội ngũ tư vấn bán hàng</a>
                     <a href="#faq" class="nav-link">Faq</a>
                     <a href="#" class="nav-link">Blog</a>
                     <a href="#footer" class="nav-link">Liên Hệ</a>
@@ -45,7 +46,10 @@
                                     <span>Xe yêu thích</span>
                                 </button>
                                 <button type="button" class="account-menu__item" role="menuitem" data-open-notifications>
-                                    <i class="bx bx-bell" aria-hidden="true"></i>
+                                    <span class="account-menu__icon-wrap">
+                                        <i class="bx bx-bell" aria-hidden="true"></i>
+                                        <span class="notification-badge" data-notification-badge hidden>0</span>
+                                    </span>
                                     <span>Thông báo</span>
                                 </button>
                                 <button type="button" class="account-menu__item" role="menuitem">
@@ -248,7 +252,20 @@
     <div class="test-drive__inner">
         <h2 id="test-drive-title">Sẵn Sàng Tìm Chiếc Xe Hoàn Hảo?</h2>
         <p>Cách tốt nhất để biết một chiếc xe có phù hợp với bạn hay không là ngồi vào vị trí lái. Gửi yêu cầu lái thử ngay hôm nay!</p>
-        <a href="#footer" class="test-drive__button">Yêu Cầu Lái Thử</a>
+        <a href="/dang-ky-lai-thu.html" class="test-drive__button">Yêu Cầu Lái Thử</a>
+    </div>
+</section>
+
+<section class="promotions" id="promotions" aria-labelledby="promotions-title">
+    <div class="heading">
+        <span>Thông tin khuyến mại</span>
+        <h2 id="promotions-title">Ưu đãi nổi bật dành cho khách mua xe</h2>
+    </div>
+    <div class="promotion-carousel container" id="promotion-carousel">
+        <article class="promotion-empty">
+            <i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i>
+            <p>Đang tải thông tin khuyến mại...</p>
+        </article>
     </div>
 </section>
 
@@ -323,11 +340,23 @@
         </div>
     </div>
 </div>
+<div class="promotion-detail-modal" id="promotion-detail-modal" aria-hidden="true">
+    <div class="promotion-detail-modal__overlay" data-close-promotion-detail></div>
+    <div class="promotion-detail-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="promotion-detail-title">
+        <button type="button" class="promotion-detail-modal__close" data-close-promotion-detail aria-label="Đóng chi tiết khuyến mại">
+            <i class="bx bx-x"></i>
+        </button>
+        <div class="promotion-detail-modal__content" id="promotion-detail-content">
+            <p class="notification-empty">Chọn một thông báo khuyến mại để xem chi tiết.</p>
+        </div>
+    </div>
+</div>
 
 <section class="team" id="team">
     <div class="heading">
-        <span>Đội ngũ nhân viên của chúng tôi</span>
-        <h2>Gặp mặt đội ngũ kinh doanh nổi bật tại OkXe</h2>
+        <span>Đội ngũ tư vấn bán hàng của chúng tôi</span>
+        <h2>Gặp mặt đội ngũ tư vấn bán hàng nổi bật tại OkXe</h2>
+        <a href="/tu-van-ban-hang.html" class="team-view-all">Xem tất cả tư vấn</a>
     </div>
     <div class="team-container container" id="team-container">
         <article class="team-empty">
@@ -336,6 +365,15 @@
         </article>
     </div>
 </section>
+<div class="team-member-modal" id="team-member-modal" aria-hidden="true" hidden>
+    <button type="button" class="team-member-modal__overlay" data-close-team-member aria-label="Đóng thông tin nhân viên"></button>
+    <section class="team-member-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="team-member-modal-title">
+        <button type="button" class="team-member-modal__close" data-close-team-member aria-label="Đóng thông tin nhân viên">
+            <i class="bx bx-x" aria-hidden="true"></i>
+        </button>
+        <div class="team-member-modal__content" id="team-member-modal-content"></div>
+    </section>
+</div>
 <!-- FAQ -->
 <section class="faq" id="faq">
     <div class="heading">
@@ -657,8 +695,8 @@
         <div class="footer-links-col">
             <h3>Pages</h3>
             <a href="#home">Trang chủ</a>
-            <a href="/mua-xe.html">Mua xe</a>
-            <a href="#team">Đội ngũ nhân viên </a>
+            <a href="/mua-xe.html">Tìm mua ô tô</a>
+            <a href="/tu-van-ban-hang.html">Đội ngũ tư vấn bán hàng</a>
             <a href="#faq">Hỏi đáp </a>
         </div>
 

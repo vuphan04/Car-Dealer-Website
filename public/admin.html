@@ -19,9 +19,17 @@
                     <i class="bx bxs-shopping-bag" aria-hidden="true"></i>
                     <span>Quản lý xe</span>
                 </a>
+                <a href="#" class="admin-sidebar__link" data-admin-nav="test-drives">
+                    <i class="bx bxs-calendar-check" aria-hidden="true"></i>
+                    <span>Quản lý lịch hẹn lái thử</span>
+                </a>
                 <a href="#" class="admin-sidebar__link" data-admin-nav="customers">
                     <i class="bx bxs-user-account" aria-hidden="true"></i>
                     <span>Khách hàng</span>
+                </a>
+                <a href="#" class="admin-sidebar__link" data-admin-nav="promotions">
+                    <i class="bx bxs-purchase-tag" aria-hidden="true"></i>
+                    <span>Thông tin khuyến mại</span>
                 </a>
                 <a href="#" class="admin-sidebar__link" data-admin-nav="staff" data-requires-admin hidden>
                     <i class="bx bxs-user-detail" aria-hidden="true"></i>
@@ -29,9 +37,18 @@
                 </a>
                 <a href="#" class="admin-sidebar__link" data-admin-nav="admins" data-requires-admin hidden>
                     <i class="bx bxs-user-badge" aria-hidden="true"></i>
-                    <span>Admin</span>
+                    <span>Tài khoản quản trị viên</span>
                 </a>
             </nav>
+            <section class="admin-sidebar__account" id="admin-current-account" aria-label="Tài khoản đang đăng nhập" hidden>
+                <span class="admin-sidebar__account-avatar" id="admin-current-account-avatar">A</span>
+                <span class="admin-sidebar__account-body">
+                    <span class="admin-sidebar__account-label">Đang đăng nhập</span>
+                    <strong id="admin-current-account-name">Admin</strong>
+                    <small id="admin-current-account-email">admin@okxe.vn</small>
+                </span>
+                <span class="admin-sidebar__account-role" id="admin-current-account-role">Admin</span>
+            </section>
             <button type="button" class="admin-sidebar__link admin-sidebar__logout" id="admin-logout-button">
                 <i class="bx bx-log-out" aria-hidden="true"></i>
                 <span>Đăng xuất</span>
@@ -110,6 +127,234 @@
                 </section>
             </section>
 
+            <section class="admin-view" data-admin-view="test-drives" hidden>
+                <section class="employee-shell test-drive-admin-shell">
+                    <div class="employee-shell__header">
+                        <div>
+                            <p class="eyebrow">Lịch hẹn lái thử</p>
+                            <h1>Quản lý lịch hẹn lái thử</h1>
+                            <p>Admin và nhân viên xem thông tin khách hàng đã đăng ký lái thử xe còn hàng.</p>
+                        </div>
+                    </div>
+
+                    <div class="admin-overview__stats test-drive-stats" aria-label="Thống kê lịch hẹn lái thử">
+                        <article class="overview-stat">
+                            <span>Lượt đăng ký</span>
+                            <strong id="test-drive-stat-total">0</strong>
+                        </article>
+                        <article class="overview-stat">
+                            <span>Đồng ý lái thử</span>
+                            <strong id="test-drive-stat-approved">0</strong>
+                        </article>
+                        <article class="overview-stat">
+                            <span>Hủy lịch hẹn</span>
+                            <strong id="test-drive-stat-cancelled">0</strong>
+                        </article>
+                        <article class="overview-stat">
+                            <span>Chờ xử lý</span>
+                            <strong id="test-drive-stat-pending">0</strong>
+                        </article>
+                    </div>
+
+                    <section class="employee-card">
+                        <div class="employee-card__header">
+                            <div>
+                                <p class="eyebrow">Danh sách lịch hẹn</p>
+                                <h2>Lịch cần xử lý</h2>
+                            </div>
+                            <div class="inventory-shell__actions">
+                                <label class="inventory-search employee-search">
+                                    <i class="bx bx-search"></i>
+                                    <input type="search" id="test-drive-search" placeholder="Tìm theo khách, SĐT hoặc xe">
+                                </label>
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="test-drive-refresh-button">
+                                    <i class="bx bx-refresh"></i>
+                                    <span>Tải lại</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="inventory-table-wrap">
+                            <table class="inventory-table test-drive-table">
+                                <thead>
+                                    <tr>
+                                        <th>Khách hàng</th>
+                                        <th>Xe muốn lái thử</th>
+                                        <th>Ngày/giờ dự kiến</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="test-drive-table-body">
+                                    <tr>
+                                        <td colspan="5" class="table-empty">Đang tải lịch hẹn lái thử...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="admin-feedback" id="test-drive-feedback" aria-live="polite"></p>
+                    </section>
+
+                    <section class="employee-card test-drive-history-card">
+                        <div class="employee-card__header">
+                            <div>
+                                <p class="eyebrow">Đã xử lý</p>
+                                <h2>Lịch đã xác nhận hoặc đã hủy</h2>
+                            </div>
+                        </div>
+
+                        <div class="inventory-table-wrap">
+                            <table class="inventory-table test-drive-table">
+                                <thead>
+                                    <tr>
+                                        <th>Khách hàng</th>
+                                        <th>Xe muốn lái thử</th>
+                                        <th>Ngày/giờ dự kiến</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="test-drive-processed-table-body">
+                                    <tr>
+                                        <td colspan="5" class="table-empty">Đang tải lịch đã xử lý...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </section>
+            </section>
+
+            <section class="admin-view" data-admin-view="promotions" hidden>
+                <section class="employee-shell promotion-shell">
+                    <div class="employee-shell__header">
+                        <div>
+                            <p class="eyebrow">Khuyến mại</p>
+                            <h1>Thông tin khuyến mại</h1>
+                            <p>Viết bài ưu đãi, bật hiển thị trên trang chủ và sắp xếp thứ tự trong carousel khuyến mại.</p>
+                        </div>
+                    </div>
+
+                    <section class="employee-card promotion-card">
+                        <div class="employee-card__header">
+                            <div>
+                                <p class="eyebrow">Bài viết</p>
+                                <h2 id="promotion-form-title">Bài khuyến mại mới</h2>
+                            </div>
+                        </div>
+
+                        <form class="employee-form promotion-form" id="promotion-form">
+                            <input type="hidden" name="id" id="promotion-id">
+                            <label class="employee-form__field--wide">
+                                <span>Tiêu đề khuyến mại</span>
+                                <input type="text" name="title" maxlength="160" placeholder="Ví dụ: Ưu đãi sang tên miễn phí trong tháng này" required>
+                            </label>
+                            <label>
+                                <span>Nhãn hiển thị</span>
+                                <input type="text" name="badgeText" maxlength="40" placeholder="Ví dụ: Ưu đãi tháng 5">
+                            </label>
+                            <label class="promotion-image-field">
+                                <span>Ảnh minh họa</span>
+                                <div class="promotion-image-picker">
+                                    <span class="promotion-image-picker__preview" id="promotion-image-preview">
+                                        <i class="bx bxs-image"></i>
+                                    </span>
+                                    <div class="promotion-image-picker__body">
+                                        <button type="button" class="toolbar-btn toolbar-btn--soft promotion-image-picker__button" id="choose-promotion-image-button">
+                                            <i class="bx bx-upload"></i>
+                                            <span>Chọn ảnh</span>
+                                        </button>
+                                        <small id="promotion-image-file-name">Chưa chọn ảnh</small>
+                                    </div>
+                                </div>
+                                <input type="file" id="promotion-image-input" accept="image/*" hidden>
+                                <input type="hidden" name="imageUrl">
+                            </label>
+                            <label>
+                                <span>Chữ nút hành động</span>
+                                <input type="text" name="ctaText" maxlength="60" placeholder="Nhận tư vấn">
+                            </label>
+                            <label>
+                                <span>Đường dẫn nút</span>
+                                <input type="text" name="ctaUrl" maxlength="500" placeholder="#footer">
+                            </label>
+                            <label class="employee-form__field--wide">
+                                <span>Mô tả ngắn</span>
+                                <textarea name="summary" rows="3" maxlength="240" placeholder="Tóm tắt ưu đãi để hiển thị trên card khuyến mại" required></textarea>
+                            </label>
+                            <label class="employee-form__field--wide">
+                                <span>Nội dung chi tiết</span>
+                                <textarea name="content" rows="7" maxlength="4000" placeholder="Nhập nội dung khuyến mại, điều kiện áp dụng, thời gian và ghi chú cho khách hàng" required></textarea>
+                            </label>
+                            <label>
+                                <span>Ngày bắt đầu</span>
+                                <input type="date" name="startsAt">
+                            </label>
+                            <label>
+                                <span>Ngày kết thúc</span>
+                                <input type="date" name="endsAt">
+                            </label>
+                            <label>
+                                <span>Thứ tự hiển thị</span>
+                                <input type="number" name="displayOrder" min="0" step="1" placeholder="0">
+                            </label>
+                            <label class="employee-form__switch">
+                                <input type="checkbox" name="showOnHome" value="1">
+                                <span>Hiển thị trên trang chủ</span>
+                                <small>Bài chỉ xuất hiện nếu đang bật hiển thị và còn trong thời gian áp dụng.</small>
+                            </label>
+                            <div class="employee-form__actions">
+                                <button type="submit" class="toolbar-btn toolbar-btn--primary" id="promotion-submit-button">
+                                    <i class="bx bx-save"></i>
+                                    <span>Lưu bài khuyến mại</span>
+                                </button>
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="promotion-reset-button">
+                                    <i class="bx bx-eraser"></i>
+                                    <span>Làm mới</span>
+                                </button>
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="promotion-refresh-button">
+                                    <i class="bx bx-refresh"></i>
+                                    <span>Tải lại</span>
+                                </button>
+                            </div>
+                            <p class="admin-feedback" id="promotion-feedback" aria-live="polite"></p>
+                        </form>
+                    </section>
+
+                    <section class="employee-card promotion-card">
+                        <div class="employee-card__header">
+                            <div>
+                                <p class="eyebrow">Danh sách</p>
+                                <h2>Bài khuyến mại</h2>
+                            </div>
+                            <label class="inventory-search employee-search">
+                                <i class="bx bx-search"></i>
+                                <input type="search" id="promotion-search" placeholder="Tìm theo tiêu đề hoặc nội dung">
+                            </label>
+                        </div>
+
+                        <div class="inventory-table-wrap">
+                            <table class="inventory-table promotion-table">
+                                <thead>
+                                    <tr>
+                                        <th>Bài viết</th>
+                                        <th>Thời gian</th>
+                                        <th>Nút hành động</th>
+                                        <th>Trang chủ</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="promotion-table-body">
+                                    <tr>
+                                        <td colspan="5" class="table-empty">Đang tải danh sách khuyến mại...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </section>
+            </section>
+
             <section class="admin-view" data-admin-view="employees" hidden>
                 <section class="employee-shell">
                     <div class="employee-shell__header">
@@ -130,31 +375,66 @@
 
                         <form class="employee-form" id="employee-form">
                             <input type="hidden" name="id" id="employee-id">
-                            <label>
+                            <label data-account-field="identity">
                                 <span>Họ và tên</span>
                                 <input type="text" name="fullName" placeholder="Ví dụ: Nguyễn Văn A" required>
                             </label>
-                            <label>
+                            <label data-account-field="identity">
                                 <span>Email</span>
                                 <input type="email" name="email" placeholder="nhanvien@okxe.vn" required>
                             </label>
-                            <label>
+                            <label data-account-field="account">
                                 <span>Mật khẩu</span>
                                 <input type="password" name="password" placeholder="Tối thiểu 6 ký tự">
                             </label>
-                            <label>
+                            <label data-account-field="role">
                                 <span>Vai trò</span>
                                 <select name="role" required>
-                                    <option value="customer">Khách hàng</option>
                                     <option value="staff" selected>Nhân viên</option>
                                     <option value="admin">Admin</option>
                                 </select>
                             </label>
-                            <label>
+                            <label data-account-field="profile">
                                 <span>Số điện thoại/Zalo</span>
                                 <input type="tel" name="phone" placeholder="Ví dụ: 0912345678">
                             </label>
-                            <label>
+                            <label data-account-field="customer-profile staff-profile">
+                                <span>Số CCCD</span>
+                                <input type="text" name="citizenId" inputmode="numeric" maxlength="12" placeholder="Ví dụ: 012345678901">
+                            </label>
+                            <label data-account-field="customer-profile">
+                                <span>Ngày sinh</span>
+                                <input type="date" name="birthDate">
+                            </label>
+                            <label data-account-field="customer-profile">
+                                <span>Giới tính</span>
+                                <select name="gender">
+                                    <option value="">Chưa cập nhật</option>
+                                    <option value="male">Nam</option>
+                                    <option value="female">Nữ</option>
+                                    <option value="other">Khác</option>
+                                </select>
+                            </label>
+                            <div class="employee-form__section-title" data-account-field="address">
+                                <h3>Địa chỉ liên hệ</h3>
+                            </div>
+                            <label data-account-field="address">
+                                <span>Tỉnh/thành phố</span>
+                                <input type="text" name="addressProvince" placeholder="Ví dụ: Hà Nội">
+                            </label>
+                            <label data-account-field="address">
+                                <span>Quận/huyện</span>
+                                <input type="text" name="addressDistrict" placeholder="Ví dụ: Quận Hà Đông">
+                            </label>
+                            <label data-account-field="address">
+                                <span>Phường/xã</span>
+                                <input type="text" name="addressWard" placeholder="Ví dụ: Yên Nghĩa">
+                            </label>
+                            <label class="employee-form__field--wide" data-account-field="address">
+                                <span>Địa chỉ chi tiết</span>
+                                <input type="text" name="addressDetail" placeholder="Ví dụ: Đường Tố Hữu, Phường Yên Nghĩa, Hà Đông, Hà Nội">
+                            </label>
+                            <label data-account-field="staff-profile">
                                 <span>Ảnh đại diện</span>
                                 <div class="employee-avatar-picker">
                                     <span class="employee-avatar-picker__preview" id="employee-avatar-preview">
@@ -169,26 +449,26 @@
                                 <input type="file" id="employee-avatar-input" accept="image/*" hidden>
                                 <input type="hidden" name="avatarUrl">
                             </label>
-                            <label>
+                            <label data-account-field="staff-profile">
                                 <span>Chức danh kinh doanh</span>
                                 <select name="salesTitle">
                                     <option value="Nhân viên kinh doanh" selected>Nhân viên kinh doanh</option>
                                     <option value="Trưởng phòng kinh doanh">Trưởng phòng kinh doanh</option>
                                 </select>
                             </label>
-                            <label>
+                            <label data-account-field="staff-profile">
                                 <span>Kinh nghiệm</span>
                                 <input type="text" name="salesExperience" maxlength="80" placeholder="Ví dụ: 5 năm kinh nghiệm">
                             </label>
-                            <label class="employee-form__field--wide">
-                                <span>Mô tả ngắn</span>
-                                <textarea name="salesBio" rows="3" maxlength="220" placeholder="Một câu ngắn giới thiệu điểm mạnh tư vấn của nhân viên"></textarea>
+                            <label class="employee-form__field--wide" data-account-field="staff-profile">
+                                <span>Mô tả</span>
+                                <textarea name="salesBio" rows="5" placeholder="Nhập mô tả chi tiết về kinh nghiệm, phong cách tư vấn, thế mạnh và thông tin giới thiệu nhân viên"></textarea>
                             </label>
-                            <label>
+                            <label data-account-field="staff-profile">
                                 <span>Thứ tự hiển thị</span>
                                 <input type="number" name="homeDisplayOrder" min="0" step="1" placeholder="0">
                             </label>
-                            <label class="employee-form__switch">
+                            <label class="employee-form__switch" data-account-field="staff-profile">
                                 <input type="checkbox" name="showOnHome" value="1">
                                 <span>Hiển thị trên trang chủ</span>
                                 <small>Chỉ bật cho nhân viên/trưởng phòng nổi bật.</small>
@@ -368,6 +648,16 @@
                 </label>
 
                 <label>
+                    <span>Dẫn động</span>
+                    <select name="drivetrain" required>
+                        <option value="" disabled selected>Chọn dẫn động</option>
+                        <option value="FWD - Dẫn động cầu trước">FWD - Dẫn động cầu trước</option>
+                        <option value="RWD - Dẫn động cầu sau">RWD - Dẫn động cầu sau</option>
+                        <option value="Dẫn động 4 bánh">Dẫn động 4 bánh</option>
+                    </select>
+                </label>
+
+                <label>
                     <span>Xuất xứ</span>
                     <select name="origin" required>
                         <option value="" disabled selected>Chọn xuất xứ</option>
@@ -417,7 +707,7 @@
         <div class="customer-detail-modal" role="dialog" aria-modal="true" aria-labelledby="customer-detail-title">
             <div class="customer-detail__header">
                 <div>
-                    <p class="eyebrow">Hồ sơ khách hàng</p>
+                    <p class="eyebrow" id="customer-detail-eyebrow">Hồ sơ khách hàng</p>
                     <h3 id="customer-detail-title">Thông tin khách hàng</h3>
                 </div>
                 <button type="button" class="icon-btn icon-btn--neutral" data-close-customer-detail aria-label="Đóng thông tin khách hàng">
@@ -427,6 +717,115 @@
             <div class="customer-detail__body" id="customer-detail-body">
                 <p class="table-empty">Chọn khách hàng để xem thông tin.</p>
             </div>
+        </div>
+    </section>
+
+    <section class="modal-backdrop" id="test-drive-status-panel" hidden aria-hidden="true">
+        <div class="customer-detail-modal test-drive-status-modal" role="dialog" aria-modal="true" aria-labelledby="test-drive-status-title">
+            <div class="customer-detail__header">
+                <div>
+                    <p class="eyebrow">Lịch hẹn lái thử</p>
+                    <h3 id="test-drive-status-title">Cập nhật trạng thái</h3>
+                </div>
+                <button type="button" class="icon-btn icon-btn--neutral" data-close-test-drive-status aria-label="Đóng cập nhật trạng thái">
+                    <i class="bx bx-x"></i>
+                </button>
+            </div>
+            <div class="test-drive-status-body">
+                <p id="test-drive-status-summary">Chọn trạng thái xử lý lịch hẹn.</p>
+                <div class="test-drive-status-options" role="radiogroup" aria-label="Trạng thái lịch hẹn">
+                    <button type="button" class="test-drive-status-option" data-status-option="approved">
+                        <i class="bx bx-check-circle" aria-hidden="true"></i>
+                        <span>Đồng ý cho phép lái thử</span>
+                    </button>
+                    <button type="button" class="test-drive-status-option" data-status-option="cancelled">
+                        <i class="bx bx-x-circle" aria-hidden="true"></i>
+                        <span>Hủy lịch hẹn</span>
+                    </button>
+                    <button type="button" class="test-drive-status-option" data-status-option="pending">
+                        <i class="bx bx-time-five" aria-hidden="true"></i>
+                        <span>Treo lịch</span>
+                    </button>
+                </div>
+                <div class="test-drive-reschedule" id="test-drive-reschedule-fields" hidden>
+                    <div>
+                        <span>Ngày lái thử mới</span>
+                        <input type="date" id="test-drive-new-date">
+                    </div>
+                    <div>
+                        <span>Khung giờ mới</span>
+                        <select id="test-drive-new-time-slot">
+                            <option value="">Chọn khung giờ</option>
+                            <option value="08:00-09:00">08:00 - 09:00</option>
+                            <option value="09:00-10:00">09:00 - 10:00</option>
+                            <option value="10:00-11:00">10:00 - 11:00</option>
+                            <option value="13:30-14:30">13:30 - 14:30</option>
+                            <option value="14:30-15:30">14:30 - 15:30</option>
+                            <option value="15:30-16:30">15:30 - 16:30</option>
+                        </select>
+                    </div>
+                </div>
+                <label class="test-drive-status-note">
+                    <span>Lý do / ghi chú gửi khách hàng</span>
+                    <textarea id="test-drive-status-note" rows="5" maxlength="500" placeholder="Nhập lý do khi treo hoặc hủy lịch hẹn..."></textarea>
+                </label>
+                <div class="employee-form__actions">
+                    <button type="button" class="toolbar-btn toolbar-btn--primary" id="test-drive-status-save-button">
+                        <i class="bx bx-save"></i>
+                        <span>Cập nhật trạng thái</span>
+                    </button>
+                    <button type="button" class="toolbar-btn toolbar-btn--soft" data-close-test-drive-status>
+                        <i class="bx bx-x"></i>
+                        <span>Hủy thao tác</span>
+                    </button>
+                </div>
+                <p class="admin-feedback" id="test-drive-status-feedback" aria-live="polite"></p>
+            </div>
+        </div>
+    </section>
+
+    <section class="modal-backdrop promotion-crop-panel" id="promotion-crop-panel" hidden aria-hidden="true">
+        <div class="promotion-crop-modal" role="dialog" aria-modal="true" aria-labelledby="promotion-crop-title">
+            <div class="promotion-crop-modal__header">
+                <div>
+                    <p class="eyebrow">Cắt ảnh banner</p>
+                    <h3 id="promotion-crop-title">Căn ảnh khuyến mại trang chủ</h3>
+                </div>
+                <button type="button" class="icon-btn icon-btn--neutral" data-close-promotion-crop aria-label="Đóng cắt ảnh khuyến mại">
+                    <i class="bx bx-x"></i>
+                </button>
+            </div>
+            <div class="promotion-crop-modal__body">
+                <div class="promotion-crop-preview">
+                    <canvas id="promotion-crop-canvas" width="1200" height="600" aria-label="Vùng xem trước ảnh banner khuyến mại"></canvas>
+                </div>
+                <div class="promotion-crop-controls">
+                    <label>
+                        <span>Phóng ảnh</span>
+                        <input type="range" id="promotion-crop-zoom" min="1" max="3" step="0.01" value="1">
+                    </label>
+                    <label>
+                        <span>Dịch ngang</span>
+                        <input type="range" id="promotion-crop-x" min="0" max="100" step="1" value="50">
+                    </label>
+                    <label>
+                        <span>Dịch dọc</span>
+                        <input type="range" id="promotion-crop-y" min="0" max="100" step="1" value="50">
+                    </label>
+                    <small id="promotion-crop-file-name">Ảnh banner sẽ được lưu theo tỷ lệ 2:1 để hiển thị đẹp trên carousel trang chủ.</small>
+                </div>
+            </div>
+            <div class="employee-form__actions promotion-crop-modal__actions">
+                <button type="button" class="toolbar-btn toolbar-btn--primary" id="promotion-crop-apply-button">
+                    <i class="bx bx-crop"></i>
+                    <span>Cắt và tải ảnh</span>
+                </button>
+                <button type="button" class="toolbar-btn toolbar-btn--soft" data-close-promotion-crop>
+                    <i class="bx bx-x"></i>
+                    <span>Hủy</span>
+                </button>
+            </div>
+            <p class="admin-feedback" id="promotion-crop-feedback" aria-live="polite"></p>
         </div>
     </section>
 

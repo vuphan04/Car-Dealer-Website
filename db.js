@@ -1,5 +1,4 @@
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const {
   createHmac,
@@ -12,12 +11,13 @@ const {
 const { DatabaseSync } = require('node:sqlite');
 
 const primaryDbPath = path.join(__dirname, 'data', 'rentals.db');
-const persistentDbDir = path.join(
-  process.env.OKXE_DATA_DIR || process.env.LOCALAPPDATA || os.tmpdir(),
-  'okxe',
-  'data'
-);
-const persistentDbPath = path.join(persistentDbDir, 'rentals.db');
+const configuredDataDir = String(process.env.OKXE_DATA_DIR || '').trim();
+const activeDbDir = configuredDataDir
+  ? path.join(configuredDataDir, 'okxe', 'data')
+  : path.dirname(primaryDbPath);
+const activeDbPath = configuredDataDir
+  ? path.join(activeDbDir, 'rentals.db')
+  : primaryDbPath;
 const otpHashSecret =
   process.env.OTP_HASH_SECRET ||
   process.env.SESSION_SECRET ||
@@ -25,6 +25,8 @@ const otpHashSecret =
 const userRoles = new Set(['customer', 'staff', 'admin']);
 const employeeRoles = new Set(['staff', 'admin']);
 const salesTitles = new Set(['Nhân viên kinh doanh', 'Trưởng phòng kinh doanh']);
+const testDriveAppointmentStatuses = new Set(['pending', 'approved', 'cancelled']);
+const approvedTestDriveAppointmentStatus = 'approved';
 
 const normalizeConfiguredEmail = (email) =>
   String(email || '').trim().toLowerCase();
@@ -44,6 +46,18 @@ const normalizeUserRole = (role) => {
   const normalizedRole = String(role || '').trim().toLowerCase();
 
   return userRoles.has(normalizedRole) ? normalizedRole : 'customer';
+};
+
+const normalizeTestDriveAppointmentStatus = (status) => {
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+
+  if (normalizedStatus === 'new') {
+    return 'pending';
+  }
+
+  return testDriveAppointmentStatuses.has(normalizedStatus)
+    ? normalizedStatus
+    : 'pending';
 };
 
 const getConfiguredRoleForEmail = (email) => {
@@ -85,10 +99,10 @@ const syncConfiguredEmployeeRoles = (database) => {
   });
 };
 
-const ensurePersistentDatabaseFile = () => {
-  fs.mkdirSync(persistentDbDir, { recursive: true });
+const ensureDatabaseFile = () => {
+  fs.mkdirSync(activeDbDir, { recursive: true });
 
-  if (fs.existsSync(persistentDbPath)) {
+  if (fs.existsSync(activeDbPath)) {
     return;
   }
 
@@ -97,8 +111,8 @@ const ensurePersistentDatabaseFile = () => {
     const primaryJournalPath = `${primaryDbPath}-journal`;
     const hasJournal = fs.existsSync(primaryJournalPath);
 
-    if (primaryDbStat?.isFile() && !hasJournal) {
-      fs.copyFileSync(primaryDbPath, persistentDbPath);
+    if (configuredDataDir && primaryDbStat?.isFile() && !hasJournal) {
+      fs.copyFileSync(primaryDbPath, activeDbPath);
       return;
     }
   } catch (error) {
@@ -107,14 +121,14 @@ const ensurePersistentDatabaseFile = () => {
     );
   }
 
-  if (!fs.existsSync(persistentDbPath)) {
-    fs.closeSync(fs.openSync(persistentDbPath, 'a'));
+  if (!fs.existsSync(activeDbPath)) {
+    fs.closeSync(fs.openSync(activeDbPath, 'a'));
   }
 };
 
 const openDatabase = () => {
-  ensurePersistentDatabaseFile();
-  return new DatabaseSync(persistentDbPath);
+  ensureDatabaseFile();
+  return new DatabaseSync(activeDbPath);
 };
 
 const initializeSchema = (database) => {
@@ -181,10 +195,28 @@ const initializeSchema = (database) => {
     mileage_value INTEGER NOT NULL,
     seats TEXT NOT NULL,
     gearbox TEXT NOT NULL,
+    drivetrain TEXT NOT NULL DEFAULT 'FWD - Dẫn động cầu trước',
     origin TEXT NOT NULL,
     condition TEXT NOT NULL,
     color TEXT NOT NULL,
     action_text TEXT NOT NULL DEFAULT 'Còn xe',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  );
+
+  CREATE TABLE IF NOT EXISTS promotions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL DEFAULT '',
+    content TEXT NOT NULL DEFAULT '',
+    badge_text TEXT NOT NULL DEFAULT 'Khuyến mại',
+    image_url TEXT NOT NULL DEFAULT '',
+    cta_text TEXT NOT NULL DEFAULT 'Xem ưu đãi',
+    cta_url TEXT NOT NULL DEFAULT '#footer',
+    starts_at TEXT NOT NULL DEFAULT '',
+    ends_at TEXT NOT NULL DEFAULT '',
+    show_on_home INTEGER NOT NULL DEFAULT 0,
+    display_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
@@ -196,6 +228,25 @@ const initializeSchema = (database) => {
     PRIMARY KEY (user_id, car_id),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS test_drive_appointments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    car_id INTEGER,
+    car_name TEXT NOT NULL DEFAULT '',
+    car_brand TEXT NOT NULL DEFAULT '',
+    car_price_text TEXT NOT NULL DEFAULT '',
+    full_name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    preferred_date TEXT NOT NULL,
+    preferred_time_slot TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    status_note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE SET NULL
   );
 
   CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id
@@ -216,11 +267,21 @@ const initializeSchema = (database) => {
   CREATE INDEX IF NOT EXISTS idx_cars_price_value
   ON cars (price_value);
 
+  CREATE INDEX IF NOT EXISTS idx_promotions_home
+  ON promotions (show_on_home, display_order, created_at);
+
   CREATE INDEX IF NOT EXISTS idx_user_favorite_cars_user_id
   ON user_favorite_cars (user_id);
 
   CREATE INDEX IF NOT EXISTS idx_user_favorite_cars_car_id
   ON user_favorite_cars (car_id);
+
+  CREATE INDEX IF NOT EXISTS idx_test_drive_appointments_user_id
+  ON test_drive_appointments (user_id);
+
+  CREATE INDEX IF NOT EXISTS idx_test_drive_appointments_preferred_date
+  ON test_drive_appointments (preferred_date, created_at);
+
 `);
 
   const userColumns = database.prepare('PRAGMA table_info(users)').all();
@@ -286,6 +347,9 @@ const initializeSchema = (database) => {
   const hasDescriptionColumn = carColumns.some(
     (column) => column.name === 'description'
   );
+  const hasDrivetrainColumn = carColumns.some(
+    (column) => column.name === 'drivetrain'
+  );
 
   if (!hasBrandColumn) {
     database.exec("ALTER TABLE cars ADD COLUMN brand TEXT NOT NULL DEFAULT 'Khác'");
@@ -293,6 +357,10 @@ const initializeSchema = (database) => {
 
   if (!hasDescriptionColumn) {
     database.exec("ALTER TABLE cars ADD COLUMN description TEXT NOT NULL DEFAULT ''");
+  }
+
+  if (!hasDrivetrainColumn) {
+    database.exec("ALTER TABLE cars ADD COLUMN drivetrain TEXT NOT NULL DEFAULT 'FWD - Dẫn động cầu trước'");
   }
 
   const inferBrandFromName = (name) => {
@@ -404,6 +472,9 @@ const initializeSchema = (database) => {
     ['seats', '9 chỗ', ['9 Chỗ', '9 cho']],
     ['gearbox', 'Số Sàn', ['Sàn', 'sàn', 'Số sàn', 'so san']],
     ['gearbox', 'Tự động', ['Tự Động', 'Số tự động', 'Số Tự Động', 'Tự động / Tay', 'Tự Động / Tay']],
+    ['drivetrain', 'FWD - Dẫn động cầu trước', ['FWD', 'fwd', 'Dẫn động cầu trước', 'dẫn động cầu trước', 'Dan dong cau truoc', 'dan dong cau truoc']],
+    ['drivetrain', 'RWD - Dẫn động cầu sau', ['RWD', 'rwd', 'Dẫn động cầu sau', 'dẫn động cầu sau', 'Dan dong cau sau', 'dan dong cau sau']],
+    ['drivetrain', 'Dẫn động 4 bánh', ['AWD', 'awd', '4WD', '4wd', 'Dẫn động bốn bánh', 'dẫn động bốn bánh', 'Dẫn động 4 bánh', 'dẫn động 4 bánh', 'Dan dong 4 banh', 'dan dong 4 banh']],
     ['origin', 'Nhập khẩu', ['nhập khẩu', 'Nhập Khẩu']],
     ['origin', 'Trong nước', ['trong nước', 'Trong Nước']],
     ['condition', 'Xe mới', ['xe mới', 'Xe Mới']],
@@ -413,6 +484,54 @@ const initializeSchema = (database) => {
   ].forEach(([columnName, canonicalValue, legacyValues]) => {
     normalizeCarOptionValue(columnName, canonicalValue, legacyValues);
   });
+
+  database.exec(`
+    UPDATE cars
+    SET drivetrain = 'Dẫn động 4 bánh'
+    WHERE drivetrain = 'FWD - Dẫn động cầu trước'
+      AND (
+        lower(name) LIKE '%macan%'
+        OR lower(name) LIKE '%cayenne%'
+        OR lower(name) LIKE '%quattro%'
+        OR lower(name) LIKE '%4matic%'
+        OR lower(name) LIKE '%xdrive%'
+        OR lower(brand) = 'audi'
+      )
+  `);
+  database.exec(`
+    UPDATE cars
+    SET drivetrain = 'RWD - Dẫn động cầu sau'
+    WHERE drivetrain = 'FWD - Dẫn động cầu trước'
+      AND (
+        lower(name) LIKE '%phantom%'
+        OR lower(name) LIKE '%bmw m4%'
+        OR lower(name) LIKE '%vf3%'
+      )
+  `);
+
+  const testDriveColumns = database.prepare('PRAGMA table_info(test_drive_appointments)').all();
+  const testDriveColumnNames = new Set(testDriveColumns.map((column) => column.name));
+
+  if (!testDriveColumnNames.has('status_note')) {
+    database.exec("ALTER TABLE test_drive_appointments ADD COLUMN status_note TEXT NOT NULL DEFAULT ''");
+  }
+
+  if (!testDriveColumnNames.has('preferred_time_slot')) {
+    database.exec("ALTER TABLE test_drive_appointments ADD COLUMN preferred_time_slot TEXT NOT NULL DEFAULT ''");
+  }
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_test_drive_appointments_schedule
+    ON test_drive_appointments (car_id, preferred_date, preferred_time_slot, status);
+  `);
+
+  database.exec(`
+    UPDATE test_drive_appointments
+    SET status = 'pending'
+    WHERE status IS NULL
+       OR status = ''
+       OR status = 'new'
+  `);
 };
 
 const db = openDatabase();
@@ -423,9 +542,10 @@ const insertUserStatement = db.prepare(`
   INSERT INTO users (
     full_name, email, password_hash, role, phone, avatar_url,
     sales_title, sales_specialty, sales_experience, sales_bio, show_on_home, home_display_order,
+    citizen_id, birth_date, gender, address_province, address_district, address_ward, address_detail,
     updated_at
   )
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 `);
 
 const findUserByIdStatement = db.prepare(`
@@ -505,12 +625,12 @@ const listUsersStatement = db.prepare(`
 `);
 
 const listHomepageTeamMembersStatement = db.prepare(`
-  SELECT id, full_name, role, phone, avatar_url,
+  SELECT id, full_name, email, role, phone, avatar_url,
          sales_title, sales_specialty, sales_experience, sales_bio,
          home_display_order, updated_at, created_at
   FROM users
   WHERE show_on_home = 1
-    AND role IN ('staff', 'admin')
+    AND role = 'staff'
   ORDER BY
     home_display_order ASC,
     CASE sales_title
@@ -519,13 +639,29 @@ const listHomepageTeamMembersStatement = db.prepare(`
     END,
     lower(full_name),
     id
-  LIMIT 8
+  LIMIT 6
+`);
+
+const listPublicTeamMembersStatement = db.prepare(`
+  SELECT id, full_name, email, role, phone, avatar_url,
+         sales_title, sales_specialty, sales_experience, sales_bio,
+         home_display_order, updated_at, created_at
+  FROM users
+  WHERE role = 'staff'
+  ORDER BY
+    CASE sales_title
+      WHEN 'Trưởng phòng kinh doanh' THEN 1
+      ELSE 2
+    END,
+    CAST(sales_experience AS REAL) DESC,
+    lower(full_name),
+    id
 `);
 
 const updateUserRoleStatement = db.prepare(`
   UPDATE users
   SET role = ?,
-      show_on_home = CASE WHEN ? IN ('staff', 'admin') THEN show_on_home ELSE 0 END,
+      show_on_home = CASE WHEN ? = 'staff' THEN show_on_home ELSE 0 END,
       updated_at = CURRENT_TIMESTAMP
   WHERE id = ?
 `);
@@ -543,6 +679,13 @@ const updateUserProfileStatement = db.prepare(`
       sales_bio = ?,
       show_on_home = ?,
       home_display_order = ?,
+      citizen_id = ?,
+      birth_date = ?,
+      gender = ?,
+      address_province = ?,
+      address_district = ?,
+      address_ward = ?,
+      address_detail = ?,
       updated_at = CURRENT_TIMESTAMP
   WHERE id = ?
 `);
@@ -560,6 +703,13 @@ const updateUserProfileWithPasswordStatement = db.prepare(`
       sales_bio = ?,
       show_on_home = ?,
       home_display_order = ?,
+      citizen_id = ?,
+      birth_date = ?,
+      gender = ?,
+      address_province = ?,
+      address_district = ?,
+      address_ward = ?,
+      address_detail = ?,
       password_hash = ?,
       updated_at = CURRENT_TIMESTAMP
   WHERE id = ?
@@ -633,9 +783,9 @@ const deleteExpiredResetOtpsStatement = db.prepare(`
 const insertCarStatement = db.prepare(`
   INSERT INTO cars (
     brand, category, name, description, type, price_text, price_value, image, images_json, year, fuel,
-    mileage_text, mileage_value, seats, gearbox, origin, condition, color, action_text
+    mileage_text, mileage_value, seats, gearbox, drivetrain, origin, condition, color, action_text
   )
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 const updateCarStatement = db.prepare(`
@@ -655,6 +805,7 @@ const updateCarStatement = db.prepare(`
       mileage_value = ?,
       seats = ?,
       gearbox = ?,
+      drivetrain = ?,
       origin = ?,
       condition = ?,
       color = ?,
@@ -685,6 +836,74 @@ const listCarsStatement = db.prepare(`
   ORDER BY datetime(created_at) DESC, id DESC
 `);
 
+const listAvailableTestDriveCarsStatement = db.prepare(`
+  SELECT *
+  FROM cars
+  WHERE action_text = 'Còn xe'
+  ORDER BY datetime(created_at) DESC, id DESC
+`);
+
+const insertPromotionStatement = db.prepare(`
+  INSERT INTO promotions (
+    title, summary, content, badge_text, image_url, cta_text, cta_url,
+    starts_at, ends_at, show_on_home, display_order
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+const updatePromotionStatement = db.prepare(`
+  UPDATE promotions
+  SET title = ?,
+      summary = ?,
+      content = ?,
+      badge_text = ?,
+      image_url = ?,
+      cta_text = ?,
+      cta_url = ?,
+      starts_at = ?,
+      ends_at = ?,
+      show_on_home = ?,
+      display_order = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const deletePromotionStatement = db.prepare(`
+  DELETE FROM promotions
+  WHERE id = ?
+`);
+
+const findPromotionByIdStatement = db.prepare(`
+  SELECT *
+  FROM promotions
+  WHERE id = ?
+`);
+
+const listPromotionsStatement = db.prepare(`
+  SELECT *
+  FROM promotions
+  ORDER BY display_order ASC, datetime(created_at) DESC, id DESC
+`);
+
+const listHomepagePromotionsStatement = db.prepare(`
+  SELECT *
+  FROM promotions
+  WHERE show_on_home = 1
+    AND (starts_at = '' OR date(starts_at) <= date('now', 'localtime'))
+    AND (ends_at = '' OR date(ends_at) >= date('now', 'localtime'))
+  ORDER BY display_order ASC, datetime(created_at) DESC, id DESC
+  LIMIT 8
+`);
+
+const listPublicPromotionsStatement = db.prepare(`
+  SELECT *
+  FROM promotions
+  WHERE show_on_home = 1
+    AND (starts_at = '' OR date(starts_at) <= date('now', 'localtime'))
+    AND (ends_at = '' OR date(ends_at) >= date('now', 'localtime'))
+  ORDER BY display_order ASC, datetime(created_at) DESC, id DESC
+`);
+
 const listFavoriteCarsByUserStatement = db.prepare(`
   SELECT cars.*
   FROM user_favorite_cars
@@ -711,6 +930,105 @@ const deleteFavoriteCarStatement = db.prepare(`
     AND car_id = ?
 `);
 
+const insertTestDriveAppointmentStatement = db.prepare(`
+  INSERT INTO test_drive_appointments (
+    user_id, car_id, car_name, car_brand, car_price_text,
+    full_name, phone, preferred_date, preferred_time_slot, status_note
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+const findTestDriveAppointmentByIdStatement = db.prepare(`
+  SELECT test_drive_appointments.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM test_drive_appointments
+  INNER JOIN users ON users.id = test_drive_appointments.user_id
+  WHERE test_drive_appointments.id = ?
+`);
+
+const listTestDriveAppointmentsStatement = db.prepare(`
+  SELECT test_drive_appointments.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM test_drive_appointments
+  INNER JOIN users ON users.id = test_drive_appointments.user_id
+  ORDER BY date(test_drive_appointments.preferred_date) ASC,
+           datetime(test_drive_appointments.created_at) DESC,
+           test_drive_appointments.id DESC
+`);
+
+const listTestDriveAppointmentsByUserStatement = db.prepare(`
+  SELECT test_drive_appointments.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM test_drive_appointments
+  INNER JOIN users ON users.id = test_drive_appointments.user_id
+  WHERE test_drive_appointments.user_id = ?
+  ORDER BY datetime(test_drive_appointments.created_at) DESC,
+           test_drive_appointments.id DESC
+`);
+
+const updateTestDriveAppointmentStatusStatement = db.prepare(`
+  UPDATE test_drive_appointments
+  SET status = ?,
+      status_note = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const updateTestDriveAppointmentStatusAndScheduleStatement = db.prepare(`
+  UPDATE test_drive_appointments
+  SET preferred_date = ?,
+      preferred_time_slot = ?,
+      status = ?,
+      status_note = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const findApprovedTestDriveScheduleConflictStatement = db.prepare(`
+  SELECT test_drive_appointments.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM test_drive_appointments
+  INNER JOIN users ON users.id = test_drive_appointments.user_id
+  WHERE test_drive_appointments.car_id = ?
+    AND test_drive_appointments.preferred_date = ?
+    AND test_drive_appointments.preferred_time_slot = ?
+    AND test_drive_appointments.status = ?
+    AND test_drive_appointments.id <> ?
+  ORDER BY datetime(test_drive_appointments.updated_at) ASC,
+           test_drive_appointments.id ASC
+  LIMIT 1
+`);
+
+const findActiveTestDriveScheduleConflictStatement = db.prepare(`
+  SELECT test_drive_appointments.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM test_drive_appointments
+  INNER JOIN users ON users.id = test_drive_appointments.user_id
+  WHERE test_drive_appointments.car_id = ?
+    AND test_drive_appointments.preferred_date = ?
+    AND test_drive_appointments.preferred_time_slot = ?
+    AND test_drive_appointments.status <> 'cancelled'
+    AND test_drive_appointments.id <> ?
+  ORDER BY
+    CASE test_drive_appointments.status
+      WHEN 'approved' THEN 0
+      ELSE 1
+    END,
+    datetime(test_drive_appointments.created_at) ASC,
+    test_drive_appointments.id ASC
+  LIMIT 1
+`);
+
+const deleteTestDriveAppointmentStatement = db.prepare(`
+  DELETE FROM test_drive_appointments
+  WHERE id = ?
+`);
+
 const seedCars = [
   {
     brand: 'Rolls-Royce',
@@ -726,6 +1044,7 @@ const seedCars = [
     mileageValue: 12300,
     seats: '5 chỗ',
     gearbox: 'Tự động',
+    drivetrain: 'RWD - Dẫn động cầu sau',
     origin: 'Nhập khẩu',
     condition: 'Xe mới',
     color: 'Đen',
@@ -745,6 +1064,7 @@ const seedCars = [
     mileageValue: 8900,
     seats: '5 chỗ',
     gearbox: 'Tự động',
+    drivetrain: 'Dẫn động 4 bánh',
     origin: 'Nhập khẩu',
     condition: 'Xe mới',
     color: 'Xanh lá',
@@ -764,6 +1084,7 @@ const seedCars = [
     mileageValue: 5200,
     seats: '5 chỗ',
     gearbox: 'Tự động',
+    drivetrain: 'Dẫn động 4 bánh',
     origin: 'Nhập khẩu',
     condition: 'Xe mới',
     color: 'Trắng',
@@ -783,6 +1104,7 @@ const seedCars = [
     mileageValue: 18000,
     seats: '5 chỗ',
     gearbox: 'Tự động',
+    drivetrain: 'Dẫn động 4 bánh',
     origin: 'Nhập khẩu',
     condition: 'Xe cũ',
     color: 'Xanh dương',
@@ -802,6 +1124,7 @@ const seedCars = [
     mileageValue: 9800,
     seats: '5 chỗ',
     gearbox: 'Tự động',
+    drivetrain: 'RWD - Dẫn động cầu sau',
     origin: 'Nhập khẩu',
     condition: 'Xe mới',
     color: 'Cam',
@@ -821,6 +1144,7 @@ const seedCars = [
     mileageValue: 16200,
     seats: '5 chỗ',
     gearbox: 'Tự động',
+    drivetrain: 'FWD - Dẫn động cầu trước',
     origin: 'Nhập khẩu',
     condition: 'Xe cũ',
     color: 'Trắng',
@@ -846,7 +1170,7 @@ const normalizeBooleanInteger = (value) =>
 
 const normalizeSalesProfilePayload = (profile = {}, role = 'customer') => {
   const normalizedRole = normalizeUserRole(role);
-  const canShowOnHome = employeeRoles.has(normalizedRole);
+  const canShowOnHome = normalizedRole === 'staff';
   const displayOrder = Number(profile.homeDisplayOrder ?? profile.displayOrder ?? 0);
 
   return {
@@ -901,6 +1225,7 @@ const sanitizeTeamMember = (userRow) => {
   return {
     id: userRow.id,
     fullName: userRow.full_name,
+    email: userRow.email || '',
     role: normalizeUserRole(userRow.role),
     phone: userRow.phone || '',
     avatarUrl: userRow.avatar_url || '',
@@ -909,6 +1234,8 @@ const sanitizeTeamMember = (userRow) => {
     salesExperience: userRow.sales_experience || '',
     salesBio: userRow.sales_bio || '',
     homeDisplayOrder: Number(userRow.home_display_order || 0),
+    updatedAt: userRow.updated_at || '',
+    createdAt: userRow.created_at || '',
   };
 };
 
@@ -964,6 +1291,7 @@ const sanitizeCar = (carRow) => {
     mileageValue: carRow.mileage_value,
     seats: carRow.seats,
     gearbox: carRow.gearbox,
+    drivetrain: carRow.drivetrain,
     origin: carRow.origin,
     condition: carRow.condition,
     color: carRow.color,
@@ -992,12 +1320,82 @@ const normalizeCarPayload = (car = {}) => {
     mileageValue: Number(car.mileageValue || 0),
     seats: String(car.seats || '').trim(),
     gearbox: String(car.gearbox || '').trim(),
+    drivetrain: String(car.drivetrain || '').trim(),
     origin: String(car.origin || '').trim(),
     condition: String(car.condition || '').trim(),
     color: String(car.color || '').trim(),
     actionText: String(car.actionText || 'Còn xe').trim() || 'Còn xe'
   };
 };
+
+const normalizePromotionPayload = (promotion = {}) => {
+  const displayOrder = Number(promotion.displayOrder ?? promotion.homeDisplayOrder ?? 0);
+
+  return {
+    title: String(promotion.title || '').trim().replace(/\s+/g, ' '),
+    summary: String(promotion.summary || '').trim().replace(/\s+/g, ' '),
+    content: String(promotion.content || '').trim(),
+    badgeText: String(promotion.badgeText || promotion.badge || 'Khuyến mại').trim().replace(/\s+/g, ' ') || 'Khuyến mại',
+    imageUrl: String(promotion.imageUrl || promotion.image || '').trim(),
+    ctaText: String(promotion.ctaText || 'Xem ưu đãi').trim().replace(/\s+/g, ' ') || 'Xem ưu đãi',
+    ctaUrl: String(promotion.ctaUrl || '#footer').trim() || '#footer',
+    startsAt: String(promotion.startsAt || promotion.startDate || '').trim(),
+    endsAt: String(promotion.endsAt || promotion.endDate || '').trim(),
+    showOnHome: normalizeBooleanInteger(promotion.showOnHome),
+    displayOrder: Number.isFinite(displayOrder) ? Math.max(0, Math.trunc(displayOrder)) : 0,
+  };
+};
+
+const sanitizePromotion = (promotionRow) => {
+  if (!promotionRow) {
+    return null;
+  }
+
+  return {
+    id: promotionRow.id,
+    title: promotionRow.title,
+    summary: promotionRow.summary || '',
+    content: promotionRow.content || '',
+    badgeText: promotionRow.badge_text || 'Khuyến mại',
+    imageUrl: promotionRow.image_url || '',
+    ctaText: promotionRow.cta_text || 'Xem ưu đãi',
+    ctaUrl: promotionRow.cta_url || '#footer',
+    startsAt: promotionRow.starts_at || '',
+    endsAt: promotionRow.ends_at || '',
+    showOnHome: Boolean(promotionRow.show_on_home),
+    displayOrder: Number(promotionRow.display_order || 0),
+    createdAt: promotionRow.created_at || '',
+    updatedAt: promotionRow.updated_at || '',
+  };
+};
+
+const sanitizeTestDriveAppointment = (appointmentRow) => {
+  if (!appointmentRow) {
+    return null;
+  }
+
+  return {
+    id: appointmentRow.id,
+    userId: appointmentRow.user_id,
+    userEmail: appointmentRow.user_email || '',
+    userAvatarUrl: appointmentRow.user_avatar_url || '',
+    carId: appointmentRow.car_id,
+    carName: appointmentRow.car_name || '',
+    carBrand: appointmentRow.car_brand || '',
+    carPrice: appointmentRow.car_price_text || '',
+    fullName: appointmentRow.full_name || '',
+    phone: appointmentRow.phone || '',
+    preferredDate: appointmentRow.preferred_date || '',
+    preferredTimeSlot: appointmentRow.preferred_time_slot || '',
+    status: normalizeTestDriveAppointmentStatus(appointmentRow.status),
+    statusNote: appointmentRow.status_note || '',
+    createdAt: appointmentRow.created_at || '',
+    updatedAt: appointmentRow.updated_at || '',
+  };
+};
+
+const isCarAvailableForTestDrive = (car) =>
+  String(car?.actionText || '').trim().toLocaleLowerCase('vi-VN') === 'còn xe';
 
 const upsertCar = (car, existingId = null) => {
   const normalizedCar = normalizeCarPayload(car);
@@ -1019,6 +1417,7 @@ const upsertCar = (car, existingId = null) => {
       normalizedCar.mileageValue,
       normalizedCar.seats,
       normalizedCar.gearbox,
+      normalizedCar.drivetrain,
       normalizedCar.origin,
       normalizedCar.condition,
       normalizedCar.color,
@@ -1045,6 +1444,7 @@ const upsertCar = (car, existingId = null) => {
     normalizedCar.mileageValue,
     normalizedCar.seats,
     normalizedCar.gearbox,
+    normalizedCar.drivetrain,
     normalizedCar.origin,
     normalizedCar.condition,
     normalizedCar.color,
@@ -1114,6 +1514,13 @@ const createUser = ({
   salesBio,
   showOnHome,
   homeDisplayOrder,
+  citizenId,
+  birthDate,
+  gender,
+  addressProvince,
+  addressDistrict,
+  addressWard,
+  addressDetail,
 }) => {
   const normalizedFullName = normalizeFullName(fullName);
   const normalizedEmail = normalizeEmail(email);
@@ -1145,7 +1552,14 @@ const createUser = ({
     salesProfile.salesExperience,
     salesProfile.salesBio,
     salesProfile.showOnHome,
-    salesProfile.homeDisplayOrder
+    salesProfile.homeDisplayOrder,
+    String(citizenId || '').trim(),
+    String(birthDate || '').trim(),
+    String(gender || '').trim(),
+    String(addressProvince || '').trim(),
+    String(addressDistrict || '').trim(),
+    String(addressWard || '').trim(),
+    String(addressDetail || '').trim()
   );
 
   return sanitizeUser(findUserByIdStatement.get(result.lastInsertRowid));
@@ -1155,6 +1569,9 @@ const listUsers = () => listUsersStatement.all().map(sanitizeUser);
 
 const listHomepageTeamMembers = () =>
   listHomepageTeamMembersStatement.all().map(sanitizeTeamMember);
+
+const listPublicTeamMembers = () =>
+  listPublicTeamMembersStatement.all().map(sanitizeTeamMember);
 
 const getUserById = (userId) => sanitizeUser(findUserByIdStatement.get(userId));
 
@@ -1187,6 +1604,13 @@ const updateUserProfile = (
     salesBio,
     showOnHome,
     homeDisplayOrder,
+    citizenId,
+    birthDate,
+    gender,
+    addressProvince,
+    addressDistrict,
+    addressWard,
+    addressDetail,
   }
 ) => {
   const existingUser = getUserById(userId);
@@ -1226,6 +1650,13 @@ const updateUserProfile = (
       salesProfile.salesBio,
       salesProfile.showOnHome,
       salesProfile.homeDisplayOrder,
+      String(citizenId ?? existingUser.citizenId ?? '').trim(),
+      String(birthDate ?? existingUser.birthDate ?? '').trim(),
+      String(gender ?? existingUser.gender ?? '').trim(),
+      String(addressProvince ?? existingUser.address?.province ?? '').trim(),
+      String(addressDistrict ?? existingUser.address?.district ?? '').trim(),
+      String(addressWard ?? existingUser.address?.ward ?? '').trim(),
+      String(addressDetail ?? existingUser.address?.detail ?? '').trim(),
       hashPassword(normalizedPassword),
       userId
     );
@@ -1242,6 +1673,13 @@ const updateUserProfile = (
       salesProfile.salesBio,
       salesProfile.showOnHome,
       salesProfile.homeDisplayOrder,
+      String(citizenId ?? existingUser.citizenId ?? '').trim(),
+      String(birthDate ?? existingUser.birthDate ?? '').trim(),
+      String(gender ?? existingUser.gender ?? '').trim(),
+      String(addressProvince ?? existingUser.address?.province ?? '').trim(),
+      String(addressDistrict ?? existingUser.address?.district ?? '').trim(),
+      String(addressWard ?? existingUser.address?.ward ?? '').trim(),
+      String(addressDetail ?? existingUser.address?.detail ?? '').trim(),
       userId
     );
   }
@@ -1418,6 +1856,20 @@ const listCars = () => listCarsStatement.all().map(sanitizeCar);
 
 const getCarById = (carId) => sanitizeCar(findCarByIdStatement.get(carId));
 
+const listAvailableTestDriveCars = () =>
+  listAvailableTestDriveCarsStatement.all().map(sanitizeCar);
+
+const listPromotions = () => listPromotionsStatement.all().map(sanitizePromotion);
+
+const listHomepagePromotions = () =>
+  listHomepagePromotionsStatement.all().map(sanitizePromotion);
+
+const listPublicPromotions = () =>
+  listPublicPromotionsStatement.all().map(sanitizePromotion);
+
+const getPromotionById = (promotionId) =>
+  sanitizePromotion(findPromotionByIdStatement.get(promotionId));
+
 const listFavoriteCarsByUser = (userId) =>
   listFavoriteCarsByUserStatement.all(userId).map(sanitizeCar);
 
@@ -1454,6 +1906,160 @@ const removeFavoriteCarForUser = (userId, carId) => {
   };
 };
 
+const listTestDriveAppointments = () =>
+  listTestDriveAppointmentsStatement.all().map(sanitizeTestDriveAppointment);
+
+const listTestDriveAppointmentsByUser = (userId) =>
+  listTestDriveAppointmentsByUserStatement
+    .all(userId)
+    .map(sanitizeTestDriveAppointment);
+
+const getTestDriveAppointmentById = (appointmentId) =>
+  sanitizeTestDriveAppointment(findTestDriveAppointmentByIdStatement.get(appointmentId));
+
+const getApprovedTestDriveScheduleConflict = ({
+  appointmentId = 0,
+  carId,
+  preferredDate,
+  preferredTimeSlot,
+}) =>
+  sanitizeTestDriveAppointment(
+    findApprovedTestDriveScheduleConflictStatement.get(
+      Number(carId || 0),
+      String(preferredDate || '').trim(),
+      String(preferredTimeSlot || '').trim(),
+      approvedTestDriveAppointmentStatus,
+      Number(appointmentId || 0)
+    )
+  );
+
+const getActiveTestDriveScheduleConflict = ({
+  appointmentId = 0,
+  carId,
+  preferredDate,
+  preferredTimeSlot,
+}) =>
+  sanitizeTestDriveAppointment(
+    findActiveTestDriveScheduleConflictStatement.get(
+      Number(carId || 0),
+      String(preferredDate || '').trim(),
+      String(preferredTimeSlot || '').trim(),
+      Number(appointmentId || 0)
+    )
+  );
+
+const updateTestDriveAppointmentStatus = (appointmentId, {
+  status,
+  statusNote = '',
+  preferredDate = '',
+  preferredTimeSlot = '',
+}) => {
+  const existingAppointment = getTestDriveAppointmentById(appointmentId);
+
+  if (!existingAppointment) {
+    return null;
+  }
+
+  const normalizedStatus = normalizeTestDriveAppointmentStatus(status);
+  const nextPreferredDate = String(preferredDate || existingAppointment.preferredDate || '').trim();
+  const nextPreferredTimeSlot = String(preferredTimeSlot || existingAppointment.preferredTimeSlot || '').trim();
+  const hasScheduleChange =
+    nextPreferredDate !== String(existingAppointment.preferredDate || '').trim()
+    || nextPreferredTimeSlot !== String(existingAppointment.preferredTimeSlot || '').trim();
+
+  if (normalizedStatus === approvedTestDriveAppointmentStatus) {
+    const scheduleConflict = getActiveTestDriveScheduleConflict({
+      appointmentId,
+      carId: existingAppointment.carId,
+      preferredDate: nextPreferredDate,
+      preferredTimeSlot: nextPreferredTimeSlot,
+    });
+
+    if (scheduleConflict) {
+      const conflictError = new Error('TEST_DRIVE_SCHEDULE_CONFLICT');
+      conflictError.code = 'TEST_DRIVE_SCHEDULE_CONFLICT';
+      conflictError.appointment = scheduleConflict;
+      throw conflictError;
+    }
+  }
+
+  if (hasScheduleChange) {
+    const scheduleChangeNote = normalizedStatus === approvedTestDriveAppointmentStatus
+      ? `Lịch lái thử của bạn đã được đổi sang ngày ${nextPreferredDate}, khung giờ ${nextPreferredTimeSlot} và đã được xác nhận.`
+      : String(statusNote || '').trim();
+
+    updateTestDriveAppointmentStatusAndScheduleStatement.run(
+      nextPreferredDate,
+      nextPreferredTimeSlot,
+      normalizedStatus,
+      scheduleChangeNote,
+      appointmentId
+    );
+
+    return getTestDriveAppointmentById(appointmentId);
+  }
+
+  updateTestDriveAppointmentStatusStatement.run(
+    normalizedStatus,
+    String(statusNote || '').trim(),
+    appointmentId
+  );
+
+  return getTestDriveAppointmentById(appointmentId);
+};
+
+const deleteTestDriveAppointment = (appointmentId) => {
+  const existingAppointment = getTestDriveAppointmentById(appointmentId);
+
+  if (!existingAppointment) {
+    return null;
+  }
+
+  deleteTestDriveAppointmentStatement.run(appointmentId);
+  return existingAppointment;
+};
+
+const createTestDriveAppointment = ({
+  userId,
+  carId,
+  fullName,
+  phone,
+  preferredDate,
+  preferredTimeSlot,
+}) => {
+  const selectedCar = getCarById(carId);
+
+  if (!selectedCar || !isCarAvailableForTestDrive(selectedCar)) {
+    return null;
+  }
+
+  const normalizedPreferredDate = String(preferredDate || '').trim();
+  const normalizedPreferredTimeSlot = String(preferredTimeSlot || '').trim();
+  const scheduleConflict = getActiveTestDriveScheduleConflict({
+    carId: selectedCar.id,
+    preferredDate: normalizedPreferredDate,
+    preferredTimeSlot: normalizedPreferredTimeSlot,
+  });
+  const conflictStatusNote = scheduleConflict
+    ? `Khung giờ ${normalizedPreferredTimeSlot} ngày ${normalizedPreferredDate} đã có khách hàng khác đăng ký. Vui lòng liên hệ với khách hàng để đổi khung giờ.`
+    : '';
+
+  const result = insertTestDriveAppointmentStatement.run(
+    userId,
+    selectedCar.id,
+    selectedCar.name,
+    selectedCar.brand,
+    selectedCar.price,
+    normalizeFullName(fullName),
+    String(phone || '').trim(),
+    normalizedPreferredDate,
+    normalizedPreferredTimeSlot,
+    conflictStatusNote
+  );
+
+  return getTestDriveAppointmentById(result.lastInsertRowid);
+};
+
 const createCar = (car) => upsertCar(car);
 
 const updateCar = (carId, car) => {
@@ -1477,6 +2083,63 @@ const deleteCar = (carId) => {
   return existingCar;
 };
 
+const createPromotion = (promotion) => {
+  const normalizedPromotion = normalizePromotionPayload(promotion);
+  const result = insertPromotionStatement.run(
+    normalizedPromotion.title,
+    normalizedPromotion.summary,
+    normalizedPromotion.content,
+    normalizedPromotion.badgeText,
+    normalizedPromotion.imageUrl,
+    normalizedPromotion.ctaText,
+    normalizedPromotion.ctaUrl,
+    normalizedPromotion.startsAt,
+    normalizedPromotion.endsAt,
+    normalizedPromotion.showOnHome,
+    normalizedPromotion.displayOrder
+  );
+
+  return getPromotionById(result.lastInsertRowid);
+};
+
+const updatePromotion = (promotionId, promotion) => {
+  const existingPromotion = getPromotionById(promotionId);
+
+  if (!existingPromotion) {
+    return null;
+  }
+
+  const normalizedPromotion = normalizePromotionPayload(promotion);
+
+  updatePromotionStatement.run(
+    normalizedPromotion.title,
+    normalizedPromotion.summary,
+    normalizedPromotion.content,
+    normalizedPromotion.badgeText,
+    normalizedPromotion.imageUrl,
+    normalizedPromotion.ctaText,
+    normalizedPromotion.ctaUrl,
+    normalizedPromotion.startsAt,
+    normalizedPromotion.endsAt,
+    normalizedPromotion.showOnHome,
+    normalizedPromotion.displayOrder,
+    promotionId
+  );
+
+  return getPromotionById(promotionId);
+};
+
+const deletePromotion = (promotionId) => {
+  const existingPromotion = getPromotionById(promotionId);
+
+  if (!existingPromotion) {
+    return null;
+  }
+
+  deletePromotionStatement.run(promotionId);
+  return existingPromotion;
+};
+
 seedCarsIfEmpty();
 
 module.exports = {
@@ -1484,23 +2147,38 @@ module.exports = {
   authenticateUser,
   createCar,
   createPasswordResetOtp,
+  createPromotion,
   createSession,
+  createTestDriveAppointment,
   createUser,
   countAdminUsers,
   deleteCar,
+  deletePromotion,
   deleteSession,
+  deleteTestDriveAppointment,
   deleteUser,
   getCarById,
+  getPromotionById,
+  getTestDriveAppointmentById,
   getUserById,
   getUserBySession,
   employeeRoles,
   isFavoriteCarByUser,
+  listHomepagePromotions,
+  listAvailableTestDriveCars,
   listUsers,
   listHomepageTeamMembers,
+  listPublicTeamMembers,
   listCars,
   listFavoriteCarsByUser,
+  listPublicPromotions,
+  listPromotions,
+  listTestDriveAppointments,
+  listTestDriveAppointmentsByUser,
   removeFavoriteCarForUser,
   resetPasswordWithOtp,
+  updatePromotion,
+  updateTestDriveAppointmentStatus,
   updateUserProfile,
   updateUserSelfProfile,
   updateUserRole,

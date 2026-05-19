@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng ký lái thử - OkXe</title>
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="dang-ky-lai-thu.css">
+</head>
+<body>
+    <header class="header">
+        <div class="nav container">
+            <a href="/" class="logo">Ok<span>Xe</span></a>
+            <div class="nav-panel test-drive-nav">
+                <div class="nav-links">
+                    <a href="/" class="nav-link">Trang Chủ</a>
+                    <a href="/mua-xe.html" class="nav-link">Tìm mua ô tô</a>
+                    <a href="/khuyen-mai.html" class="nav-link">Khuyến mại</a>
+                    <a href="/tu-van-ban-hang.html" class="nav-link">Đội ngũ tư vấn bán hàng</a>
+                    <a href="/#footer" class="nav-link">Liên Hệ</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="test-drive-page">
+        <section class="test-drive-hero" aria-labelledby="test-drive-page-title">
+            <div>
+                <p class="test-drive-page__eyebrow">Đăng ký lái thử</p>
+                <h1 id="test-drive-page-title">Chọn xe mơ ước và ngày bạn muốn trải nghiệm</h1>
+                <p>OkXe sẽ tiếp nhận thông tin và liên hệ xác nhận lịch hẹn với bạn.</p>
+            </div>
+        </section>
+
+        <section class="test-drive-form-shell">
+            <article class="test-drive-auth" id="test-drive-auth-message" hidden>
+                <i class="bx bx-lock-alt" aria-hidden="true"></i>
+                <div>
+                    <h2>Bạn cần đăng nhập để đăng ký lái thử</h2>
+                    <p>Vui lòng đăng nhập tài khoản khách hàng tại trang chủ, sau đó quay lại biểu mẫu này.</p>
+                    <a href="/#test-drive" class="test-drive-page__button">Về trang chủ đăng nhập</a>
+                </div>
+            </article>
+
+            <form class="test-drive-form" id="test-drive-form" hidden>
+                <label>
+                    <span>Họ và tên</span>
+                    <input type="text" name="fullName" id="test-drive-full-name" maxlength="120" placeholder="Nguyễn Văn A" required>
+                </label>
+
+                <label>
+                    <span>Số điện thoại liên hệ</span>
+                    <input type="tel" name="phone" id="test-drive-phone" maxlength="30" placeholder="0912345678" required>
+                </label>
+
+                <div class="test-drive-form__wide test-drive-car-field">
+                    <span>Xe muốn lái thử</span>
+                    <input type="hidden" name="carId" id="test-drive-car" required>
+                    <button type="button" class="test-drive-car-trigger" id="open-test-drive-car-picker">
+                        <span id="selected-test-drive-car">Chọn xe muốn lái thử</span>
+                        <i class="bx bx-chevron-down" aria-hidden="true"></i>
+                    </button>
+                </div>
+
+                <label>
+                    <span>Ngày dự kiến</span>
+                    <input type="date" name="preferredDate" id="test-drive-date" required>
+                </label>
+
+                <label>
+                    <span>Khung giờ lái thử</span>
+                    <select name="preferredTimeSlot" id="test-drive-time-slot" required>
+                        <option value="">Chọn khung giờ</option>
+                        <option value="08:00-09:00">08:00 - 09:00</option>
+                        <option value="09:00-10:00">09:00 - 10:00</option>
+                        <option value="10:00-11:00">10:00 - 11:00</option>
+                        <option value="13:30-14:30">13:30 - 14:30</option>
+                        <option value="14:30-15:30">14:30 - 15:30</option>
+                        <option value="15:30-16:30">15:30 - 16:30</option>
+                    </select>
+                </label>
+
+                <fieldset class="test-drive-consents" aria-label="Xác nhận điều kiện đăng ký lái thử">
+                    <label class="test-drive-consent">
+                        <input type="checkbox" name="hasDrivingLicense" data-test-drive-consent required>
+                        <span>Tôi đã có Giấy Phép Lái Xe hợp lệ</span>
+                    </label>
+                    <label class="test-drive-consent">
+                        <input type="checkbox" name="allowProductInfo" data-test-drive-consent required>
+                        <span>Tôi xác nhận rằng các đại lý OkXe có thể gửi cho tôi thêm thông tin về các sản phẩm hoặc dịch vụ của OkXe.</span>
+                    </label>
+                    <label class="test-drive-consent">
+                        <input type="checkbox" name="acceptPolicy" data-test-drive-consent required>
+                        <span>Tôi đã đọc và đồng ý với các <button type="button" class="test-drive-policy-link" id="open-test-drive-policy">quy định và chính sách</button> của OkXe Việt Nam.</span>
+                    </label>
+                </fieldset>
+
+                <div class="test-drive-form__actions">
+                    <button type="submit" class="test-drive-submit" id="test-drive-submit" disabled>
+                        <i class="bx bx-calendar-check" aria-hidden="true"></i>
+                        <span>Đăng ký lái thử</span>
+                    </button>
+                    <a href="/mua-xe.html" class="test-drive-secondary">Xem thêm xe</a>
+                </div>
+
+                <p class="test-drive-feedback" id="test-drive-feedback" aria-live="polite"></p>
+            </form>
+        </section>
+    </main>
+
+    <div class="test-drive-policy-modal" id="test-drive-policy-modal" aria-hidden="true">
+        <button type="button" class="test-drive-policy-modal__overlay" data-close-test-drive-policy aria-label="Đóng quy định và chính sách"></button>
+        <section class="test-drive-policy-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="test-drive-policy-title">
+            <div class="test-drive-policy-modal__header">
+                <div>
+                    <p class="test-drive-page__eyebrow">OkXe Việt Nam</p>
+                    <h2 id="test-drive-policy-title">Quy định và chính sách đăng ký lái thử</h2>
+                </div>
+                <button type="button" class="test-drive-policy-modal__close" data-close-test-drive-policy aria-label="Đóng quy định và chính sách">
+                    <i class="bx bx-x" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="test-drive-policy-modal__content">
+                <section class="test-drive-policy-section">
+                    <h3>1. Điều kiện tham gia lái thử</h3>
+                    <p>Khách hàng đăng ký lái thử cần cung cấp thông tin cá nhân chính xác, bao gồm họ tên, số điện thoại liên hệ, xe muốn lái thử, ngày dự kiến và khung giờ trải nghiệm.</p>
+                    <p>Khách hàng phải có Giấy phép lái xe hợp lệ, còn hiệu lực và phù hợp với loại xe đăng ký lái thử. OkXe có quyền yêu cầu khách hàng xuất trình giấy tờ tùy thân và giấy phép lái xe trước khi bắt đầu buổi lái thử.</p>
+                </section>
+
+                <section class="test-drive-policy-section">
+                    <h3>2. Xác nhận lịch hẹn</h3>
+                    <p>Sau khi khách hàng gửi đăng ký, OkXe sẽ tiếp nhận thông tin và liên hệ xác nhận lịch hẹn. Lịch lái thử chỉ được xem là hợp lệ khi được nhân viên hoặc quản trị viên xác nhận trên hệ thống. Nếu cùng xe đã có khách khác được xác nhận trong khung giờ đã chọn, nhân viên sẽ treo lịch và hỗ trợ đổi sang thời gian phù hợp.</p>
+                    <p>Trong trường hợp xe không còn sẵn sàng, lịch hẹn trùng thời gian hoặc phát sinh điều kiện không phù hợp, OkXe có thể đề xuất thời gian khác, treo lịch để xác minh thêm hoặc hủy lịch hẹn kèm lý do cụ thể.</p>
+                </section>
+
+                <section class="test-drive-policy-section">
+                    <h3>3. Trách nhiệm của khách hàng</h3>
+                    <p>Khách hàng cần có mặt đúng thời gian đã được xác nhận, tuân thủ hướng dẫn của nhân viên OkXe và điều khiển xe đúng quy định pháp luật giao thông đường bộ.</p>
+                    <p>Khách hàng chịu trách nhiệm về các vi phạm phát sinh do lỗi chủ quan trong quá trình lái thử, bao gồm nhưng không giới hạn ở việc không tuân thủ hướng dẫn, sử dụng xe sai mục đích hoặc cung cấp thông tin không trung thực.</p>
+                </section>
+
+                <section class="test-drive-policy-section">
+                    <h3>4. An toàn và phạm vi lái thử</h3>
+                    <p>Việc lái thử được thực hiện trong phạm vi, thời lượng và tuyến đường do OkXe hoặc đại lý liên quan sắp xếp nhằm bảo đảm an toàn cho khách hàng, nhân viên và phương tiện.</p>
+                    <p>OkXe có quyền từ chối hoặc dừng buổi lái thử nếu nhận thấy khách hàng không đủ điều kiện sức khỏe, có dấu hiệu sử dụng rượu bia/chất kích thích, không hợp tác hoặc có hành vi có thể gây mất an toàn.</p>
+                </section>
+
+                <section class="test-drive-policy-section">
+                    <h3>5. Thông tin cá nhân và liên hệ</h3>
+                    <p>Thông tin khách hàng cung cấp được sử dụng để xử lý đăng ký lái thử, liên hệ xác nhận lịch hẹn và tư vấn thêm về sản phẩm, dịch vụ của OkXe theo nội dung khách hàng đã đồng ý.</p>
+                    <p>OkXe cam kết sử dụng thông tin đúng mục đích, không chia sẻ trái phép cho bên thứ ba khi chưa có sự đồng ý của khách hàng, trừ trường hợp pháp luật có quy định khác.</p>
+                </section>
+
+                <section class="test-drive-policy-section">
+                    <h3>6. Thay đổi hoặc hủy lịch</h3>
+                    <p>Khách hàng có thể xóa lịch lái thử nếu không còn nhu cầu. Khi cần thay đổi thời gian, khách hàng nên liên hệ OkXe sớm để được hỗ trợ sắp xếp lại lịch phù hợp.</p>
+                    <p>Các thông báo liên quan đến trạng thái lịch hẹn, bao gồm đồng ý cho phép lái thử, hủy lịch hẹn hoặc treo lịch, sẽ được hiển thị trong mục Thông báo của khách hàng.</p>
+                </section>
+            </div>
+        </section>
+    </div>
+
+    <div class="test-drive-car-modal" id="test-drive-car-modal" aria-hidden="true">
+        <button type="button" class="test-drive-car-modal__overlay" data-close-test-drive-car-picker aria-label="Đóng danh sách xe"></button>
+        <section class="test-drive-car-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="test-drive-car-modal-title">
+            <div class="test-drive-car-modal__header">
+                <div>
+                    <p class="test-drive-page__eyebrow">Xe còn hàng</p>
+                    <h2 id="test-drive-car-modal-title">Chọn xe muốn lái thử</h2>
+                </div>
+                <button type="button" class="test-drive-car-modal__close" data-close-test-drive-car-picker aria-label="Đóng danh sách xe">
+                    <i class="bx bx-x" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="test-drive-car-tools">
+                <div class="test-drive-car-view-toggle" role="group" aria-label="Chế độ chọn xe">
+                    <button type="button" class="is-active" data-test-drive-car-view="all">
+                        <i class="bx bx-car" aria-hidden="true"></i>
+                        <span>Tất cả xe</span>
+                    </button>
+                    <button type="button" data-test-drive-car-view="favorites">
+                        <i class="bx bxs-heart" aria-hidden="true"></i>
+                        <span>Xe yêu thích</span>
+                    </button>
+                </div>
+                <label class="test-drive-car-search">
+                    <i class="bx bx-search" aria-hidden="true"></i>
+                    <input type="search" id="test-drive-car-search" placeholder="Tìm theo tên, hãng, năm sản xuất">
+                </label>
+                <select id="test-drive-brand-filter" aria-label="Lọc theo hãng xe">
+                    <option value="">Tất cả hãng</option>
+                </select>
+                <select id="test-drive-category-filter" aria-label="Lọc theo phân khúc">
+                    <option value="">Tất cả phân khúc</option>
+                </select>
+            </div>
+            <div class="test-drive-car-list" id="test-drive-car-list">
+                <article class="test-drive-car-empty">Đang tải danh sách xe còn hàng...</article>
+            </div>
+        </section>
+    </div>
+
+    <script src="js/dang-ky-lai-thu.js"></script>
+</body>
+</html>
