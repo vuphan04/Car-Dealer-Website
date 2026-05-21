@@ -126,7 +126,7 @@ input {
     overflow: hidden;
     background:
         linear-gradient(135deg, rgba(8, 21, 74, 0.9), rgba(8, 21, 74, 0.72)),
-        url("../images/sale1.png") center / cover;
+        url("/images/sale1.png") center / cover;
     box-shadow: 0 30px 80px rgba(8, 21, 74, 0.18);
 }
 

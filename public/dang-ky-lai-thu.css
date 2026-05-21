@@ -25,7 +25,7 @@
     color: #ffffff;
     background:
         linear-gradient(90deg, rgba(8, 13, 22, 0.82), rgba(8, 13, 22, 0.52)),
-        url("../images/lai%20thu.png") center / cover no-repeat;
+        url("/images/lai%20thu.png") center / cover no-repeat;
     box-shadow: 0 24px 50px rgba(8, 21, 74, 0.13);
 }
 

@@ -37,6 +37,7 @@ let filteredCars = [];
 let currentUser = null;
 let favoriteCarIds = new Set();
 let selectedCompareCarIds = [];
+let selectedBrandModel = '';
 
 const MAX_COMPARE_CARS = 3;
 const PRICE_FILTER_MIN = 0;
@@ -151,6 +152,56 @@ const setYearOptions = (select, placeholder, years) => {
     `;
 };
 
+const getBrandModelNames = (brand) => {
+    const normalizedBrand = normalizeText(brand);
+
+    if (!normalizedBrand) {
+        return [];
+    }
+
+    const brandPrefixPattern = new RegExp(`^${String(brand).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+`, 'i');
+
+    return [...new Set(cars
+        .filter((car) => normalizeText(car.brand) === normalizedBrand)
+        .map((car) => String(car.name || car.type || '').trim())
+        .filter(Boolean)
+        .map((modelName) => modelName.replace(brandPrefixPattern, '').trim() || modelName))]
+        .sort((first, second) => first.localeCompare(second, 'vi'))
+        .slice(0, 12);
+};
+
+const getComparableModelName = (car) => {
+    const brand = String(car?.brand || '').trim();
+    const modelName = String(car?.name || car?.type || '').trim();
+
+    if (!brand || !modelName) {
+        return modelName;
+    }
+
+    const brandPrefixPattern = new RegExp(`^${brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+`, 'i');
+
+    return modelName.replace(brandPrefixPattern, '').trim() || modelName;
+};
+
+const renderBrandModelsPopup = (brand) => {
+    const models = getBrandModelNames(brand);
+
+    return `
+        <span class="brand-models-popover" role="tooltip">
+            <strong>Dòng xe ${escapeHtml(brand)}</strong>
+            ${models.length ? `
+                <span class="brand-models-popover__list">
+                    ${models.map((model) => `
+                        <span class="brand-models-popover__option${normalizeText(selectedBrandModel) === normalizeText(model) ? ' is-selected' : ''}" role="button" tabindex="0" data-brand-model="${escapeHtml(model)}" data-brand-value="${escapeHtml(brand)}">
+                            ${escapeHtml(model)}
+                        </span>
+                    `).join('')}
+                </span>
+            ` : '<span>Chưa có dòng xe</span>'}
+        </span>
+    `;
+};
+
 const renderFilterGroup = (groupName, values, allLabel = 'Tất cả') => {
     const group = filterGroups[groupName];
 
@@ -164,8 +215,9 @@ const renderFilterGroup = (groupName, values, allLabel = 'Tất cả') => {
     ];
 
     group.innerHTML = options.map((option, index) => `
-        <button type="button" class="inventory-filter-chip${index === 0 ? ' is-active' : ''}" data-filter-name="${escapeHtml(groupName)}" data-filter-value="${escapeHtml(option.value)}">
+        <button type="button" class="inventory-filter-chip${groupName === 'brand' && index > 0 ? ' inventory-filter-chip--brand' : ''}${index === 0 ? ' is-active' : ''}" data-filter-name="${escapeHtml(groupName)}" data-filter-value="${escapeHtml(option.value)}">
             <span>${escapeHtml(option.label)}</span>
+            ${groupName === 'brand' && index > 0 ? renderBrandModelsPopup(option.value) : ''}
         </button>
     `).join('');
 };
@@ -280,7 +332,7 @@ const isFavoriteCar = (carId) => favoriteCarIds.has(String(carId));
 const isCompareCar = (carId) => selectedCompareCarIds.includes(String(carId));
 
 const renderInventoryCard = (car) => {
-    const image = getCarImages(car)[0] || '../images/rental-1.png';
+    const image = getCarImages(car)[0] || '/images/rental-1.png';
     const statusText = car.actionText || 'Còn xe';
     const statusClass = getStatusClass(statusText);
 
@@ -362,6 +414,7 @@ const getYearRange = () => {
 
 const getSelectedFilters = () => ({
     brand: normalizeText(getFilterGroupValue('brand')),
+    brandModel: normalizeText(selectedBrandModel),
     category: normalizeText(getFilterGroupValue('category')),
     condition: normalizeText(getFilterGroupValue('condition')),
     fuel: normalizeText(getFilterGroupValue('fuel')),
@@ -399,6 +452,7 @@ const applyFilters = () => {
 
     filteredCars = cars.filter((car) => {
         const matchesBrand = !filters.brand || normalizeText(car.brand) === filters.brand;
+        const matchesBrandModel = !filters.brandModel || normalizeText(getComparableModelName(car)) === filters.brandModel;
         const matchesCategory = !filters.category || normalizeText(car.category) === filters.category;
         const matchesCondition = !filters.condition || normalizeText(car.condition) === filters.condition;
         const matchesFuel = !filters.fuel || normalizeText(car.fuel) === filters.fuel;
@@ -419,6 +473,7 @@ const applyFilters = () => {
             || (filters.imageState === 'with' ? hasImages : !hasImages);
 
         return matchesBrand
+            && matchesBrandModel
             && matchesCategory
             && matchesCondition
             && matchesFuel
@@ -510,7 +565,7 @@ const renderComparePicker = () => {
     }
 
     comparePicker.innerHTML = searchResults.map((car) => {
-        const image = getCarImages(car)[0] || '../images/rental-1.png';
+        const image = getCarImages(car)[0] || '/images/rental-1.png';
 
         return `
             <button type="button" class="compare-picker__item" data-add-compare-car="${escapeHtml(car.id)}">
@@ -585,7 +640,7 @@ const renderCompareTable = () => {
         <div class="compare-table" style="--compare-columns: ${compareCars.length}">
             <div class="compare-table__label">Xe</div>
             ${compareCars.map((car) => {
-                const image = getCarImages(car)[0] || '../images/rental-1.png';
+                const image = getCarImages(car)[0] || '/images/rental-1.png';
 
                 return `
                     <article class="compare-car">
@@ -797,6 +852,41 @@ const setFilterGroupValue = (button) => {
     group.querySelectorAll('.inventory-filter-chip').forEach((chip) => {
         chip.classList.toggle('is-active', chip === button);
     });
+
+    if (button.dataset.filterName === 'brand') {
+        selectedBrandModel = '';
+        renderFilterGroup('brand', getUniqueValues('brand'));
+
+        const selectedBrand = button.dataset.filterValue || '';
+        const replacementButton = Array.from(filterGroups.brand?.querySelectorAll('[data-filter-name="brand"]') || [])
+            .find((chip) => chip.dataset.filterValue === selectedBrand);
+
+        if (replacementButton) {
+            filterGroups.brand.querySelectorAll('.inventory-filter-chip').forEach((chip) => {
+                chip.classList.toggle('is-active', chip === replacementButton);
+            });
+        }
+    }
+};
+
+const selectBrandModel = (modelOption) => {
+    const brand = modelOption?.dataset.brandValue || '';
+    const model = modelOption?.dataset.brandModel || '';
+    const brandButton = Array.from(filterGroups.brand?.querySelectorAll('[data-filter-name="brand"]') || [])
+        .find((chip) => chip.dataset.filterValue === brand);
+
+    if (!brand || !model || !brandButton) {
+        return;
+    }
+
+    selectedBrandModel = model;
+    filterGroups.brand.querySelectorAll('.inventory-filter-chip').forEach((chip) => {
+        chip.classList.toggle('is-active', chip === brandButton);
+    });
+    filterGroups.brand.querySelectorAll('[data-brand-model]').forEach((option) => {
+        option.classList.toggle('is-selected', normalizeText(option.dataset.brandModel) === normalizeText(model));
+    });
+    applyFilters();
 };
 
 const setAdvancedFiltersExpanded = (isExpanded) => {
@@ -804,11 +894,24 @@ const setAdvancedFiltersExpanded = (isExpanded) => {
         return;
     }
 
-    filterAdvanced.hidden = !isExpanded;
     filterToggleButton.setAttribute('aria-expanded', String(isExpanded));
 
     const label = filterToggleButton.querySelector('span');
     const marker = filterToggleButton.querySelector('strong');
+
+    if (isExpanded) {
+        filterAdvanced.hidden = false;
+        window.requestAnimationFrame(() => {
+            filterAdvanced.classList.add('is-expanded');
+        });
+    } else {
+        filterAdvanced.classList.remove('is-expanded');
+        window.setTimeout(() => {
+            if (filterToggleButton.getAttribute('aria-expanded') !== 'true') {
+                filterAdvanced.hidden = true;
+            }
+        }, 320);
+    }
 
     if (label) {
         label.textContent = isExpanded ? 'Thu nhỏ điều kiện tìm kiếm' : 'Mở rộng điều kiện tìm kiếm';
@@ -820,11 +923,17 @@ const setAdvancedFiltersExpanded = (isExpanded) => {
 };
 
 const resetFilters = () => {
+    selectedBrandModel = '';
+
     Object.values(filterGroups).forEach((group) => {
         const chips = Array.from(group?.querySelectorAll('.inventory-filter-chip') || []);
 
         chips.forEach((chip, index) => {
             chip.classList.toggle('is-active', index === 0);
+        });
+
+        group?.querySelectorAll('[data-brand-model]').forEach((option) => {
+            option.classList.remove('is-selected');
         });
     });
 
@@ -858,6 +967,14 @@ const bindEvents = () => {
     filterResetButton?.addEventListener('click', resetFilters);
 
     filterPanel?.addEventListener('click', (event) => {
+        const modelOption = event.target.closest('[data-brand-model]');
+
+        if (modelOption) {
+            event.preventDefault();
+            selectBrandModel(modelOption);
+            return;
+        }
+
         const filterButton = event.target.closest('[data-filter-name]');
 
         if (!filterButton) {
@@ -866,6 +983,21 @@ const bindEvents = () => {
 
         setFilterGroupValue(filterButton);
         applyFilters();
+    });
+
+    filterPanel?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+
+        const modelOption = event.target.closest('[data-brand-model]');
+
+        if (!modelOption) {
+            return;
+        }
+
+        event.preventDefault();
+        selectBrandModel(modelOption);
     });
 
     clearYearsButton?.addEventListener('click', () => {

@@ -106,7 +106,7 @@ img {
     overflow: hidden;
     background:
         linear-gradient(90deg, rgba(8, 21, 74, 0.78), rgba(8, 21, 74, 0.36)),
-        url("../images/untitled-design-11-.png") center / cover no-repeat;
+        url("/images/untitled-design-11-.png") center / cover no-repeat;
     box-shadow: var(--shadow-soft);
 }
 
@@ -180,6 +180,7 @@ img {
     padding: 1.4rem;
     border: 1px solid rgba(8, 21, 74, 0.06);
     border-radius: 22px;
+    overflow: visible;
     background: var(--surface);
     box-shadow: var(--shadow-soft);
 }
@@ -236,11 +237,28 @@ img {
     transform: translateY(-1px);
 }
 
-.inventory-filter-rows,
-.inventory-filter-advanced {
+.inventory-filter-rows {
     display: grid;
     gap: 0.2rem;
     padding-top: 0.85rem;
+}
+
+.inventory-filter-advanced {
+    display: grid;
+    gap: 0.2rem;
+    max-height: 0;
+    overflow: hidden;
+    padding-top: 0;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: max-height 0.32s ease, opacity 0.22s ease, padding-top 0.32s ease, transform 0.32s ease;
+}
+
+.inventory-filter-advanced.is-expanded {
+    max-height: 760px;
+    padding-top: 0.85rem;
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .inventory-filter-advanced[hidden] {
@@ -269,9 +287,11 @@ img {
     align-items: center;
     gap: 0.45rem 0.5rem;
     min-width: 0;
+    overflow: visible;
 }
 
 .inventory-filter-chip {
+    position: relative;
     min-height: 34px;
     border: 1px solid transparent;
     border-radius: 10px;
@@ -307,6 +327,103 @@ img {
     color: #ffffff;
     background: var(--main-color);
     box-shadow: 0 10px 20px rgba(241, 90, 41, 0.18);
+}
+
+.inventory-filter-chip--brand {
+    z-index: 1;
+}
+
+.inventory-filter-chip--brand:hover,
+.inventory-filter-chip--brand:focus-visible,
+.inventory-filter-chip--brand:focus-within {
+    z-index: 20;
+}
+
+.brand-models-popover {
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 10px);
+    z-index: 30;
+    width: min(230px, 72vw);
+    max-height: 310px;
+    border: 1px solid rgba(8, 21, 74, 0.08);
+    border-radius: 14px;
+    display: grid;
+    gap: 0.55rem;
+    padding: 0.75rem;
+    color: var(--text-color);
+    background: #ffffff;
+    box-shadow: 0 18px 42px rgba(8, 21, 74, 0.16);
+    text-align: left;
+    pointer-events: auto;
+    opacity: 0;
+    transform: translate(-50%, -4px) scale(0.98);
+    transform-origin: top center;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.brand-models-popover::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -6px;
+    width: 12px;
+    height: 12px;
+    border-left: 1px solid rgba(8, 21, 74, 0.08);
+    border-top: 1px solid rgba(8, 21, 74, 0.08);
+    background: #ffffff;
+    transform: translateX(-50%) rotate(45deg);
+}
+
+.brand-models-popover strong {
+    color: var(--main-color);
+    font-size: 0.78rem;
+    line-height: 1.35;
+    font-weight: 900;
+}
+
+.brand-models-popover__list {
+    display: grid;
+    gap: 0.35rem;
+    max-height: 230px;
+    overflow-y: auto;
+    padding-right: 0.15rem;
+}
+
+.brand-models-popover__option,
+.brand-models-popover > span:not(.brand-models-popover__list) {
+    color: #1d4e9f;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    font-weight: 800;
+}
+
+.brand-models-popover__option {
+    border-radius: 8px;
+    display: block;
+    padding: 0.3rem 0.4rem;
+    cursor: pointer;
+    transition: color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.brand-models-popover__option:hover,
+.brand-models-popover__option:focus-visible,
+.brand-models-popover__option.is-selected {
+    color: var(--main-color);
+    background: #fff3ec;
+    outline: 0;
+    transform: translateX(2px);
+}
+
+.brand-models-popover__option.is-selected {
+    font-weight: 900;
+}
+
+.inventory-filter-chip--brand:hover .brand-models-popover,
+.inventory-filter-chip--brand:focus-visible .brand-models-popover,
+.inventory-filter-chip--brand:focus-within .brand-models-popover {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
 }
 
 .inventory-year-controls label {
@@ -487,9 +604,27 @@ img {
     cursor: pointer;
 }
 
+.inventory-filter-toggle strong {
+    display: inline-block;
+    transition: transform 0.24s ease, color 0.2s ease;
+}
+
+.inventory-filter-toggle[aria-expanded="true"] strong {
+    transform: rotate(180deg) scale(1.04);
+    color: var(--text-color);
+}
+
 .inventory-filter-toggle:hover,
 .inventory-filter-toggle:focus-visible {
     color: var(--main-color-dark);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .inventory-filter-advanced,
+    .inventory-filter-toggle strong,
+    .brand-models-popover {
+        transition: none;
+    }
 }
 
 .inventory-layout {

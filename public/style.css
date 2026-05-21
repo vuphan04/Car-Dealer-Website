@@ -914,7 +914,7 @@ section {
     overflow: hidden;
     background-image:
         linear-gradient(rgba(8, 13, 22, 0.68), rgba(8, 13, 22, 0.68)),
-        url("../images/lai%20thu.png");
+        url("/images/lai%20thu.png");
     background-position: center, center;
     background-size: cover, auto 136%;
     background-repeat: no-repeat;

@@ -1261,7 +1261,7 @@ homeSearchForm?.addEventListener('submit', async (event) => {
 });
 
 const getTeamMemberImage = (member) =>
-    String(member?.avatarUrl || '').trim() || '../images/sale1.png';
+    String(member?.avatarUrl || '').trim() || '/images/sale1.png';
 
 const getTeamContactLinks = (member) => {
     const phone = String(member?.phone || '').trim();

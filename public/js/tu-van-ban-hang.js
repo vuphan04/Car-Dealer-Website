@@ -30,7 +30,7 @@ const requestJson = async (url) => {
 };
 
 const getMemberImage = (member) =>
-    member.avatarUrl || '../images/team-1.jpg';
+    member.avatarUrl || '/images/team-1.jpg';
 
 const getPhoneHref = (phone) =>
     String(phone || '').replace(/[^\d+]/g, '');

@@ -96,7 +96,7 @@ img {
     overflow: hidden;
     background:
         linear-gradient(90deg, rgba(8, 21, 74, 0.82), rgba(8, 21, 74, 0.46)),
-        url("../images/team-1.jpg") center 18% / cover no-repeat;
+        url("/images/team-1.jpg") center 18% / cover no-repeat;
     box-shadow: var(--shadow-soft);
 }
 
