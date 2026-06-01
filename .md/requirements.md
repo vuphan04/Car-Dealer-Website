@@ -14,6 +14,8 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Cho phép người dùng đã đăng nhập xem họ tên, email và cập nhật hồ sơ cá nhân: số điện thoại, số CCCD, ngày sinh, giới tính, ảnh đại diện và địa chỉ liên hệ.
 - Cho phép người dùng đã đăng nhập lưu xe yêu thích và xem danh sách xe yêu thích của chính mình.
 - Cho phép người dùng liên hệ mua xe hoặc đặt lịch xem xe
+- Trang chi tiết xe có nút "Nhận tư vấn & báo giá" mở popup cho khách gửi yêu cầu tư vấn theo xe đang xem, gồm họ tên, số điện thoại, email, nhu cầu, thời gian muốn gọi lại và ghi chú; khách chưa đăng nhập vẫn gửi được yêu cầu. Nếu xe đã hết hàng/đã bán, nút chính đổi thành "Tư vấn xe tương tự", popup báo xe hiện đã hết hàng và yêu cầu gửi lên admin phải thể hiện khách cần tư vấn xe tương tự.
+- Trang quản trị có mục "Yêu cầu tư vấn" để `staff` và `admin` xem, tìm kiếm, cập nhật trạng thái và xóa yêu cầu tư vấn của khách hàng.
 - Cho phép khách hàng đã đăng nhập đăng ký lái thử tại trang con `/dang-ky-lai-thu`, nhập họ tên, số điện thoại, chọn xe đang còn xe trong database, ngày dự kiến và khung giờ lái thử.
 - Popup chọn xe trong trang đăng ký lái thử cho phép lọc nhanh xe yêu thích của khách hàng, chỉ hiển thị các xe yêu thích vẫn còn hàng để lái thử.
 - Sau khi khách hàng đăng ký lái thử thành công, lịch được lưu ở trạng thái chờ xác nhận và mục "Thông báo" của khách hàng hiển thị thông báo đã nhận đăng ký.
@@ -38,6 +40,10 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Trang chủ hiển thị đội ngũ tư vấn bán hàng nổi bật bằng card gọn, không hiển thị mô tả dài trên ảnh; khi nhấn vào ảnh tư vấn bán hàng sẽ mở popup chi tiết thông tin.
 - Card tư vấn bán hàng trên trang chủ hiển thị icon liên hệ nhanh bằng số điện thoại và email nếu có dữ liệu.
 - Header và mục đội ngũ tư vấn bán hàng trỏ tới trang con `/tu-van-ban-hang` để người dùng xem toàn bộ danh sách tư vấn bán hàng của cửa hàng, có tìm kiếm, liên hệ nhanh và nút xem thêm để đọc toàn bộ tiểu sử tư vấn; trang này luôn ưu tiên hiển thị Trưởng phòng kinh doanh ở đầu và sắp xếp theo số năm kinh nghiệm giảm dần.
+- Trang website có mục "Tin mua ô tô" tại `/tin-mua-o-to`, hiển thị các tin khách hàng cần mua xe đã được duyệt, có lọc theo mức tiền, tỉnh/thành phố và phân trang.
+- Trang website có mục "Đăng tin mua ô tô" tại `/dang-tin-mua-o-to`, cho phép khách vãng lai hoặc khách đã đăng nhập gửi nhu cầu cần mua xe gồm mức tiền, tiêu đề, nội dung, thông tin liên hệ và tỉnh/thành phố; tin mới lưu ở trạng thái chờ duyệt.
+- Khi khách hàng đã đăng nhập gửi tin mua ô tô, mục "Thông báo" của khách hàng hiển thị tin đã gửi thành công; khi nhân viên/admin duyệt hoặc từ chối tin, mục "Thông báo" cũng hiển thị trạng thái mới cho khách hàng.
+- Trang quản trị có mục "Quản lý tin mua xe" cho `staff` và `admin` xem, tìm kiếm, lọc theo trạng thái, duyệt, từ chối và xóa tin mua xe của khách hàng; việc cập nhật trạng thái thực hiện qua popup có ghi chú xử lý, khi từ chối phải nhập lý do và khi đổi khỏi trạng thái từ chối không được giữ lại lý do từ chối cũ.
 - Form thêm/sửa xe trong trang admin phải có trường nhập hãng xe là trường đầu tiên
 - Form thêm/sửa xe trong trang admin cho phép nhập mô tả xe để lưu thông tin tình trạng, tiện nghi hoặc ghi chú bán xe.
 - Form thêm/sửa xe trong trang admin dùng lựa chọn cố định cho phân khúc, kiểu vận hành, nhiên liệu, số chỗ, hộp số, dẫn động, xuất xứ, tình trạng và nút hành động để hạn chế nhập sai dữ liệu.
@@ -105,6 +111,8 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Bảng `promotions` lưu bài khuyến mại trong các cột `title`, `summary`, `content`, `badge_text`, `image_url`, `cta_text`, `cta_url`, `starts_at`, `ends_at`, `show_on_home`, `display_order`, `created_at`, `updated_at`.
 - Bảng `user_favorite_cars` lưu xe yêu thích của khách hàng bằng `user_id`, `car_id`, `created_at`, có khóa ngoại tới `users` và `cars`.
 - Bảng `test_drive_appointments` lưu lịch đăng ký lái thử của khách hàng bằng `user_id`, `car_id`, thông tin xe tại thời điểm đăng ký, `full_name`, `phone`, `preferred_date`, `preferred_time_slot`, `status`, `status_note`, `created_at`, `updated_at`.
+- Bảng `consultation_requests` lưu yêu cầu tư vấn theo xe bằng `user_id`, `car_id`, thông tin xe tại thời điểm gửi, `full_name`, `phone`, `email`, `request_type`, `preferred_contact_time`, `note`, `status`, `status_note`, `created_at`, `updated_at`.
+- Bảng `car_buy_requests` lưu tin khách cần mua xe bằng `user_id`, `budget_range`, `title`, `content`, `full_name`, `phone`, `email`, `province`, `address`, `status`, `status_note`, `created_at`, `updated_at`. Trạng thái gồm `pending`, `approved`, `rejected`; chỉ tin `approved` hiển thị công khai.
 - Ảnh xe được upload local vào thư mục `storage/uploads/cars` hoặc thư mục được cấu hình bằng `OKXE_UPLOAD_DIR`.
 - Ảnh đại diện người dùng được upload local vào thư mục `storage/uploads/avatars` hoặc thư mục upload được cấu hình bằng `OKXE_UPLOAD_DIR`.
 - Ảnh khuyến mại được upload local vào thư mục `storage/uploads/promotions` hoặc thư mục upload được cấu hình bằng `OKXE_UPLOAD_DIR`.

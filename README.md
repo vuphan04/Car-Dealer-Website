@@ -1,3 +1,5 @@
+# OkXe - Used Car Dealer Website
+
 OkXe is a used car dealership website built with Node.js, Express, SQLite, and plain HTML/CSS/JavaScript. The project supports customer-facing car browsing, detailed vehicle pages, favorites, test-drive appointments, consultation requests, promotions, and car-buying request posts. It also includes a staff/admin dashboard for managing cars, users, appointments, consultation requests, promotions, and customer car-buying requests.
 
 ## Table of Contents
@@ -22,7 +24,7 @@ OkXe is a used car dealership website built with Node.js, Express, SQLite, and p
 
 - View featured cars on the homepage, limited to the 10 newest cars from the database.
 - Search and filter cars by brand, category, year, price range, condition, mileage, fuel type, gearbox, origin, color, and seats.
-- Browse all available cars at `/mua-xe.html`.
+- Browse all available cars at `/mua-xe`.
 - View a separate car detail page at `/cars/:id`.
 - Compare up to 3 cars in a comparison popup.
 - Sign up, log in, log out, and reset passwords with email OTP.
@@ -70,17 +72,17 @@ OkXe is a used car dealership website built with Node.js, Express, SQLite, and p
 |   |-- rentals.db               # Default SQLite database
 |   `-- mail-previews/           # OTP email previews when SMTP is unavailable
 |-- public/
-|   |-- index.html               # Homepage
-|   |-- admin.html               # Admin dashboard
-|   |-- admin-login.html         # Staff/admin login
-|   |-- mua-xe.html              # Car listing page
-|   |-- car-detail.html          # Car detail page template
-|   |-- dang-ky-lai-thu.html     # Test-drive registration page
-|   |-- khuyen-mai.html          # Public promotions page
-|   |-- tin-mua-o-to.html        # Public car-buying request page
-|   |-- dang-tin-mua-o-to.html   # Car-buying request submission page
-|   |-- tu-van-ban-hang.html     # Sales consultant listing page
-|   `-- js/                      # Page-specific frontend JavaScript
+|   |-- global/                  # Shared frontend CSS/JS
+|   |-- home/                    # Homepage HTML/CSS/JS
+|   |-- admin/                   # Admin dashboard HTML/CSS/JS
+|   |-- admin-login/             # Staff/admin login HTML/CSS/JS
+|   |-- inventory/               # Car listing HTML/CSS/JS
+|   |-- car-detail/              # Car detail template HTML/CSS/JS
+|   |-- test-drive/              # Test-drive registration HTML/CSS/JS
+|   |-- promotions/              # Public promotions HTML/CSS/JS
+|   |-- buy-requests/            # Public car-buying requests HTML/CSS/JS
+|   |-- buy-request-form/        # Car-buying request form HTML/JS
+|   `-- sales-team/              # Sales consultant listing HTML/CSS/JS
 |-- images/                      # Static UI and demo images
 |-- storage/uploads/             # Runtime local uploads
 |-- scripts/
@@ -204,7 +206,7 @@ The system prevents deleting or demoting the last admin account to avoid losing 
 | Route | Purpose |
 | --- | --- |
 | `/` | OkXe homepage |
-| `/mua-xe.html` | Car listing, search, filtering, and comparison |
+| `/mua-xe` | Car listing, search, filtering, and comparison |
 | `/cars/:id` | Car detail page |
 | `/dang-ky-lai-thu` | Test-drive registration |
 | `/khuyen-mai` | Public promotions |

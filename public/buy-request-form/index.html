@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng tin mua ô tô - OkXe</title>
+    <link href="https://cdn.boxicons.com/3.0.8/css/boxicons.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/buy-requests/style.css">
+</head>
+<body>
+    <header class="buy-request-header">
+        <nav class="buy-request-nav">
+            <a href="/" class="buy-request-logo">Ok<span>Xe</span></a>
+            <div class="buy-request-nav__links">
+                <a href="/">Trang Chủ</a>
+                <a href="/mua-xe">Tìm mua ô tô</a>
+                <a href="/tin-mua-o-to">Tin mua ô tô</a>
+                <a href="/dang-tin-mua-o-to" aria-current="page">Đăng tin mua ô tô</a>
+                <a href="/khuyen-mai">Khuyến mại</a>
+                <a href="/#footer">Liên hệ</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="buy-request-page buy-request-page--form">
+        <section class="buy-request-top">
+            <div class="buy-request-breadcrumb" aria-label="Đường dẫn">
+                <a href="/">Trang chủ</a>
+                <span>»</span>
+                <a href="/tin-mua-o-to">Quản lý tin đăng</a>
+                <span>»</span>
+                <span>Đăng tin mua xe</span>
+            </div>
+            <span class="buy-request-required-note">* Bắt buộc nhập</span>
+        </section>
+
+        <section class="buy-request-form-shell" aria-labelledby="buy-request-form-title">
+            <div class="buy-request-form-heading">
+                <div>
+                    <span>Đăng tin mua xe</span>
+                    <h1 id="buy-request-form-title">Nhu cầu cần mua ô tô</h1>
+                </div>
+                <a href="/tin-mua-o-to">
+                    <i class="bx bx-list-ul" aria-hidden="true"></i>
+                    <span>Xem tin mua xe</span>
+                </a>
+            </div>
+
+            <p class="buy-request-warning">
+                Chú ý: Chỉ đăng tin mua xe ở đây. Không đăng tin bán xe hay tin rao vặt khác. Tiêu đề và nội dung cần nhập bằng Tiếng Việt có dấu.
+            </p>
+
+            <form class="buy-request-form" id="buy-request-form">
+                <fieldset class="buy-request-input-mode">
+                    <legend>Bộ gõ Tiếng Việt</legend>
+                    <label><input type="radio" name="inputMode" value="off"> Off</label>
+                    <label><input type="radio" name="inputMode" value="telex" checked> Telex</label>
+                    <label><input type="radio" name="inputMode" value="vni"> Vni</label>
+                    <label><input type="radio" name="inputMode" value="viqr"> VIQR</label>
+                </fieldset>
+
+                <label>
+                    <span>Phân hạng mức tiền:<b>*</b></span>
+                    <select name="budgetRange" required>
+                        <option value="">-- Chọn mức tiền --</option>
+                        <option value="under-200">Dưới 200 Triệu</option>
+                        <option value="200-400">200-400 Triệu</option>
+                        <option value="400-600">400-600 Triệu</option>
+                        <option value="600-800">600-800 Triệu</option>
+                        <option value="800-1000">800-1 Tỉ</option>
+                        <option value="over-1000">Trên 1 Tỉ</option>
+                    </select>
+                </label>
+
+                <label>
+                    <span>Tiêu đề:<b>*</b></span>
+                    <input type="text" name="title" maxlength="180" required>
+                </label>
+
+                <label class="buy-request-form__wide">
+                    <span>Nội dung:<b>*</b></span>
+                    <textarea name="content" rows="8" maxlength="1600" required></textarea>
+                </label>
+
+                <label>
+                    <span>Họ tên liên hệ:<b>*</b></span>
+                    <input type="text" name="fullName" maxlength="120" required>
+                </label>
+
+                <label>
+                    <span>Số điện thoại:<b>*</b></span>
+                    <input type="tel" name="phone" maxlength="30" inputmode="tel" required>
+                </label>
+
+                <label>
+                    <span>Email:</span>
+                    <input type="email" name="email" maxlength="160">
+                </label>
+
+                <label>
+                    <span>Tỉnh/thành phố:<b>*</b></span>
+                    <input type="text" name="province" maxlength="120" placeholder="Ví dụ: TP HCM" required>
+                </label>
+
+                <label class="buy-request-form__wide">
+                    <span>Địa chỉ liên hệ:</span>
+                    <input type="text" name="address" maxlength="240" placeholder="Ví dụ: Quận 12, TP HCM">
+                </label>
+
+                <div class="buy-request-form__actions">
+                    <button type="submit" id="buy-request-submit">
+                        <i class="bx bx-send" aria-hidden="true"></i>
+                        <span>Đăng tin</span>
+                    </button>
+                </div>
+
+                <p class="buy-request-form-feedback" id="buy-request-form-feedback" aria-live="polite"></p>
+            </form>
+        </section>
+    </main>
+
+    <footer class="buy-request-footer">
+        <a href="/" class="buy-request-logo">Ok<span>Xe</span></a>
+        <div>
+            <a href="/">Trang chủ</a>
+            <a href="/tin-mua-o-to">Tin mua ô tô</a>
+            <a href="/#footer">Liên hệ</a>
+        </div>
+    </footer>
+
+    <script src="/buy-request-form/script.js"></script>
+</body>
+</html>

@@ -388,6 +388,223 @@ textarea {
     overflow-wrap: anywhere;
 }
 
+.test-drive-stats {
+    --test-drive-approved: #23a26d;
+    --test-drive-cancelled: #ef5b4f;
+    --test-drive-pending: #f4ad22;
+    --test-drive-empty: #edf1f8;
+    grid-template-columns: minmax(260px, 0.88fr) minmax(320px, 1.12fr);
+    align-items: stretch;
+}
+
+.test-drive-chart-card {
+    min-height: 262px;
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    display: grid;
+    place-items: center;
+    padding: 1.2rem;
+    background:
+        radial-gradient(circle at 28% 18%, rgba(255, 255, 255, 0.96), transparent 9rem),
+        linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%);
+}
+
+.test-drive-chart {
+    position: relative;
+    width: min(210px, 68vw);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: conic-gradient(var(--test-drive-empty) 0deg 360deg);
+    box-shadow: inset 0 0 0 1px rgba(22, 33, 75, 0.06), 0 20px 38px rgba(23, 37, 84, 0.11);
+}
+
+.test-drive-chart::before {
+    content: "";
+    position: absolute;
+    inset: 21%;
+    border-radius: inherit;
+    background: #ffffff;
+    box-shadow: inset 0 0 0 1px rgba(22, 33, 75, 0.06);
+}
+
+.test-drive-chart__center {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 0.25rem;
+    justify-items: center;
+    text-align: center;
+}
+
+.test-drive-chart__center small {
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.test-drive-chart__center strong {
+    color: var(--ink);
+    font-size: clamp(2rem, 4vw, 2.85rem);
+    line-height: 1;
+    letter-spacing: -0.06em;
+}
+
+.test-drive-stat-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.test-drive-stat-item {
+    position: relative;
+    min-height: 100%;
+    padding-left: 1.55rem;
+}
+
+.test-drive-stat-item::before {
+    content: "";
+    position: absolute;
+    left: 1rem;
+    top: 1.35rem;
+    width: 0.38rem;
+    height: calc(100% - 2.7rem);
+    min-height: 34px;
+    border-radius: 999px;
+    background: var(--test-drive-approved);
+}
+
+.test-drive-stat-item--approved::before {
+    background: var(--test-drive-approved);
+}
+
+.test-drive-stat-item--cancelled::before {
+    background: var(--test-drive-cancelled);
+}
+
+.test-drive-stat-item--pending::before {
+    background: var(--test-drive-pending);
+}
+
+.test-drive-stat-item--approved strong {
+    color: var(--test-drive-approved);
+}
+
+.test-drive-stat-item--cancelled strong {
+    color: var(--test-drive-cancelled);
+}
+
+.test-drive-stat-item--pending strong {
+    color: #a36a00;
+}
+
+.consultation-stats {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.consultation-stat-item {
+    position: relative;
+    padding-left: 1.55rem;
+}
+
+.consultation-stat-item::before {
+    content: "";
+    position: absolute;
+    left: 1rem;
+    top: 1.35rem;
+    width: 0.38rem;
+    height: calc(100% - 2.7rem);
+    min-height: 34px;
+    border-radius: 999px;
+    background: #4b63df;
+}
+
+.consultation-stat-item--new::before {
+    background: var(--accent);
+}
+
+.consultation-stat-item--contacted::before {
+    background: #4b63df;
+}
+
+.consultation-stat-item--appointment::before {
+    background: #23a26d;
+}
+
+.consultation-stat-item--closed::before {
+    background: #7f8aa8;
+}
+
+.consultation-stat-item--failed::before {
+    background: #c25c5c;
+}
+
+.consultation-stat-item--new strong {
+    color: var(--accent);
+}
+
+.consultation-stat-item--contacted strong {
+    color: #4b63df;
+}
+
+.consultation-stat-item--appointment strong {
+    color: #1d8d5e;
+}
+
+.consultation-stat-item--closed strong {
+    color: #65708c;
+}
+
+.consultation-stat-item--failed strong {
+    color: #c25c5c;
+}
+
+.car-buy-request-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.car-buy-request-stat-item {
+    position: relative;
+    padding-left: 1.55rem;
+}
+
+.car-buy-request-stat-item::before {
+    content: "";
+    position: absolute;
+    left: 1rem;
+    top: 1.35rem;
+    width: 0.38rem;
+    height: calc(100% - 2.7rem);
+    min-height: 34px;
+    border-radius: 999px;
+    background: #4b63df;
+}
+
+.car-buy-request-stat-item--pending::before {
+    background: #f4ad22;
+}
+
+.car-buy-request-stat-item--approved::before {
+    background: #23a26d;
+}
+
+.car-buy-request-stat-item--rejected::before {
+    background: #c25c5c;
+}
+
+.car-buy-request-stat-item--pending strong {
+    color: #ad7812;
+}
+
+.car-buy-request-stat-item--approved strong {
+    color: #1d8d5e;
+}
+
+.car-buy-request-stat-item--rejected strong {
+    color: #c25c5c;
+}
+
 .inventory-shell__header {
     display: flex;
     align-items: center;
@@ -1596,6 +1813,106 @@ textarea {
     background: #fff5dc;
 }
 
+.consultation-status-cell {
+    display: grid;
+    gap: 0.55rem;
+    min-width: 150px;
+}
+
+.consultation-status-select {
+    width: 100%;
+    min-height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 0 0.7rem;
+    color: var(--ink);
+    background: #ffffff;
+    font-weight: 800;
+}
+
+.consultation-status-filter select,
+.consultation-status-select-field select {
+    width: 100%;
+    min-height: 44px;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-weight: 800;
+    outline: none;
+}
+
+.consultation-status-filter {
+    min-width: 220px;
+}
+
+.consultation-status-update-panel {
+    max-width: 680px;
+}
+
+.consultation-status-note-preview {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.admin-inline-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.admin-inline-link:hover,
+.admin-inline-link:focus-visible {
+    color: var(--accent-strong);
+    text-decoration: underline;
+    outline: 0;
+}
+
+.consultation-status-badge.is-new {
+    color: var(--accent-strong);
+    background: #fff1ea;
+}
+
+.consultation-status-badge.is-contacted {
+    color: #4b63df;
+    background: #f0f1ff;
+}
+
+.consultation-status-badge.is-appointment {
+    color: #1d8d5e;
+    background: #eafaf2;
+}
+
+.consultation-status-badge.is-closed {
+    color: #65708c;
+    background: #f0f3f8;
+}
+
+.consultation-status-badge.is-failed {
+    color: #c25c5c;
+    background: #fff3f3;
+}
+
+.car-buy-request-status-cell {
+    min-width: 170px;
+}
+
+.car-buy-request-status-badge.is-pending {
+    color: #ad7812;
+    background: #fff8df;
+}
+
+.car-buy-request-status-badge.is-approved {
+    color: #1d8d5e;
+    background: #eafaf2;
+}
+
+.car-buy-request-status-badge.is-rejected {
+    color: #c25c5c;
+    background: #fff3f3;
+}
+
 .homepage-toggle {
     min-height: 38px;
     border: 0;
@@ -1808,6 +2125,10 @@ textarea {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .test-drive-stats {
+        grid-template-columns: 1fr;
+    }
+
     .employee-form__field--wide {
         grid-column: 1 / -1;
     }
@@ -1924,6 +2245,14 @@ textarea {
     .employee-form,
     .customer-detail__grid {
         grid-template-columns: 1fr;
+    }
+
+    .test-drive-stat-list {
+        grid-template-columns: 1fr;
+    }
+
+    .test-drive-chart-card {
+        min-height: 230px;
     }
 
     .customer-detail__profile {

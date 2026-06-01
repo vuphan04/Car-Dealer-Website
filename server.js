@@ -8,6 +8,8 @@ const {
   addFavoriteCarForUser,
   authenticateUser,
   createCar,
+  createCarBuyRequest,
+  createConsultationRequest,
   createPasswordResetOtp,
   createPromotion,
   createSession,
@@ -15,17 +17,23 @@ const {
   createUser,
   countAdminUsers,
   deleteCar,
+  deleteCarBuyRequest,
+  deleteConsultationRequest,
   deletePromotion,
   deleteSession,
   deleteTestDriveAppointment,
   deleteUser,
   employeeRoles,
   getCarById,
+  getCarBuyRequestById,
   getTestDriveAppointmentById,
   getUserById,
   getUserBySession,
   isFavoriteCarByUser,
   listAvailableTestDriveCars,
+  listCarBuyRequests,
+  listCarBuyRequestsByUser,
+  listConsultationRequests,
   listCars,
   listFavoriteCarsByUser,
   listHomepagePromotions,
@@ -33,12 +41,15 @@ const {
   listPublicPromotions,
   listPublicTeamMembers,
   listPromotions,
+  listPublicCarBuyRequests,
   listTestDriveAppointments,
   listTestDriveAppointmentsByUser,
   listUsers,
   removeFavoriteCarForUser,
   resetPasswordWithOtp,
   updateCar,
+  updateCarBuyRequestStatus,
+  updateConsultationRequestStatus,
   updatePromotion,
   updateTestDriveAppointmentStatus,
   updateUserProfile,
@@ -56,9 +67,40 @@ const rateLimitBuckets = new Map();
 const userRoles = new Set(['customer', 'staff', 'admin']);
 const manageableCreateRoles = new Set(['staff', 'admin']);
 const salesTitles = new Set(['Nhân viên kinh doanh', 'Trưởng phòng kinh doanh']);
+const dealershipHotline = String(process.env.OKXE_HOTLINE || '0854955761')
+  .trim()
+  .replace(/[^\d+]/g, '')
+  .slice(0, 30) || '0854955761';
 
 const publicPath = path.join(__dirname, 'public');
 const imagesPath = path.join(__dirname, 'images');
+const getPublicPagePath = (pageName) => path.join(publicPath, pageName, 'index.html');
+const sendPublicPage = (res, pageName) => {
+  res.sendFile(getPublicPagePath(pageName));
+};
+const publicPages = {
+  home: 'home',
+  admin: 'admin',
+  adminLogin: 'admin-login',
+  inventory: 'inventory',
+  carDetail: 'car-detail',
+  testDrive: 'test-drive',
+  promotions: 'promotions',
+  buyRequests: 'buy-requests',
+  buyRequestForm: 'buy-request-form',
+  salesTeam: 'sales-team',
+};
+const legacyImageAliases = new Map([
+  ['Gemini_Generated_Image_y6mz6my6mz6my6mz.png', 'homepage-carousel-car.png'],
+  ['home-img.png', 'homepage-car.png'],
+  ['lai thu.png', 'test-drive-hero.png'],
+  ['untitled-design-11-.png', 'car-buy-requests-hero.png'],
+  ['sale1.png', 'showroom-sales-consultant.png'],
+  ['6-cac-yeu-to-trong-promotion.jpg', 'promotion-factors.jpg'],
+  ['Group 2.png', 'group-2.png'],
+  ['P21-0055-a3-rgb-jpeg.jpg', 'vehicle-showroom-a3.jpg'],
+  ['tải xuống.png', 'download.png'],
+]);
 const uploadsPath = path.join(
   process.env.OKXE_UPLOAD_DIR || path.join(__dirname, 'storage', 'uploads')
 );
@@ -355,6 +397,22 @@ const passwordResetAttemptRateLimit = createRateLimiter({
   message: 'Bạn thử mã OTP quá nhiều lần. Vui lòng yêu cầu mã mới sau ít phút.',
 });
 
+const consultationRequestRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyPrefix: 'consultation-request',
+  getKey: (req) => req.body?.phone,
+  message: 'Bạn gửi yêu cầu tư vấn quá nhanh. Vui lòng thử lại sau ít phút.',
+});
+
+const carBuyRequestRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 6,
+  keyPrefix: 'car-buy-request',
+  getKey: (req) => req.body?.phone,
+  message: 'Bạn gửi tin mua xe quá nhanh. Vui lòng thử lại sau ít phút.',
+});
+
 const sanitizeUploadBaseName = (name, fallbackBaseName = 'car-image') => {
   const baseName = path
     .basename(String(name || fallbackBaseName))
@@ -632,6 +690,26 @@ const getLocalDateInputValue = (date = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
+const isValidConsultationContactHour = (value) => {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(value || '').trim());
+
+  if (!match) {
+    return false;
+  }
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const totalMinutes = hour * 60 + minute;
+
+  return totalMinutes >= 8 * 60 && totalMinutes <= 20 * 60 && minute % 15 === 0;
+};
+
+const formatContactDateForDisplay = (value) => {
+  const [year, month, day] = String(value || '').split('-');
+
+  return `${day}/${month}/${year}`;
+};
+
 const isSafePromotionUrl = (value) => {
   const normalizedValue = String(value || '').trim();
 
@@ -745,6 +823,199 @@ const validateTestDriveAppointmentPayload = (appointment = {}) => {
   return { appointment: normalizedAppointment };
 };
 
+const consultationRequestTypeLabels = {
+  consultation: 'Tư vấn & báo giá',
+  quote: 'Yêu cầu báo giá',
+  financing: 'Tư vấn trả góp',
+  rolling_cost: 'Chi phí lăn bánh',
+  viewing: 'Đặt lịch xem xe',
+  similar_car: 'Tư vấn xe tương tự',
+};
+
+const consultationRequestStatusLabels = {
+  new: 'Mới',
+  contacted: 'Đã liên hệ',
+  appointment: 'Đã hẹn xem xe',
+  closed: 'Đã chốt',
+  failed: 'Không thành công',
+};
+
+const carBuyRequestBudgetRanges = new Set([
+  'under-200',
+  '200-400',
+  '400-600',
+  '600-800',
+  '800-1000',
+  'over-1000',
+]);
+
+const carBuyRequestBudgetLabels = {
+  'under-200': 'Dưới 200 Triệu',
+  '200-400': '200-400 Triệu',
+  '400-600': '400-600 Triệu',
+  '600-800': '600-800 Triệu',
+  '800-1000': '800-1 Tỉ',
+  'over-1000': 'Trên 1 Tỉ',
+};
+
+const carBuyRequestStatusLabels = {
+  pending: 'Chờ duyệt',
+  approved: 'Đã duyệt',
+  rejected: 'Từ chối',
+};
+
+const normalizeConsultationRequestType = (value) => {
+  const normalizedType = String(value || '').trim().toLowerCase();
+
+  return Object.prototype.hasOwnProperty.call(consultationRequestTypeLabels, normalizedType)
+    ? normalizedType
+    : 'consultation';
+};
+
+const validateConsultationRequestPayload = (request = {}) => {
+  const preferredContactDate = normalizePromotionDate(request.preferredContactDate || request.contactDate);
+  const preferredContactHour = normalizeShortText(request.preferredContactHour || request.contactHour, 5);
+  const normalizedRequest = {
+    fullName: normalizeShortText(request.fullName, 120),
+    phone: normalizeShortText(request.phone, 30),
+    email: normalizeShortText(request.email, 160).toLowerCase(),
+    carId: Number(request.carId || 0),
+    requestType: normalizeConsultationRequestType(request.requestType || request.type),
+    preferredContactTime: normalizeShortText(request.preferredContactTime, 120),
+    preferredContactDate,
+    preferredContactHour,
+    note: String(request.note || '').trim().slice(0, 700),
+  };
+
+  if (normalizedRequest.fullName.length < 2) {
+    return { error: 'Vui lòng nhập họ và tên.' };
+  }
+
+  const phoneDigits = normalizedRequest.phone.replace(/\D/g, '');
+  const hasValidPhoneFormat = /^\+?[0-9\s.-]{8,20}$/.test(normalizedRequest.phone);
+
+  if (!normalizedRequest.phone || !hasValidPhoneFormat || phoneDigits.length < 8 || phoneDigits.length > 15) {
+    return { error: 'Số điện thoại liên hệ không hợp lệ.' };
+  }
+
+  if (normalizedRequest.email && !isValidEmail(normalizedRequest.email)) {
+    return { error: 'Email liên hệ không hợp lệ.' };
+  }
+
+  if (!Number.isInteger(normalizedRequest.carId) || normalizedRequest.carId <= 0) {
+    return { error: 'Xe cần tư vấn không hợp lệ.' };
+  }
+
+  if ((preferredContactDate && !preferredContactHour) || (!preferredContactDate && preferredContactHour)) {
+    return { error: 'Vui lòng chọn đầy đủ ngày và giờ muốn được gọi lại.' };
+  }
+
+  if (preferredContactDate && !isValidPromotionDate(preferredContactDate)) {
+    return { error: 'Ngày muốn gọi lại không hợp lệ.' };
+  }
+
+  if (preferredContactDate && preferredContactDate < getLocalDateInputValue()) {
+    return { error: 'Ngày muốn gọi lại không được trước hôm nay.' };
+  }
+
+  if (preferredContactHour && !isValidConsultationContactHour(preferredContactHour)) {
+    return { error: 'Giờ gọi lại chỉ nhận từ 08:00 đến 20:00, theo bước 15 phút.' };
+  }
+
+  if (preferredContactDate && preferredContactHour) {
+    normalizedRequest.preferredContactTime =
+      `${preferredContactHour} ngày ${formatContactDateForDisplay(preferredContactDate)}`;
+  }
+
+  return { request: normalizedRequest };
+};
+
+const validateConsultationRequestStatusPayload = (payload = {}) => {
+  const status = String(payload.status || '').trim().toLowerCase();
+  const statusNote = normalizeShortText(payload.statusNote || payload.note, 500);
+
+  if (!Object.prototype.hasOwnProperty.call(consultationRequestStatusLabels, status)) {
+    return { error: 'Trạng thái yêu cầu tư vấn không hợp lệ.' };
+  }
+
+  return { statusUpdate: { status, statusNote } };
+};
+
+const normalizeCarBuyRequestBudgetRange = (value) => {
+  const normalizedValue = String(value || '').trim();
+
+  if (carBuyRequestBudgetRanges.has(normalizedValue)) {
+    return normalizedValue;
+  }
+
+  const matchedEntry = Object.entries(carBuyRequestBudgetLabels).find(([, label]) =>
+    label.toLocaleLowerCase('vi-VN') === normalizedValue.toLocaleLowerCase('vi-VN')
+  );
+
+  return matchedEntry?.[0] || '';
+};
+
+const validateCarBuyRequestPayload = (request = {}) => {
+  const normalizedRequest = {
+    budgetRange: normalizeCarBuyRequestBudgetRange(request.budgetRange || request.priceRange),
+    title: normalizeShortText(request.title, 180),
+    content: String(request.content || '').trim().slice(0, 1600),
+    fullName: normalizeShortText(request.fullName, 120),
+    phone: normalizeShortText(request.phone, 30),
+    email: normalizeShortText(request.email, 160).toLowerCase(),
+    province: normalizeShortText(request.province || request.city, 120),
+    address: normalizeShortText(request.address, 240),
+  };
+
+  if (!normalizedRequest.budgetRange) {
+    return { error: 'Vui lòng chọn phân hạng mức tiền.' };
+  }
+
+  if (normalizedRequest.title.length < 8) {
+    return { error: 'Tiêu đề tin mua xe phải có ít nhất 8 ký tự.' };
+  }
+
+  if (normalizedRequest.content.length < 20) {
+    return { error: 'Nội dung nhu cầu mua xe phải có ít nhất 20 ký tự.' };
+  }
+
+  if (normalizedRequest.fullName.length < 2) {
+    return { error: 'Vui lòng nhập họ và tên liên hệ.' };
+  }
+
+  const phoneDigits = normalizedRequest.phone.replace(/\D/g, '');
+  const hasValidPhoneFormat = /^\+?[0-9\s.-]{8,20}$/.test(normalizedRequest.phone);
+
+  if (!normalizedRequest.phone || !hasValidPhoneFormat || phoneDigits.length < 8 || phoneDigits.length > 15) {
+    return { error: 'Số điện thoại liên hệ không hợp lệ.' };
+  }
+
+  if (normalizedRequest.email && !isValidEmail(normalizedRequest.email)) {
+    return { error: 'Email liên hệ không hợp lệ.' };
+  }
+
+  if (!normalizedRequest.province) {
+    return { error: 'Vui lòng nhập tỉnh/thành phố.' };
+  }
+
+  return { request: normalizedRequest };
+};
+
+const validateCarBuyRequestStatusPayload = (payload = {}) => {
+  const status = String(payload.status || '').trim().toLowerCase();
+  const statusNote = normalizeShortText(payload.statusNote || payload.note, 500);
+
+  if (!Object.prototype.hasOwnProperty.call(carBuyRequestStatusLabels, status)) {
+    return { error: 'Trạng thái tin mua xe không hợp lệ.' };
+  }
+
+  if (status === 'rejected' && statusNote.length < 3) {
+    return { error: 'Vui lòng nhập lý do khi từ chối tin mua xe.' };
+  }
+
+  return { statusUpdate: { status, statusNote } };
+};
+
 const testDriveStatusLabels = {
   approved: 'Đồng ý cho phép lái thử',
   cancelled: 'Hủy lịch hẹn',
@@ -833,6 +1104,119 @@ const validateUserProfilePayload = (profile = {}) => {
   return { profile: normalizedProfile };
 };
 
+const escapeHtml = (value) =>
+  String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  }[character]));
+
+const normalizeSeoText = (value, maxLength = 160) => {
+  const normalizedText = String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (normalizedText.length <= maxLength) {
+    return normalizedText;
+  }
+
+  return `${normalizedText.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+};
+
+const getAbsoluteUrl = (req, targetPath = '/') => {
+  const origin = `${req.protocol}://${req.get('host')}`;
+
+  try {
+    return new URL(targetPath || '/', origin).href;
+  } catch (error) {
+    return origin;
+  }
+};
+
+const buildCarStructuredData = (req, car, description, canonicalUrl, images) => {
+  const imageUrls = images
+    .filter(Boolean)
+    .map((image) => getAbsoluteUrl(req, image));
+  const availability = String(car.actionText || '').trim().toLocaleLowerCase('vi-VN') === 'còn xe'
+    ? 'https://schema.org/InStock'
+    : 'https://schema.org/OutOfStock';
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: car.name,
+    brand: {
+      '@type': 'Brand',
+      name: car.brand || 'OkXe',
+    },
+    image: imageUrls,
+    description,
+    sku: `OKXE-CAR-${car.id}`,
+    category: car.category || 'Ô tô cũ',
+    offers: {
+      '@type': 'Offer',
+      url: canonicalUrl,
+      priceCurrency: 'VND',
+      price: Number(car.priceValue || 0),
+      availability,
+      itemCondition: 'https://schema.org/UsedCondition',
+      seller: {
+        '@type': 'Organization',
+        name: 'OkXe',
+      },
+    },
+  };
+};
+
+const buildCarDetailSeoMeta = (req, car) => {
+  const images = normalizeCarImages(car.images, car.image);
+  const primaryImage = images[0] || '/images/rental-1.png';
+  const canonicalUrl = getAbsoluteUrl(req, `/cars/${encodeURIComponent(car.id)}`);
+  const title = normalizeSeoText(
+    `${car.name} ${car.year || ''} giá ${car.price || 'liên hệ'} | OkXe`,
+    68
+  );
+  const description = normalizeSeoText(
+    `Xem chi tiết ${car.name}${car.year ? ` đời ${car.year}` : ''}, giá ${car.price || 'liên hệ'}, ${car.mileage || 'số km đang cập nhật'}, ${car.fuel || 'nhiên liệu đang cập nhật'}, ${car.gearbox || 'hộp số đang cập nhật'}. Liên hệ OkXe để được tư vấn mua xe cũ minh bạch.`,
+    158
+  );
+  const structuredData = JSON.stringify(
+    buildCarStructuredData(req, car, description, canonicalUrl, images.length ? images : [primaryImage])
+  ).replace(/</g, '\\u003c');
+
+  return `
+    <!-- OKXE_SEO_META -->
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}">
+    <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
+    <meta name="robots" content="index, follow">
+    <meta property="og:locale" content="vi_VN">
+    <meta property="og:type" content="product">
+    <meta property="og:title" content="${escapeHtml(title)}">
+    <meta property="og:description" content="${escapeHtml(description)}">
+    <meta property="og:url" content="${escapeHtml(canonicalUrl)}">
+    <meta property="og:image" content="${escapeHtml(getAbsoluteUrl(req, primaryImage))}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${escapeHtml(title)}">
+    <meta name="twitter:description" content="${escapeHtml(description)}">
+    <meta name="twitter:image" content="${escapeHtml(getAbsoluteUrl(req, primaryImage))}">
+    <script type="application/ld+json" id="car-seo-json">${structuredData}</script>
+    <!-- /OKXE_SEO_META -->
+  `;
+};
+
+const renderCarDetailHtml = (req, car) => {
+  const template = fs.readFileSync(getPublicPagePath(publicPages.carDetail), 'utf8');
+  const seoMeta = buildCarDetailSeoMeta(req, car);
+
+  return template.replace(
+    /<!-- OKXE_SEO_META -->[\s\S]*?<!-- \/OKXE_SEO_META -->/,
+    seoMeta
+  );
+};
+
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
@@ -841,6 +1225,17 @@ app.use((req, res, next) => {
 
 app.use('/images', express.static(imagesPath));
 app.use('/uploads', express.static(uploadsPath));
+
+app.get('/images/:imageName', (req, res, next) => {
+  const aliasFileName = legacyImageAliases.get(req.params.imageName);
+
+  if (!aliasFileName) {
+    next();
+    return;
+  }
+
+  res.sendFile(path.join(imagesPath, aliasFileName));
+});
 
 app.post('/api/uploads/car-images', requireAdmin, uploadJsonParser, (req, res) => {
   const files = Array.isArray(req.body?.files) ? req.body.files : [];
@@ -971,31 +1366,66 @@ app.patch('/api/auth/profile', requireUser, profileJsonParser, (req, res) => {
 
 app.use(express.json({ limit: '100kb' }));
 
-app.get(['/admin', '/admin.html'], requireAdminPage, (req, res) => {
-  res.sendFile(path.join(publicPath, 'admin.html'));
+app.get('/api/site-config', (req, res) => {
+  res.json({
+    hotline: dealershipHotline,
+  });
 });
 
-app.get(['/admin-login', '/admin-login.html'], (req, res) => {
-  res.sendFile(path.join(publicPath, 'admin-login.html'));
+app.get(['/admin', '/admin/', '/admin.html', '/admin/index.html'], requireAdminPage, (req, res) => {
+  sendPublicPage(res, publicPages.admin);
 });
 
-app.get(['/khuyen-mai', '/khuyen-mai.html'], (req, res) => {
-  res.sendFile(path.join(publicPath, 'khuyen-mai.html'));
+app.get(['/admin-login', '/admin-login/', '/admin-login.html'], (req, res) => {
+  sendPublicPage(res, publicPages.adminLogin);
 });
 
-app.get(['/tu-van-ban-hang', '/tu-van-ban-hang.html'], (req, res) => {
-  res.sendFile(path.join(publicPath, 'tu-van-ban-hang.html'));
+app.get(['/mua-xe', '/mua-xe/', '/mua-xe.html'], (req, res) => {
+  sendPublicPage(res, publicPages.inventory);
 });
 
-app.get(['/dang-ky-lai-thu', '/dang-ky-lai-thu.html'], (req, res) => {
-  res.sendFile(path.join(publicPath, 'dang-ky-lai-thu.html'));
+app.get(['/khuyen-mai', '/khuyen-mai/', '/khuyen-mai.html'], (req, res) => {
+  sendPublicPage(res, publicPages.promotions);
+});
+
+app.get(['/tin-mua-o-to', '/tin-mua-o-to/', '/tin-mua-o-to.html'], (req, res) => {
+  sendPublicPage(res, publicPages.buyRequests);
+});
+
+app.get(['/dang-tin-mua-o-to', '/dang-tin-mua-o-to/', '/dang-tin-mua-o-to.html'], (req, res) => {
+  sendPublicPage(res, publicPages.buyRequestForm);
+});
+
+app.get(['/tu-van-ban-hang', '/tu-van-ban-hang/', '/tu-van-ban-hang.html'], (req, res) => {
+  sendPublicPage(res, publicPages.salesTeam);
+});
+
+app.get(['/dang-ky-lai-thu', '/dang-ky-lai-thu/', '/dang-ky-lai-thu.html'], (req, res) => {
+  sendPublicPage(res, publicPages.testDrive);
+});
+
+app.get('/car-detail.html', (req, res) => {
+  sendPublicPage(res, publicPages.carDetail);
 });
 
 app.get('/cars/:id', (req, res) => {
-  res.sendFile(path.join(publicPath, 'car-detail.html'));
+  const carId = Number(req.params.id);
+  const car = Number.isInteger(carId) ? getCarById(carId) : null;
+
+  if (!car) {
+    res.status(404).sendFile(getPublicPagePath(publicPages.carDetail));
+    return;
+  }
+
+  try {
+    res.send(renderCarDetailHtml(req, car));
+  } catch (error) {
+    console.error('Render car detail SEO page error:', error);
+    sendPublicPage(res, publicPages.carDetail);
+  }
 });
 
-app.use(express.static(publicPath));
+app.use(express.static(publicPath, { index: false }));
 
 app.get('/api/cars', (req, res) => {
   res.json({ cars: listCars() });
@@ -1015,6 +1445,75 @@ app.get('/api/promotions', (req, res) => {
 
 app.get('/api/promotions/all', (req, res) => {
   res.json({ promotions: listPublicPromotions() });
+});
+
+app.get('/api/car-buy-requests', (req, res) => {
+  res.json({
+    requests: listPublicCarBuyRequests(),
+    budgetRanges: carBuyRequestBudgetLabels,
+  });
+});
+
+app.get('/api/car-buy-requests/my', requireUser, (req, res) => {
+  res.json({
+    requests: listCarBuyRequestsByUser(req.user.id),
+    budgetRanges: carBuyRequestBudgetLabels,
+  });
+});
+
+app.post('/api/car-buy-requests', carBuyRequestRateLimit, (req, res) => {
+  const { request, error } = validateCarBuyRequestPayload(req.body || {});
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const requestUser = getRequestUser(req);
+    const createdRequest = createCarBuyRequest({
+      userId: requestUser?.id || null,
+      ...request,
+    });
+
+    res.status(201).json({
+      message: 'Đăng tin mua xe thành công. Tin của bạn đang chờ cửa hàng duyệt trước khi hiển thị.',
+      request: createdRequest,
+    });
+  } catch (dbError) {
+    console.error('Create car buy request error:', dbError);
+    res.status(500).json({ message: 'Không thể đăng tin mua xe lúc này.' });
+  }
+});
+
+app.post('/api/consultation-requests', consultationRequestRateLimit, (req, res) => {
+  const { request, error } = validateConsultationRequestPayload(req.body || {});
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const requestUser = getRequestUser(req);
+    const consultationRequest = createConsultationRequest({
+      userId: requestUser?.id || null,
+      ...request,
+    });
+
+    if (!consultationRequest) {
+      res.status(404).json({ message: 'Không tìm thấy xe cần tư vấn.' });
+      return;
+    }
+
+    res.status(201).json({
+      message: 'OkXe đã nhận yêu cầu tư vấn. Nhân viên sẽ liên hệ lại trong thời gian sớm nhất.',
+      request: consultationRequest,
+    });
+  } catch (dbError) {
+    console.error('Create consultation request error:', dbError);
+    res.status(500).json({ message: 'Không thể gửi yêu cầu tư vấn lúc này.' });
+  }
 });
 
 app.get('/api/test-drive/cars', requireUser, (req, res) => {
@@ -1315,6 +1814,133 @@ app.delete('/api/admin/promotions/:id', requireAdmin, (req, res) => {
   } catch (dbError) {
     console.error('Delete promotion error:', dbError);
     res.status(500).json({ message: 'Không thể xóa bài khuyến mại lúc này.' });
+  }
+});
+
+app.get('/api/admin/car-buy-requests', requireAdmin, (req, res) => {
+  res.json({
+    requests: listCarBuyRequests(),
+    budgetRanges: carBuyRequestBudgetLabels,
+  });
+});
+
+app.patch('/api/admin/car-buy-requests/:id/status', requireAdmin, (req, res) => {
+  const requestId = Number(req.params.id);
+  const { statusUpdate, error } = validateCarBuyRequestStatusPayload(req.body || {});
+
+  if (!Number.isFinite(requestId)) {
+    res.status(400).json({ message: 'Mã tin mua xe không hợp lệ.' });
+    return;
+  }
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const request = updateCarBuyRequestStatus(requestId, statusUpdate);
+
+    if (!request) {
+      res.status(404).json({ message: 'Không tìm thấy tin mua xe.' });
+      return;
+    }
+
+    res.json({
+      message: `Cập nhật trạng thái tin mua xe: ${carBuyRequestStatusLabels[request.status]}.`,
+      request,
+    });
+  } catch (dbError) {
+    console.error('Update car buy request status error:', dbError);
+    res.status(500).json({ message: 'Không thể cập nhật trạng thái tin mua xe lúc này.' });
+  }
+});
+
+app.delete('/api/admin/car-buy-requests/:id', requireAdmin, (req, res) => {
+  const requestId = Number(req.params.id);
+
+  if (!Number.isFinite(requestId)) {
+    res.status(400).json({ message: 'Mã tin mua xe không hợp lệ.' });
+    return;
+  }
+
+  try {
+    const request = deleteCarBuyRequest(requestId);
+
+    if (!request) {
+      res.status(404).json({ message: 'Không tìm thấy tin mua xe để xóa.' });
+      return;
+    }
+
+    res.json({
+      message: 'Xóa tin mua xe thành công.',
+      request,
+    });
+  } catch (dbError) {
+    console.error('Delete car buy request error:', dbError);
+    res.status(500).json({ message: 'Không thể xóa tin mua xe lúc này.' });
+  }
+});
+
+app.get('/api/admin/consultation-requests', requireAdmin, (req, res) => {
+  res.json({ requests: listConsultationRequests() });
+});
+
+app.patch('/api/admin/consultation-requests/:id/status', requireAdmin, (req, res) => {
+  const requestId = Number(req.params.id);
+  const { statusUpdate, error } = validateConsultationRequestStatusPayload(req.body || {});
+
+  if (!Number.isFinite(requestId)) {
+    res.status(400).json({ message: 'Mã yêu cầu tư vấn không hợp lệ.' });
+    return;
+  }
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const request = updateConsultationRequestStatus(requestId, statusUpdate);
+
+    if (!request) {
+      res.status(404).json({ message: 'Không tìm thấy yêu cầu tư vấn.' });
+      return;
+    }
+
+    res.json({
+      message: `Cập nhật trạng thái: ${consultationRequestStatusLabels[request.status]}.`,
+      request,
+    });
+  } catch (dbError) {
+    console.error('Update consultation request status error:', dbError);
+    res.status(500).json({ message: 'Không thể cập nhật trạng thái yêu cầu tư vấn lúc này.' });
+  }
+});
+
+app.delete('/api/admin/consultation-requests/:id', requireAdmin, (req, res) => {
+  const requestId = Number(req.params.id);
+
+  if (!Number.isFinite(requestId)) {
+    res.status(400).json({ message: 'Mã yêu cầu tư vấn không hợp lệ.' });
+    return;
+  }
+
+  try {
+    const request = deleteConsultationRequest(requestId);
+
+    if (!request) {
+      res.status(404).json({ message: 'Không tìm thấy yêu cầu tư vấn để xóa.' });
+      return;
+    }
+
+    res.json({
+      message: 'Xóa yêu cầu tư vấn thành công.',
+      request,
+    });
+  } catch (dbError) {
+    console.error('Delete consultation request error:', dbError);
+    res.status(500).json({ message: 'Không thể xóa yêu cầu tư vấn lúc này.' });
   }
 });
 
@@ -1901,7 +2527,11 @@ app.post('/api/auth/reset-password', passwordResetAttemptRateLimit, (req, res) =
 });
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(publicPath, 'index.html'));
+  sendPublicPage(res, publicPages.home);
+});
+
+app.get('/index.html', (req, res) => {
+  sendPublicPage(res, publicPages.home);
 });
 
 app.use((error, req, res, next) => {

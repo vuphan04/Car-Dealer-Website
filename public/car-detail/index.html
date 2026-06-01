@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- OKXE_SEO_META -->
+    <title>Chi tiết xe - OkXe</title>
+    <meta name="description" content="Xem chi tiết xe cũ tại OkXe với hình ảnh, thông số, giá bán, so sánh và liên hệ tư vấn nhanh.">
+    <link rel="canonical" href="/cars">
+    <meta name="robots" content="index, follow">
+    <meta property="og:locale" content="vi_VN">
+    <meta property="og:type" content="product">
+    <meta property="og:title" content="Chi tiết xe - OkXe">
+    <meta property="og:description" content="Xem chi tiết xe cũ tại OkXe với hình ảnh, thông số, giá bán, so sánh và liên hệ tư vấn nhanh.">
+    <meta property="og:url" content="/cars">
+    <meta property="og:image" content="/images/rental-1.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Chi tiết xe - OkXe">
+    <meta name="twitter:description" content="Xem chi tiết xe cũ tại OkXe với hình ảnh, thông số, giá bán, so sánh và liên hệ tư vấn nhanh.">
+    <meta name="twitter:image" content="/images/rental-1.png">
+    <script type="application/ld+json" id="car-seo-json">{}</script>
+    <!-- /OKXE_SEO_META -->
+    <link rel="stylesheet" href="/car-detail/style.css">
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+</head>
+<body>
+    <header class="detail-header">
+        <nav class="detail-nav">
+            <a href="/" class="detail-logo">Ok<span>Xe</span></a>
+            <div class="detail-nav__links">
+                <a href="/mua-xe">Tìm mua ô tô</a>
+                <a href="/tin-mua-o-to">Tin mua ô tô</a>
+                <a href="/dang-tin-mua-o-to">Đăng tin mua ô tô</a>
+                <a href="/khuyen-mai">Khuyến mại</a>
+                <a href="/tu-van-ban-hang">Tư vấn bán hàng</a>
+                <a href="/#footer">Liên hệ</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="detail-page">
+        <section class="detail-shell" id="car-detail-root">
+            <div class="detail-loading">
+                <i class="bx bx-loader-alt bx-spin"></i>
+                <span>Đang tải thông tin xe...</span>
+            </div>
+        </section>
+    </main>
+
+    <div class="consultation-modal" id="consultation-modal" aria-hidden="true">
+        <div class="consultation-modal__overlay" data-close-consultation></div>
+        <div class="consultation-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="consultation-modal-title">
+            <div class="consultation-modal__header">
+                <div>
+                    <span>Liên hệ tư vấn</span>
+                    <h2 id="consultation-modal-title">Nhận tư vấn xe</h2>
+                    <p id="consultation-modal-summary">OkXe sẽ tiếp nhận thông tin và liên hệ lại với bạn.</p>
+                </div>
+                <button type="button" class="consultation-modal__close" data-close-consultation aria-label="Đóng form tư vấn">
+                    <i class="bx bx-x" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <form class="consultation-form" id="consultation-form">
+                <input type="hidden" name="carId" id="consultation-car-id">
+                <div class="consultation-form__grid">
+                    <label>
+                        <span>Họ và tên</span>
+                        <input type="text" name="fullName" maxlength="120" placeholder="Nhập họ tên của bạn" required>
+                    </label>
+                    <label>
+                        <span>Số điện thoại</span>
+                        <input type="tel" name="phone" maxlength="30" placeholder="Ví dụ: 0912345678" required>
+                    </label>
+                    <label>
+                        <span>Email</span>
+                        <input type="email" name="email" maxlength="160" placeholder="email@example.com">
+                    </label>
+                    <label>
+                        <span>Nhu cầu</span>
+                        <select name="requestType" id="consultation-request-type" required>
+                            <option value="consultation">Tư vấn & báo giá</option>
+                            <option value="quote">Yêu cầu báo giá</option>
+                            <option value="financing">Tư vấn trả góp</option>
+                            <option value="rolling_cost">Chi phí lăn bánh</option>
+                            <option value="viewing">Đặt lịch xem xe</option>
+                            <option value="similar_car">Tư vấn xe tương tự</option>
+                        </select>
+                    </label>
+                    <div class="consultation-form__field consultation-form__field--wide">
+                        <span>Thời gian muốn được gọi lại</span>
+                        <div class="consultation-time-picker">
+                            <label class="consultation-time-field">
+                                <span>Chọn ngày</span>
+                                <input type="date" id="consultation-contact-date" name="preferredContactDate">
+                            </label>
+                            <label class="consultation-time-field">
+                                <span>Chọn giờ</span>
+                                <input type="time" id="consultation-contact-time" name="preferredContactHour" min="08:00" max="20:00" step="900">
+                            </label>
+                        </div>
+                        <input type="hidden" name="preferredContactTime" id="consultation-preferred-contact-time">
+                    </div>
+                    <label class="consultation-form__field--wide">
+                        <span>Ghi chú thêm</span>
+                        <textarea name="note" rows="4" maxlength="700" placeholder="Nhập ngân sách, nhu cầu sử dụng hoặc câu hỏi cần tư vấn"></textarea>
+                    </label>
+                </div>
+                <div class="consultation-form__actions">
+                    <button type="submit" class="consultation-submit" id="consultation-submit-button">
+                        <i class="bx bx-send" aria-hidden="true"></i>
+                        <span>Gửi yêu cầu tư vấn</span>
+                    </button>
+                    <a class="consultation-quick-link" id="consultation-call-link" href="tel:0854955761">
+                        <i class="bx bx-phone-call" aria-hidden="true"></i>
+                        <span>Gọi ngay</span>
+                    </a>
+                    <a class="consultation-quick-link" id="consultation-test-drive-link" href="/dang-ky-lai-thu">
+                        <i class="bx bx-steering-wheel" aria-hidden="true"></i>
+                        <span>Đăng ký lái thử</span>
+                    </a>
+                </div>
+                <p class="consultation-feedback" id="consultation-feedback" aria-live="polite"></p>
+            </form>
+        </div>
+    </div>
+
+    <div class="compare-modal" id="compare-modal" aria-hidden="true">
+        <div class="compare-modal__overlay" data-close-compare></div>
+        <div class="compare-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="compare-modal-title">
+            <div class="compare-modal__header">
+                <div>
+                    <span>So sánh xe</span>
+                    <h2 id="compare-modal-title">Thông số xe đang chọn</h2>
+                    <p>Tối đa 3 xe trong mỗi lần so sánh.</p>
+                </div>
+                <button type="button" class="compare-modal__close" data-close-compare aria-label="Đóng so sánh xe">
+                    <i class="bx bx-x" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="compare-modal__tools">
+                <label class="compare-search">
+                    <i class="bx bx-search" aria-hidden="true"></i>
+                    <input type="search" id="compare-search-input" placeholder="Tìm xe để thêm vào so sánh">
+                </label>
+                <p id="compare-count">Đã chọn 0/3 xe</p>
+            </div>
+            <div class="compare-modal__body">
+                <aside class="compare-picker" id="compare-picker" aria-label="Danh sách xe có thể thêm"></aside>
+                <section class="compare-table-wrap" id="compare-table-wrap" aria-label="Bảng so sánh thông số xe"></section>
+            </div>
+        </div>
+    </div>
+
+    <script src="/car-detail/script.js"></script>
+</body>
+</html>

@@ -98,6 +98,7 @@ let favoriteCarIds = new Set();
 let teamMembersState = [];
 let promotionsState = [];
 let testDriveAppointmentsState = [];
+let carBuyRequestsState = [];
 let teamMemberCloseTimer = 0;
 let dismissedNotificationIds = new Set();
 const dismissedNotificationsStorageKey = 'okxe:dismissedPromotionNotifications';
@@ -868,6 +869,27 @@ const testDriveNotificationLabels = {
     }
 };
 
+const carBuyRequestNotificationLabels = {
+    pending: {
+        meta: 'Tin mua xe',
+        title: 'Đã nhận tin mua ô tô',
+        icon: 'bx-message-square-edit',
+        footer: 'Tin của bạn đang chờ cửa hàng duyệt trước khi hiển thị công khai.'
+    },
+    approved: {
+        meta: 'Tin mua xe',
+        title: 'Tin mua ô tô đã được duyệt',
+        icon: 'bxs-check-circle',
+        footer: 'Tin của bạn đã hiển thị trên mục Tin mua ô tô.'
+    },
+    rejected: {
+        meta: 'Tin mua xe',
+        title: 'Tin mua ô tô bị từ chối',
+        icon: 'bxs-x-circle',
+        footer: 'Tin chưa được hiển thị công khai. Bạn có thể đăng lại với nội dung phù hợp hơn.'
+    }
+};
+
 const getTestDriveNotificationState = (appointment = {}) => {
     const status = String(appointment.status || '').trim().toLowerCase();
     const hasStatusNote = String(appointment.statusNote || '').trim().length > 0;
@@ -915,6 +937,16 @@ const getTestDriveNotificationKey = (appointment = {}) =>
         ].join(':')
     );
 
+const getCarBuyRequestNotificationKey = (request = {}) =>
+    getNotificationKey(
+        'car-buy-request',
+        [
+            request.id,
+            request.status || 'pending',
+            request.updatedAt || request.createdAt || ''
+        ].join(':')
+    );
+
 const isNotificationDismissed = (type, id) =>
     dismissedNotificationIds.has(getNotificationKey(type, id))
     || (type === 'promotion' && dismissedNotificationIds.has(String(id || '')));
@@ -940,8 +972,21 @@ const getNotificationTestDriveAppointments = () =>
             return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
         });
 
+const getNotificationCarBuyRequests = () =>
+    [...carBuyRequestsState]
+        .filter((request) => !dismissedNotificationIds.has(getCarBuyRequestNotificationKey(request)))
+        .sort((first, second) => {
+            const firstTime = new Date(first.updatedAt || first.createdAt || 0).getTime();
+            const secondTime = new Date(second.updatedAt || second.createdAt || 0).getTime();
+
+            return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
+        });
+
 const updateNotificationBadge = () => {
-    const notificationCount = getNotificationPromotions().length + getNotificationTestDriveAppointments().length;
+    const notificationCount =
+        getNotificationPromotions().length
+        + getNotificationTestDriveAppointments().length
+        + getNotificationCarBuyRequests().length;
 
     notificationBadges.forEach((badge) => {
         badge.textContent = notificationCount > 9 ? '9+' : String(notificationCount);
@@ -957,12 +1002,14 @@ const renderPromotionNotifications = (promotions = promotionsState) => {
 
     const notificationPromotions = getNotificationPromotions(promotions);
     const notificationAppointments = getNotificationTestDriveAppointments();
+    const notificationCarBuyRequests = getNotificationCarBuyRequests();
     const notifications = [
         ...notificationAppointments.map((appointment) => ({ type: 'test-drive', item: appointment })),
+        ...notificationCarBuyRequests.map((request) => ({ type: 'car-buy-request', item: request })),
         ...notificationPromotions.map((promotion) => ({ type: 'promotion', item: promotion }))
     ].sort((first, second) => {
-        const firstTime = new Date(first.item.createdAt || first.item.startsAt || 0).getTime();
-        const secondTime = new Date(second.item.createdAt || second.item.startsAt || 0).getTime();
+        const firstTime = new Date(first.item.updatedAt || first.item.createdAt || first.item.startsAt || 0).getTime();
+        const secondTime = new Date(second.item.updatedAt || second.item.createdAt || second.item.startsAt || 0).getTime();
 
         return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
     });
@@ -1004,7 +1051,7 @@ const renderPromotionNotifications = (promotions = promotionsState) => {
                 : notificationConfig.footer;
             const appointmentAction = notificationState === 'pending'
                 ? `
-                            <a href="/dang-ky-lai-thu.html?carId=${encodeURIComponent(String(appointment.carId || ''))}" class="notification-item__action" data-close-notifications-link>
+                            <a href="/dang-ky-lai-thu?carId=${encodeURIComponent(String(appointment.carId || ''))}" class="notification-item__action" data-close-notifications-link>
                                 <span>Đổi lịch</span>
                                 <i class="bx bx-calendar-edit" aria-hidden="true"></i>
                             </a>
@@ -1034,6 +1081,56 @@ const renderPromotionNotifications = (promotions = promotionsState) => {
                         <div class="notification-item__footer">
                             <small>${escapeHtml(footerText)}</small>
                             ${appointmentAction}
+                        </div>
+                    </div>
+                </article>
+            `;
+        }
+
+        if (type === 'car-buy-request') {
+            const request = item;
+            const status = String(request.status || 'pending').trim().toLowerCase();
+            const notificationConfig = carBuyRequestNotificationLabels[status] || carBuyRequestNotificationLabels.pending;
+            const createdText = formatPromotionDate(
+                String(request.updatedAt || request.createdAt || '').slice(0, 10),
+                'Vừa gửi'
+            );
+            const notificationKey = getCarBuyRequestNotificationKey(request);
+            const title = request.title || 'Tin mua ô tô của bạn';
+            const budgetText = {
+                'under-200': 'Dưới 200 Triệu',
+                '200-400': '200-400 Triệu',
+                '400-600': '400-600 Triệu',
+                '600-800': '600-800 Triệu',
+                '800-1000': '800-1 Tỉ',
+                'over-1000': 'Trên 1 Tỉ'
+            }[request.budgetRange] || 'Giá thỏa thuận';
+            const detailText = `${title} - mức tiền ${budgetText}${request.province ? ` tại ${request.province}` : ''}.`;
+            const footerText = request.statusNote
+                ? `Ghi chú: ${request.statusNote}`
+                : notificationConfig.footer;
+
+            return `
+                <article class="notification-item">
+                    <button type="button" class="notification-item__delete" data-delete-notification="${escapeHtml(notificationKey)}" aria-label="Xóa thông báo tin mua xe">
+                        <i class="bx bx-x" aria-hidden="true"></i>
+                    </button>
+                    <span class="notification-item__icon">
+                        <i class="bx ${escapeHtml(notificationConfig.icon)}" aria-hidden="true"></i>
+                    </span>
+                    <div class="notification-item__body">
+                        <div class="notification-item__meta">
+                            <span>${escapeHtml(notificationConfig.meta)}</span>
+                            <small>${escapeHtml(createdText)}</small>
+                        </div>
+                        <h3>${escapeHtml(notificationConfig.title)}</h3>
+                        <p>${escapeHtml(detailText)}</p>
+                        <div class="notification-item__footer">
+                            <small>${escapeHtml(footerText)}</small>
+                            <a href="/tin-mua-o-to" data-close-notifications-link>
+                                <span>Xem tin mua xe</span>
+                                <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+                            </a>
                         </div>
                     </div>
                 </article>
@@ -1152,6 +1249,7 @@ const openNotificationsModal = async () => {
 
     await syncPromotions();
     await syncTestDriveAppointments();
+    await syncCarBuyRequests();
     renderPromotionNotifications();
 };
 
@@ -1261,7 +1359,7 @@ homeSearchForm?.addEventListener('submit', async (event) => {
 });
 
 const getTeamMemberImage = (member) =>
-    String(member?.avatarUrl || '').trim() || '/images/sale1.png';
+    String(member?.avatarUrl || '').trim() || '/images/showroom-sales-consultant.png';
 
 const getTeamContactLinks = (member) => {
     const phone = String(member?.phone || '').trim();
@@ -2296,6 +2394,28 @@ const syncTestDriveAppointments = async () => {
     renderPromotionNotifications();
 };
 
+const syncCarBuyRequests = async () => {
+    if (!currentUser) {
+        carBuyRequestsState = [];
+        renderPromotionNotifications();
+        return;
+    }
+
+    try {
+        const { response, data } = await requestJson('/api/car-buy-requests/my');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải tin mua xe của bạn.');
+        }
+
+        carBuyRequestsState = Array.isArray(data.requests) ? data.requests : [];
+    } catch (error) {
+        carBuyRequestsState = [];
+    }
+
+    renderPromotionNotifications();
+};
+
 const syncCurrentUser = async () => {
     try {
         const { response, data } = await requestJson('/api/auth/me');
@@ -2304,16 +2424,19 @@ const syncCurrentUser = async () => {
             updateAuthUi(null);
             await syncFavoriteCars();
             await syncTestDriveAppointments();
+            await syncCarBuyRequests();
             return;
         }
 
         updateAuthUi(data.user);
         await syncFavoriteCars();
         await syncTestDriveAppointments();
+        await syncCarBuyRequests();
     } catch (error) {
         updateAuthUi(null);
         await syncFavoriteCars();
         await syncTestDriveAppointments();
+        await syncCarBuyRequests();
     }
 };
 

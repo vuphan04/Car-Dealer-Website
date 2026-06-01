@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1220" height="770" viewBox="0 0 1220 770">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#ffffff"/>
+  <rect x="150" y="35" width="920" height="680" fill="none" stroke="#303030" stroke-width="2"/>
+  <path d="M150,35 H360 L338,71 H150 Z" fill="#ffffff" stroke="#303030" stroke-width="1.8"/>
+  <text x="160" y="57" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="600" fill="#202020"><tspan x="160" dy="0">UC khách tìm mua xe</tspan></text>
+  
+  <line x1="70" y1="380" x2="330" y2="95" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="70" y1="380" x2="610" y2="100" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="70" y1="380" x2="875" y2="100" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="70" y1="380" x2="335" y2="235" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="70" y1="380" x2="335" y2="385" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="70" y1="380" x2="875" y2="385" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="70" y1="380" x2="335" y2="535" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="70" y1="380" x2="610" y2="650" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="1148" y1="380" x2="330" y2="95" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="1148" y1="380" x2="875" y2="100" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="1148" y1="380" x2="335" y2="385" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="1148" y1="380" x2="875" y2="385" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="1148" y1="380" x2="335" y2="535" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="1148" y1="380" x2="610" y2="535" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="1148" y1="380" x2="875" y2="535" stroke="#303030" stroke-width="1.8"/>
+
+
+  <line x1="1148" y1="380" x2="610" y2="650" stroke="#303030" stroke-width="1.8"/>
+
+  
+    <line x1="610" y1="100" x2="875" y2="100" stroke="#5a5a5a" stroke-width="1.4" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+    <text x="742.5" y="92" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#5a5a5a"><tspan x="742.5" dy="0">mở kết quả</tspan></text>
+  
+
+    <line x1="335" y1="235" x2="610" y2="245" stroke="#5a5a5a" stroke-width="1.4" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+    <text x="472.5" y="232" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#5a5a5a"><tspan x="472.5" dy="0">&lt;&lt;extend&gt;&gt;</tspan></text>
+  
+
+    <line x1="335" y1="385" x2="610" y2="385" stroke="#5a5a5a" stroke-width="1.4" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+    <text x="472.5" y="377" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#5a5a5a"><tspan x="472.5" dy="0">&lt;&lt;include&gt;&gt;</tspan></text>
+  
+
+    <line x1="875" y1="535" x2="610" y2="535" stroke="#5a5a5a" stroke-width="1.4" stroke-dasharray="7 6" marker-end="url(#arrow)"/>
+    <text x="742.5" y="527" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="500" fill="#5a5a5a"><tspan x="742.5" dy="0">&lt;&lt;include&gt;&gt;</tspan></text>
+  
+  
+  <g id="uc-home">
+    <ellipse cx="330" cy="95" rx="130" ry="48" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="330" y="90" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="330" dy="0">Xem trang chủ</tspan><tspan x="330" dy="20">và slider xe mới</tspan></text>
+  </g>
+
+
+  <g id="uc-quickSearch">
+    <ellipse cx="610" cy="100" rx="130" ry="48" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="610" y="95" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="610" dy="0">Tìm kiếm nhanh</tspan><tspan x="610" dy="20">trên trang chủ</tspan></text>
+  </g>
+
+
+  <g id="uc-inventory">
+    <ellipse cx="875" cy="100" rx="125" ry="48" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="875" y="95" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="875" dy="0">Mở danh sách xe</tspan><tspan x="875" dy="20">/mua-xe</tspan></text>
+  </g>
+
+
+  <g id="uc-filter">
+    <ellipse cx="335" cy="235" rx="145" ry="52" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="335" y="230" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="335" dy="0">Lọc xe theo hãng,</tspan><tspan x="335" dy="20">giá, năm, hộp số...</tspan></text>
+  </g>
+
+
+  <g id="uc-advancedFilter">
+    <ellipse cx="610" cy="245" rx="145" ry="58" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="610" y="230" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="610" dy="0">Mở rộng bộ lọc:</tspan><tspan x="610" dy="20">nhiên liệu, màu,</tspan><tspan x="610" dy="20">dẫn động, số chỗ</tspan></text>
+  </g>
+
+
+  <g id="uc-sort">
+    <ellipse cx="875" cy="235" rx="118" ry="38" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="875" y="240" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="875" dy="0">Sắp xếp kết quả</tspan></text>
+  </g>
+
+
+  <g id="uc-detail">
+    <ellipse cx="335" cy="385" rx="130" ry="48" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="335" y="380" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="335" dy="0">Xem chi tiết xe</tspan><tspan x="335" dy="20">/cars/:id</tspan></text>
+  </g>
+
+
+  <g id="uc-gallery">
+    <ellipse cx="610" cy="385" rx="145" ry="50" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="610" y="380" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="610" dy="0">Xem ảnh, mô tả</tspan><tspan x="610" dy="20">và thông số đầy đủ</tspan></text>
+  </g>
+
+
+  <g id="uc-compare">
+    <ellipse cx="875" cy="385" rx="118" ry="48" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="875" y="380" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="875" dy="0">So sánh tối đa</tspan><tspan x="875" dy="20">3 xe</tspan></text>
+  </g>
+
+
+  <g id="uc-consult">
+    <ellipse cx="335" cy="535" rx="135" ry="48" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="335" y="530" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="335" dy="0">Gửi yêu cầu tư vấn</tspan><tspan x="335" dy="20">và báo giá</tspan></text>
+  </g>
+
+
+  <g id="uc-favorite">
+    <ellipse cx="610" cy="535" rx="138" ry="38" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="610" y="540" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="610" dy="0">Lưu / bỏ xe yêu thích</tspan></text>
+  </g>
+
+
+  <g id="uc-favoriteList">
+    <ellipse cx="875" cy="535" rx="130" ry="48" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="875" y="530" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="875" dy="0">Xem danh sách</tspan><tspan x="875" dy="20">xe yêu thích</tspan></text>
+  </g>
+
+
+  <g id="uc-contactTeam">
+    <ellipse cx="610" cy="650" rx="145" ry="50" fill="#fff4cf" stroke="#303030" stroke-width="1.8"/>
+    <text x="610" y="645" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="600" fill="#202020"><tspan x="610" dy="0">Xem đội ngũ tư vấn</tspan><tspan x="610" dy="20">và liên hệ nhanh</tspan></text>
+  </g>
+
+  
+    <g id="actor-guest" stroke="#303030" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="70" cy="332" r="13" fill="#ffffff"/>
+      <line x1="70" y1="345" x2="70" y2="390"/>
+      <line x1="42" y1="365" x2="98" y2="365"/>
+      <line x1="70" y1="390" x2="46" y2="428"/>
+      <line x1="70" y1="390" x2="94" y2="428"/>
+    </g>
+    <text x="66" y="456" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="600" fill="#202020"><tspan x="66" dy="0">Khách vãng lai</tspan></text>
+  
+
+    <g id="actor-customer" stroke="#303030" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="1148" cy="332" r="13" fill="#ffffff"/>
+      <line x1="1148" y1="345" x2="1148" y2="390"/>
+      <line x1="1120" y1="365" x2="1176" y2="365"/>
+      <line x1="1148" y1="390" x2="1124" y2="428"/>
+      <line x1="1148" y1="390" x2="1172" y2="428"/>
+    </g>
+    <text x="1152" y="456" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="600" fill="#202020"><tspan x="1152" dy="0">Khách hàng</tspan></text>
+  
+  
+</svg>

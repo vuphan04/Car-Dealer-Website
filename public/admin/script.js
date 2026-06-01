@@ -77,6 +77,7 @@ const testDriveRefreshButton = document.querySelector('#test-drive-refresh-butto
 const testDriveTableBody = document.querySelector('#test-drive-table-body');
 const testDriveProcessedTableBody = document.querySelector('#test-drive-processed-table-body');
 const testDriveFeedback = document.querySelector('#test-drive-feedback');
+const testDriveStatsChart = document.querySelector('#test-drive-stats-chart');
 const testDriveStatTotal = document.querySelector('#test-drive-stat-total');
 const testDriveStatApproved = document.querySelector('#test-drive-stat-approved');
 const testDriveStatCancelled = document.querySelector('#test-drive-stat-cancelled');
@@ -92,6 +93,41 @@ const testDriveStatusSaveButton = document.querySelector('#test-drive-status-sav
 const testDriveStatusFeedback = document.querySelector('#test-drive-status-feedback');
 const testDriveStatusCloseButtons = document.querySelectorAll('[data-close-test-drive-status]');
 const testDriveStatusOptionButtons = document.querySelectorAll('[data-status-option]');
+const consultationSearchInput = document.querySelector('#consultation-search');
+const consultationStatusFilter = document.querySelector('#consultation-status-filter');
+const consultationRefreshButton = document.querySelector('#consultation-refresh-button');
+const consultationTableBody = document.querySelector('#consultation-table-body');
+const consultationFeedback = document.querySelector('#consultation-feedback');
+const consultationStatNew = document.querySelector('#consultation-stat-new');
+const consultationStatContacted = document.querySelector('#consultation-stat-contacted');
+const consultationStatAppointment = document.querySelector('#consultation-stat-appointment');
+const consultationStatClosed = document.querySelector('#consultation-stat-closed');
+const consultationStatFailed = document.querySelector('#consultation-stat-failed');
+const consultationStatusPanel = document.querySelector('#consultation-status-panel');
+const consultationStatusTitle = document.querySelector('#consultation-status-title');
+const consultationStatusSummary = document.querySelector('#consultation-status-summary');
+const consultationStatusSelect = document.querySelector('#consultation-status-select');
+const consultationStatusNote = document.querySelector('#consultation-status-note');
+const consultationStatusSaveButton = document.querySelector('#consultation-status-save-button');
+const consultationStatusFeedback = document.querySelector('#consultation-status-feedback');
+const consultationStatusCloseButtons = document.querySelectorAll('[data-close-consultation-status]');
+const carBuyRequestSearchInput = document.querySelector('#car-buy-request-search');
+const carBuyRequestStatusFilter = document.querySelector('#car-buy-request-status-filter');
+const carBuyRequestRefreshButton = document.querySelector('#car-buy-request-refresh-button');
+const carBuyRequestTableBody = document.querySelector('#car-buy-request-table-body');
+const carBuyRequestFeedback = document.querySelector('#car-buy-request-feedback');
+const carBuyRequestStatPending = document.querySelector('#car-buy-request-stat-pending');
+const carBuyRequestStatApproved = document.querySelector('#car-buy-request-stat-approved');
+const carBuyRequestStatRejected = document.querySelector('#car-buy-request-stat-rejected');
+const carBuyRequestStatTotal = document.querySelector('#car-buy-request-stat-total');
+const carBuyRequestStatusPanel = document.querySelector('#car-buy-request-status-panel');
+const carBuyRequestStatusTitle = document.querySelector('#car-buy-request-status-title');
+const carBuyRequestStatusSummary = document.querySelector('#car-buy-request-status-summary');
+const carBuyRequestStatusSelect = document.querySelector('#car-buy-request-status-select');
+const carBuyRequestStatusNote = document.querySelector('#car-buy-request-status-note');
+const carBuyRequestStatusSaveButton = document.querySelector('#car-buy-request-status-save-button');
+const carBuyRequestStatusFeedback = document.querySelector('#car-buy-request-status-feedback');
+const carBuyRequestStatusCloseButtons = document.querySelectorAll('[data-close-car-buy-request-status]');
 
 const totalCarsElement = document.querySelector('#stat-total-cars');
 const averagePriceElement = document.querySelector('#stat-average-price');
@@ -101,6 +137,8 @@ let cars = [];
 let employees = [];
 let promotions = [];
 let testDriveAppointments = [];
+let consultationRequests = [];
+let carBuyRequests = [];
 let currentAdminUser = null;
 let editingEmployeeId = null;
 let editingPromotionId = null;
@@ -110,9 +148,15 @@ let toastId = 0;
 let modalCloseTimer = null;
 let customerDetailCloseTimer = null;
 let testDriveStatusCloseTimer = null;
+let consultationStatusCloseTimer = null;
+let carBuyRequestStatusCloseTimer = null;
 let promotionCropCloseTimer = null;
 let activeTestDriveAppointmentId = null;
 let activeTestDriveStatus = 'approved';
+let activeConsultationRequestId = null;
+let activeCarBuyRequestId = null;
+let activeCarBuyRequestOriginalStatus = 'pending';
+let activeCarBuyRequestOriginalRejectedNote = '';
 let promotionCropState = null;
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN');
@@ -190,6 +234,58 @@ const testDriveStatusConfig = {
         label: 'Chờ xác nhận',
         className: 'is-pending'
     }
+};
+const consultationStatusConfig = {
+    new: {
+        label: 'Mới',
+        className: 'is-new'
+    },
+    contacted: {
+        label: 'Đã liên hệ',
+        className: 'is-contacted'
+    },
+    appointment: {
+        label: 'Đã hẹn xem xe',
+        className: 'is-appointment'
+    },
+    closed: {
+        label: 'Đã chốt',
+        className: 'is-closed'
+    },
+    failed: {
+        label: 'Không thành công',
+        className: 'is-failed'
+    }
+};
+const consultationTypeLabels = {
+    consultation: 'Tư vấn & báo giá',
+    quote: 'Yêu cầu báo giá',
+    financing: 'Tư vấn trả góp',
+    rolling_cost: 'Chi phí lăn bánh',
+    viewing: 'Đặt lịch xem xe',
+    similar_car: 'Tư vấn xe tương tự'
+};
+const carBuyRequestStatusConfig = {
+    pending: {
+        label: 'Chờ duyệt',
+        className: 'is-pending'
+    },
+    approved: {
+        label: 'Đã duyệt',
+        className: 'is-approved'
+    },
+    rejected: {
+        label: 'Từ chối',
+        className: 'is-rejected'
+    }
+};
+let carBuyRequestBudgetLabels = {
+    'under-200': 'Dưới 200 Triệu',
+    '200-400': '200-400 Triệu',
+    '400-600': '400-600 Triệu',
+    '600-800': '600-800 Triệu',
+    '800-1000': '800-1 Tỉ',
+    'over-1000': 'Trên 1 Tỉ'
 };
 
 const carSelectOptions = {
@@ -302,6 +398,48 @@ const escapeHtml = (value) =>
         '"': '&quot;',
         "'": '&#039;'
     }[character]));
+
+const normalizeSearchValue = (value) =>
+    String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd')
+        .replace(/Đ/g, 'D')
+        .toLowerCase()
+        .trim();
+
+const getDisplayCarTitle = (brand, name, fallback = 'Xe không còn trong kho') => {
+    const normalizedBrand = String(brand || '').trim();
+    const normalizedName = String(name || '').trim();
+
+    if (!normalizedBrand) {
+        return normalizedName || fallback;
+    }
+
+    if (!normalizedName) {
+        return normalizedBrand;
+    }
+
+    return normalizeSearchValue(normalizedName).startsWith(normalizeSearchValue(normalizedBrand))
+        ? normalizedName
+        : `${normalizedBrand} ${normalizedName}`;
+};
+
+const getPhoneHref = (phone) => String(phone || '').replace(/[^\d+]/g, '');
+
+const getMailHref = (email) => String(email || '').trim();
+
+const getShortNotePreview = (note, maxLength = 64) => {
+    const normalizedNote = String(note || '').replace(/\s+/g, ' ').trim();
+
+    if (!normalizedNote) {
+        return '';
+    }
+
+    return normalizedNote.length > maxLength
+        ? `${normalizedNote.slice(0, Math.max(0, maxLength - 3)).trim()}...`
+        : normalizedNote;
+};
 
 const formatCompactPrice = (value) => {
     const numericValue = Number(value || 0);
@@ -527,6 +665,14 @@ const switchAdminView = (viewName) => {
     if (viewName === 'test-drives') {
         loadTestDriveAppointments();
     }
+
+    if (viewName === 'consultations') {
+        loadConsultationRequests();
+    }
+
+    if (viewName === 'car-buy-requests') {
+        loadCarBuyRequests();
+    }
 };
 
 const syncCurrentAdminUser = async () => {
@@ -604,6 +750,80 @@ const setTestDriveFeedback = (message, type = 'success') => {
     if (message) {
         testDriveFeedback.classList.add(type === 'success' ? 'is-success' : 'is-error');
     }
+};
+
+const setConsultationFeedback = (message, type = 'success') => {
+    if (!consultationFeedback) {
+        return;
+    }
+
+    consultationFeedback.textContent = message || '';
+    consultationFeedback.className = 'admin-feedback';
+
+    if (message) {
+        consultationFeedback.classList.add(type === 'success' ? 'is-success' : 'is-error');
+    }
+};
+
+const setConsultationStatusFeedback = (message, type = 'success') => {
+    if (!consultationStatusFeedback) {
+        return;
+    }
+
+    consultationStatusFeedback.textContent = message || '';
+    consultationStatusFeedback.className = 'admin-feedback';
+
+    if (message) {
+        consultationStatusFeedback.classList.add(type === 'success' ? 'is-success' : 'is-error');
+    }
+};
+
+const setConsultationStatusLoading = (isLoading) => {
+    if (!consultationStatusSaveButton) {
+        return;
+    }
+
+    consultationStatusSaveButton.disabled = isLoading;
+    consultationStatusSaveButton.innerHTML = isLoading
+        ? '<i class="bx bx-loader-alt bx-spin"></i><span>Đang cập nhật...</span>'
+        : '<i class="bx bx-save"></i><span>Cập nhật trạng thái</span>';
+};
+
+const setCarBuyRequestFeedback = (message, type = 'success') => {
+    if (!carBuyRequestFeedback) {
+        return;
+    }
+
+    carBuyRequestFeedback.textContent = message || '';
+    carBuyRequestFeedback.className = 'admin-feedback';
+
+    if (message) {
+        carBuyRequestFeedback.classList.add(type === 'success' ? 'is-success' : 'is-error');
+    }
+};
+
+const setCarBuyRequestStatusFeedback = (message, type = 'success') => {
+    if (!carBuyRequestStatusFeedback) {
+        return;
+    }
+
+    carBuyRequestStatusFeedback.textContent = message || '';
+    carBuyRequestStatusFeedback.className = 'admin-feedback';
+
+    if (message) {
+        carBuyRequestStatusFeedback.classList.add(type === 'success' ? 'is-success' : 'is-error');
+    }
+};
+
+const setCarBuyRequestStatusLoading = (isLoading) => {
+    if (!carBuyRequestStatusSaveButton) {
+        return;
+    }
+
+    carBuyRequestStatusSaveButton.disabled = isLoading;
+    carBuyRequestStatusSaveButton.innerHTML = isLoading
+        ? '<i class="bx bx-loader-alt bx-spin"></i><span>Đang cập nhật...</span>'
+        : '<i class="bx bx-save"></i><span>Cập nhật trạng thái</span>';
 };
 
 const showToast = (message, type = 'success', title) => {
@@ -1409,6 +1629,30 @@ const updateTestDriveStats = () => {
     if (testDriveStatPending) {
         testDriveStatPending.textContent = String(pending);
     }
+
+    if (testDriveStatsChart) {
+        const approvedDeg = total ? (approved / total) * 360 : 0;
+        const cancelledDeg = total ? (cancelled / total) * 360 : 0;
+        const pendingDeg = total ? (pending / total) * 360 : 0;
+        const approvedEnd = approvedDeg;
+        const cancelledEnd = approvedDeg + cancelledDeg;
+        const pendingEnd = approvedDeg + cancelledDeg + pendingDeg;
+
+        testDriveStatsChart.style.background = total
+            ? `conic-gradient(
+                var(--test-drive-approved) 0deg ${approvedEnd}deg,
+                var(--test-drive-cancelled) ${approvedEnd}deg ${cancelledEnd}deg,
+                var(--test-drive-pending) ${cancelledEnd}deg ${pendingEnd}deg,
+                var(--test-drive-empty) ${pendingEnd}deg 360deg
+            )`
+            : 'conic-gradient(var(--test-drive-empty) 0deg 360deg)';
+        testDriveStatsChart.setAttribute(
+            'aria-label',
+            total
+                ? `Biểu đồ lịch hẹn lái thử: ${approved} đồng ý, ${cancelled} hủy, ${pending} chờ xử lý trong tổng ${total} lượt đăng ký.`
+                : 'Biểu đồ lịch hẹn lái thử chưa có dữ liệu.'
+        );
+    }
 };
 
 const setTestDriveStatusFeedback = (message, type = 'success') => {
@@ -1575,6 +1819,140 @@ const setTestDriveStatusLoading = (isLoading) => {
         : '<i class="bx bx-save"></i><span>Cập nhật trạng thái</span>';
 };
 
+const openConsultationStatusPanel = (request) => {
+    if (!consultationStatusPanel || !request) {
+        return;
+    }
+
+    const carTitle = getDisplayCarTitle(request.carBrand, request.carName, 'Xe đã chọn');
+    const status = consultationStatusConfig[String(request.status || '').trim().toLowerCase()]
+        ? String(request.status || '').trim().toLowerCase()
+        : 'new';
+
+    activeConsultationRequestId = request.id;
+
+    if (consultationStatusTitle) {
+        consultationStatusTitle.textContent = `Cập nhật yêu cầu #${request.id}`;
+    }
+
+    if (consultationStatusSummary) {
+        consultationStatusSummary.textContent = `${request.fullName || 'Khách hàng'} - ${carTitle} - ${getConsultationTypeLabel(request.requestType)}`;
+    }
+
+    if (consultationStatusSelect) {
+        consultationStatusSelect.value = status;
+    }
+
+    if (consultationStatusNote) {
+        consultationStatusNote.value = request.statusNote || '';
+    }
+
+    setConsultationStatusFeedback('');
+    consultationStatusPanel.hidden = false;
+    consultationStatusPanel.setAttribute('aria-hidden', 'false');
+    consultationStatusPanel.classList.remove('is-closing');
+    document.body.classList.add('modal-open');
+    window.clearTimeout(consultationStatusCloseTimer);
+    window.requestAnimationFrame(() => {
+        consultationStatusPanel.classList.add('is-visible');
+        consultationStatusSelect?.focus();
+    });
+};
+
+const closeConsultationStatusPanel = () => {
+    if (!consultationStatusPanel) {
+        return;
+    }
+
+    consultationStatusPanel.classList.remove('is-visible');
+    consultationStatusPanel.classList.add('is-closing');
+    consultationStatusPanel.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    activeConsultationRequestId = null;
+    window.clearTimeout(consultationStatusCloseTimer);
+    consultationStatusCloseTimer = window.setTimeout(() => {
+        consultationStatusPanel.hidden = true;
+        consultationStatusPanel.classList.remove('is-closing');
+    }, 280);
+};
+
+const syncCarBuyRequestStatusNoteField = () => {
+    if (!carBuyRequestStatusNote) {
+        return;
+    }
+
+    const status = String(carBuyRequestStatusSelect?.value || '').trim().toLowerCase();
+    const needsRejectedReason = status === 'rejected';
+
+    carBuyRequestStatusNote.required = needsRejectedReason;
+    carBuyRequestStatusNote.placeholder = needsRejectedReason
+        ? 'Nhập lý do từ chối tin mua xe...'
+        : 'Nhập ghi chú xử lý nội bộ nếu cần...';
+};
+
+const openCarBuyRequestStatusPanel = (request) => {
+    if (!carBuyRequestStatusPanel || !request) {
+        return;
+    }
+
+    const status = carBuyRequestStatusConfig[String(request.status || '').trim().toLowerCase()]
+        ? String(request.status || '').trim().toLowerCase()
+        : 'pending';
+
+    activeCarBuyRequestId = request.id;
+    activeCarBuyRequestOriginalStatus = status;
+    activeCarBuyRequestOriginalRejectedNote = status === 'rejected'
+        ? String(request.statusNote || '').trim()
+        : '';
+
+    if (carBuyRequestStatusTitle) {
+        carBuyRequestStatusTitle.textContent = `Cập nhật ${request.code || `#${request.id}`}`;
+    }
+
+    if (carBuyRequestStatusSummary) {
+        carBuyRequestStatusSummary.textContent = `${request.fullName || 'Khách hàng'} - ${request.title || 'Tin mua xe'} - ${getCarBuyRequestBudgetLabel(request.budgetRange)}`;
+    }
+
+    if (carBuyRequestStatusSelect) {
+        carBuyRequestStatusSelect.value = status;
+    }
+
+    if (carBuyRequestStatusNote) {
+        carBuyRequestStatusNote.value = request.statusNote || '';
+    }
+
+    syncCarBuyRequestStatusNoteField();
+    setCarBuyRequestStatusFeedback('');
+    carBuyRequestStatusPanel.hidden = false;
+    carBuyRequestStatusPanel.setAttribute('aria-hidden', 'false');
+    carBuyRequestStatusPanel.classList.remove('is-closing');
+    document.body.classList.add('modal-open');
+    window.clearTimeout(carBuyRequestStatusCloseTimer);
+    window.requestAnimationFrame(() => {
+        carBuyRequestStatusPanel.classList.add('is-visible');
+        carBuyRequestStatusSelect?.focus();
+    });
+};
+
+const closeCarBuyRequestStatusPanel = () => {
+    if (!carBuyRequestStatusPanel) {
+        return;
+    }
+
+    carBuyRequestStatusPanel.classList.remove('is-visible');
+    carBuyRequestStatusPanel.classList.add('is-closing');
+    carBuyRequestStatusPanel.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    activeCarBuyRequestId = null;
+    activeCarBuyRequestOriginalStatus = 'pending';
+    activeCarBuyRequestOriginalRejectedNote = '';
+    window.clearTimeout(carBuyRequestStatusCloseTimer);
+    carBuyRequestStatusCloseTimer = window.setTimeout(() => {
+        carBuyRequestStatusPanel.hidden = true;
+        carBuyRequestStatusPanel.classList.remove('is-closing');
+    }, 280);
+};
+
 const getFilteredTestDriveAppointments = () => {
     const keyword = String(testDriveSearchInput?.value || '').trim().toLowerCase();
 
@@ -1722,6 +2100,551 @@ const loadTestDriveAppointments = async () => {
             `;
         }
     }
+};
+
+const getConsultationStatusLabel = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+
+    return consultationStatusConfig[normalizedStatus]?.label || consultationStatusConfig.new.label;
+};
+
+const getConsultationStatusClass = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+
+    return consultationStatusConfig[normalizedStatus]?.className || consultationStatusConfig.new.className;
+};
+
+const getConsultationTypeLabel = (requestType) => {
+    const normalizedType = String(requestType || '').trim().toLowerCase();
+
+    return consultationTypeLabels[normalizedType] || consultationTypeLabels.consultation;
+};
+
+const formatConsultationDate = (value, fallback = 'Chưa rõ') => {
+    if (!value) {
+        return fallback;
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime()) ? fallback : dateFormatter.format(date);
+};
+
+const updateConsultationStats = () => {
+    const totalNew = consultationRequests.filter((request) =>
+        String(request.status || '').trim().toLowerCase() === 'new'
+    ).length;
+    const totalContacted = consultationRequests.filter((request) =>
+        String(request.status || '').trim().toLowerCase() === 'contacted'
+    ).length;
+    const totalAppointment = consultationRequests.filter((request) =>
+        String(request.status || '').trim().toLowerCase() === 'appointment'
+    ).length;
+    const totalClosed = consultationRequests.filter((request) =>
+        String(request.status || '').trim().toLowerCase() === 'closed'
+    ).length;
+    const totalFailed = consultationRequests.filter((request) =>
+        String(request.status || '').trim().toLowerCase() === 'failed'
+    ).length;
+
+    if (consultationStatNew) {
+        consultationStatNew.textContent = String(totalNew);
+    }
+    if (consultationStatContacted) {
+        consultationStatContacted.textContent = String(totalContacted);
+    }
+    if (consultationStatAppointment) {
+        consultationStatAppointment.textContent = String(totalAppointment);
+    }
+    if (consultationStatClosed) {
+        consultationStatClosed.textContent = String(totalClosed);
+    }
+    if (consultationStatFailed) {
+        consultationStatFailed.textContent = String(totalFailed);
+    }
+};
+
+const getConsultationRequest = (requestId) =>
+    consultationRequests.find((request) => String(request.id) === String(requestId));
+
+const getFilteredConsultationRequests = () => {
+    const keyword = normalizeSearchValue(consultationSearchInput?.value || '');
+    const statusFilter = String(consultationStatusFilter?.value || '').trim().toLowerCase();
+
+    return consultationRequests.filter((request) => {
+        const status = String(request.status || '').trim().toLowerCase();
+
+        if (statusFilter && status !== statusFilter) {
+            return false;
+        }
+
+        if (!keyword) {
+            return true;
+        }
+
+        return normalizeSearchValue([
+            request.fullName,
+            request.phone,
+            request.email,
+            request.userEmail,
+            request.carBrand,
+            request.carName,
+            request.carPrice,
+            getConsultationTypeLabel(request.requestType),
+            getConsultationStatusLabel(request.status),
+            request.preferredContactTime,
+            request.note,
+            request.statusNote
+        ].join(' ')).includes(keyword);
+    });
+};
+
+const renderConsultationRequests = () => {
+    if (!consultationTableBody) {
+        return;
+    }
+
+    const filteredRequests = getFilteredConsultationRequests();
+
+    if (!filteredRequests.length) {
+        consultationTableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="table-empty">Chưa có yêu cầu tư vấn phù hợp.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    consultationTableBody.innerHTML = filteredRequests.map((request) => {
+        const carTitle = getDisplayCarTitle(request.carBrand, request.carName);
+        const customerInitial = String(request.fullName || request.email || request.userEmail || 'K')
+            .trim()
+            .charAt(0)
+            .toLocaleUpperCase('vi-VN');
+        const customerAvatar = request.userAvatarUrl
+            ? `<img src="${escapeHtml(request.userAvatarUrl)}" alt="Ảnh khách hàng ${escapeHtml(request.fullName || request.email || '')}">`
+            : `<span>${escapeHtml(customerInitial || 'K')}</span>`;
+        const phoneHref = getPhoneHref(request.phone);
+        const emailText = request.email || request.userEmail || '';
+        const emailHref = getMailHref(emailText);
+        const status = String(request.status || 'new').trim().toLowerCase();
+        const statusClass = getConsultationStatusClass(status);
+        const statusNotePreview = getShortNotePreview(request.statusNote);
+
+        return `
+            <tr data-view-consultation="${escapeHtml(request.id)}">
+                <td>
+                    <div class="test-drive-customer-cell">
+                        <span class="test-drive-customer-avatar">${customerAvatar}</span>
+                        <span class="employee-meta">
+                            <strong>${escapeHtml(request.fullName || 'Chưa có tên')}</strong>
+                            <span>${phoneHref ? `<a class="admin-inline-link" href="tel:${escapeHtml(phoneHref)}">${escapeHtml(request.phone || 'Chưa có SĐT')}</a>` : escapeHtml(request.phone || 'Chưa có SĐT')}</span>
+                            <small>${emailHref ? `<a class="admin-inline-link" href="mailto:${escapeHtml(emailHref)}">${escapeHtml(emailText)}</a>` : escapeHtml(emailText || 'Chưa có email')}</small>
+                        </span>
+                    </div>
+                </td>
+                <td>
+                    <div class="employee-meta">
+                        <strong>${escapeHtml(carTitle)}</strong>
+                        <span>${escapeHtml(request.carPrice || 'Giá liên hệ')}</span>
+                        <small>ID xe: ${request.carId ? escapeHtml(request.carId) : 'Không còn liên kết'}</small>
+                    </div>
+                </td>
+                <td>
+                    <div class="employee-meta">
+                        <strong>${escapeHtml(getConsultationTypeLabel(request.requestType))}</strong>
+                        <span>${escapeHtml(request.preferredContactTime || 'Chưa chọn thời gian')}</span>
+                        <small>Tạo ${escapeHtml(formatConsultationDate(request.createdAt))}</small>
+                    </div>
+                </td>
+                <td>
+                    <div class="consultation-status-cell">
+                        <span class="readonly-badge consultation-status-badge ${statusClass}">${escapeHtml(getConsultationStatusLabel(status))}</span>
+                        ${statusNotePreview ? `<small class="consultation-status-note-preview">${escapeHtml(statusNotePreview)}</small>` : ''}
+                    </div>
+                </td>
+                <td>
+                    <div class="table-actions">
+                        <button type="button" class="icon-btn icon-btn--edit" data-edit-consultation-status="${escapeHtml(request.id)}" aria-label="Cập nhật trạng thái yêu cầu tư vấn #${escapeHtml(request.id)}" title="Cập nhật trạng thái">
+                            <i class="bx bx-edit-alt"></i>
+                        </button>
+                        <button type="button" class="icon-btn icon-btn--neutral" data-view-consultation="${escapeHtml(request.id)}" aria-label="Xem yêu cầu tư vấn #${escapeHtml(request.id)}" title="Xem chi tiết">
+                            <i class="bx bx-show"></i>
+                        </button>
+                        <button type="button" class="icon-btn icon-btn--delete" data-delete-consultation="${escapeHtml(request.id)}" aria-label="Xóa yêu cầu tư vấn #${escapeHtml(request.id)}" title="Xóa yêu cầu">
+                            <i class="bx bx-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+};
+
+const loadConsultationRequests = async () => {
+    if (!consultationTableBody) {
+        return;
+    }
+
+    setConsultationFeedback('');
+
+    try {
+        const { response, data } = await requestJson('/api/admin/consultation-requests');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải yêu cầu tư vấn.');
+        }
+
+        consultationRequests = data.requests || [];
+        updateConsultationStats();
+        renderConsultationRequests();
+    } catch (error) {
+        setConsultationFeedback(error.message || 'Không thể tải yêu cầu tư vấn.', 'error');
+        consultationTableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="table-empty">Không thể tải yêu cầu tư vấn.</td>
+            </tr>
+        `;
+    }
+};
+
+const openConsultationDetail = (request) => {
+    if (!customerDetailPanel || !customerDetailBody || !request) {
+        return;
+    }
+
+    const carTitle = getDisplayCarTitle(request.carBrand, request.carName);
+    const createdDate = formatConsultationDate(request.createdAt);
+    const updatedDate = formatConsultationDate(request.updatedAt);
+    const phoneHref = getPhoneHref(request.phone);
+    const emailText = request.email || request.userEmail || '';
+    const emailHref = getMailHref(emailText);
+
+    if (customerDetailEyebrow) {
+        customerDetailEyebrow.textContent = 'Yêu cầu tư vấn';
+    }
+
+    if (customerDetailTitle) {
+        customerDetailTitle.textContent = `Thông tin liên hệ #${request.id}`;
+    }
+
+    customerDetailBody.innerHTML = `
+        <div class="customer-detail__profile">
+            <span class="customer-detail__avatar"><i class="bx bx-phone-call"></i></span>
+            <div>
+                <h4>${escapeHtml(request.fullName || 'Chưa có tên')}</h4>
+                <p>${escapeHtml(getConsultationTypeLabel(request.requestType))} · ${escapeHtml(getConsultationStatusLabel(request.status))} · Tạo ${escapeHtml(createdDate)}</p>
+            </div>
+        </div>
+        <div class="customer-detail__grid">
+            <div class="customer-detail__item">
+                <span>Số điện thoại</span>
+                <strong>${escapeHtml(request.phone || 'Chưa có SĐT')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Email</span>
+                <strong>${escapeHtml(request.email || request.userEmail || 'Chưa có email')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Xe quan tâm</span>
+                <strong>${escapeHtml(carTitle)}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Giá xe</span>
+                <strong>${escapeHtml(request.carPrice || 'Giá liên hệ')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Nhu cầu</span>
+                <strong>${escapeHtml(getConsultationTypeLabel(request.requestType))}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Muốn gọi lại</span>
+                <strong>${escapeHtml(request.preferredContactTime || 'Chưa chọn thời gian')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Trạng thái</span>
+                <strong>${escapeHtml(getConsultationStatusLabel(request.status))}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Cập nhật</span>
+                <strong>${escapeHtml(updatedDate)}</strong>
+            </div>
+            <div class="customer-detail__item customer-detail__item--wide">
+                <span>Ghi chú khách hàng</span>
+                <strong>${escapeHtml(request.note || 'Khách hàng chưa nhập ghi chú.')}</strong>
+            </div>
+            <div class="customer-detail__item customer-detail__item--wide">
+                <span>Ghi chú xử lý</span>
+                <strong>${escapeHtml(request.statusNote || 'Chưa có ghi chú xử lý.')}</strong>
+            </div>
+        </div>
+    `;
+
+    customerDetailPanel.hidden = false;
+    customerDetailPanel.setAttribute('aria-hidden', 'false');
+    customerDetailPanel.classList.remove('is-closing');
+    document.body.classList.add('modal-open');
+    window.clearTimeout(customerDetailCloseTimer);
+    window.requestAnimationFrame(() => {
+        customerDetailPanel.classList.add('is-visible');
+    });
+};
+
+const getCarBuyRequestStatusLabel = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+
+    return carBuyRequestStatusConfig[normalizedStatus]?.label || carBuyRequestStatusConfig.pending.label;
+};
+
+const getCarBuyRequestStatusClass = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+
+    return carBuyRequestStatusConfig[normalizedStatus]?.className || carBuyRequestStatusConfig.pending.className;
+};
+
+const getCarBuyRequestBudgetLabel = (budgetRange) =>
+    carBuyRequestBudgetLabels[budgetRange] || 'Giá thỏa thuận';
+
+const getCarBuyRequest = (requestId) =>
+    carBuyRequests.find((request) => String(request.id) === String(requestId));
+
+const updateCarBuyRequestStats = () => {
+    const pending = carBuyRequests.filter((request) => request.status === 'pending').length;
+    const approved = carBuyRequests.filter((request) => request.status === 'approved').length;
+    const rejected = carBuyRequests.filter((request) => request.status === 'rejected').length;
+
+    if (carBuyRequestStatPending) {
+        carBuyRequestStatPending.textContent = String(pending);
+    }
+    if (carBuyRequestStatApproved) {
+        carBuyRequestStatApproved.textContent = String(approved);
+    }
+    if (carBuyRequestStatRejected) {
+        carBuyRequestStatRejected.textContent = String(rejected);
+    }
+    if (carBuyRequestStatTotal) {
+        carBuyRequestStatTotal.textContent = String(carBuyRequests.length);
+    }
+};
+
+const getFilteredCarBuyRequests = () => {
+    const keyword = normalizeSearchValue(carBuyRequestSearchInput?.value || '');
+    const statusFilter = String(carBuyRequestStatusFilter?.value || '').trim().toLowerCase();
+
+    return carBuyRequests.filter((request) => {
+        const status = String(request.status || '').trim().toLowerCase();
+
+        if (statusFilter && status !== statusFilter) {
+            return false;
+        }
+
+        if (!keyword) {
+            return true;
+        }
+
+        return normalizeSearchValue([
+            request.code,
+            request.fullName,
+            request.phone,
+            request.email,
+            request.province,
+            request.address,
+            request.title,
+            request.content,
+            getCarBuyRequestBudgetLabel(request.budgetRange),
+            getCarBuyRequestStatusLabel(request.status),
+            request.statusNote
+        ].join(' ')).includes(keyword)
+    });
+};
+
+const renderCarBuyRequests = () => {
+    if (!carBuyRequestTableBody) {
+        return;
+    }
+
+    const filteredRequests = getFilteredCarBuyRequests();
+
+    if (!filteredRequests.length) {
+        carBuyRequestTableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="table-empty">Chưa có tin mua xe phù hợp.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    carBuyRequestTableBody.innerHTML = filteredRequests.map((request) => {
+        const customerInitial = String(request.fullName || request.phone || 'K')
+            .trim()
+            .charAt(0)
+            .toLocaleUpperCase('vi-VN');
+        const customerAvatar = request.userAvatarUrl
+            ? `<img src="${escapeHtml(request.userAvatarUrl)}" alt="Ảnh khách hàng ${escapeHtml(request.fullName || '')}">`
+            : `<span>${escapeHtml(customerInitial || 'K')}</span>`;
+        const status = String(request.status || 'pending').trim().toLowerCase();
+        const statusClass = getCarBuyRequestStatusClass(status);
+        const createdDate = formatConsultationDate(request.createdAt);
+        const statusNotePreview = getShortNotePreview(request.statusNote);
+
+        return `
+            <tr data-view-car-buy-request="${escapeHtml(request.id)}">
+                <td>
+                    <div class="test-drive-customer-cell">
+                        <span class="test-drive-customer-avatar">${customerAvatar}</span>
+                        <span class="employee-meta">
+                            <strong>${escapeHtml(request.fullName || 'Chưa có tên')}</strong>
+                            <span>${escapeHtml(request.phone || 'Chưa có SĐT')}</span>
+                            <small>${escapeHtml(request.code || `MX-${request.id}`)}</small>
+                        </span>
+                    </div>
+                </td>
+                <td>
+                    <div class="employee-meta">
+                        <strong>${escapeHtml(request.title || 'Khách cần mua ô tô')}</strong>
+                        <span>${escapeHtml(getCarBuyRequestBudgetLabel(request.budgetRange))}</span>
+                        <small>Tạo ${escapeHtml(createdDate)}</small>
+                    </div>
+                </td>
+                <td>
+                    <div class="employee-meta">
+                        <strong>${escapeHtml(request.province || 'Chưa có tỉnh')}</strong>
+                        <span>${escapeHtml(request.address || 'Chưa có địa chỉ')}</span>
+                        <small>${escapeHtml(request.email || request.userEmail || 'Chưa có email')}</small>
+                    </div>
+                </td>
+                <td>
+                    <div class="consultation-status-cell car-buy-request-status-cell">
+                        <span class="readonly-badge car-buy-request-status-badge ${statusClass}">${escapeHtml(getCarBuyRequestStatusLabel(status))}</span>
+                        ${statusNotePreview ? `<small class="consultation-status-note-preview">${escapeHtml(statusNotePreview)}</small>` : ''}
+                    </div>
+                </td>
+                <td>
+                    <div class="table-actions">
+                        <button type="button" class="icon-btn icon-btn--edit" data-edit-car-buy-request-status="${escapeHtml(request.id)}" aria-label="Cập nhật trạng thái tin mua xe #${escapeHtml(request.id)}" title="Cập nhật trạng thái">
+                            <i class="bx bx-edit-alt"></i>
+                        </button>
+                        <button type="button" class="icon-btn icon-btn--neutral" data-view-car-buy-request="${escapeHtml(request.id)}" aria-label="Xem tin mua xe #${escapeHtml(request.id)}" title="Xem chi tiết">
+                            <i class="bx bx-show"></i>
+                        </button>
+                        <button type="button" class="icon-btn icon-btn--delete" data-delete-car-buy-request="${escapeHtml(request.id)}" aria-label="Xóa tin mua xe #${escapeHtml(request.id)}" title="Xóa tin">
+                            <i class="bx bx-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+};
+
+const loadCarBuyRequests = async () => {
+    if (!carBuyRequestTableBody) {
+        return;
+    }
+
+    setCarBuyRequestFeedback('');
+
+    try {
+        const { response, data } = await requestJson('/api/admin/car-buy-requests');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải tin mua xe.');
+        }
+
+        carBuyRequests = data.requests || [];
+        carBuyRequestBudgetLabels = data.budgetRanges || carBuyRequestBudgetLabels;
+        updateCarBuyRequestStats();
+        renderCarBuyRequests();
+    } catch (error) {
+        setCarBuyRequestFeedback(error.message || 'Không thể tải tin mua xe.', 'error');
+        carBuyRequestTableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="table-empty">Không thể tải tin mua xe.</td>
+            </tr>
+        `;
+    }
+};
+
+const openCarBuyRequestDetail = (request) => {
+    if (!customerDetailPanel || !customerDetailBody || !request) {
+        return;
+    }
+
+    const createdDate = formatConsultationDate(request.createdAt);
+    const updatedDate = formatConsultationDate(request.updatedAt);
+
+    if (customerDetailEyebrow) {
+        customerDetailEyebrow.textContent = 'Tin mua xe';
+    }
+
+    if (customerDetailTitle) {
+        customerDetailTitle.textContent = `Chi tiết ${request.code || `#${request.id}`}`;
+    }
+
+    customerDetailBody.innerHTML = `
+        <div class="customer-detail__profile">
+            <span class="customer-detail__avatar"><i class="bx bx-message-square-edit"></i></span>
+            <div>
+                <h4>${escapeHtml(request.title || 'Khách cần mua ô tô')}</h4>
+                <p>${escapeHtml(getCarBuyRequestBudgetLabel(request.budgetRange))} · ${escapeHtml(getCarBuyRequestStatusLabel(request.status))} · Tạo ${escapeHtml(createdDate)}</p>
+            </div>
+        </div>
+        <div class="customer-detail__grid">
+            <div class="customer-detail__item">
+                <span>Khách hàng</span>
+                <strong>${escapeHtml(request.fullName || 'Chưa có tên')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Số điện thoại</span>
+                <strong>${phoneHref ? `<a class="admin-inline-link" href="tel:${escapeHtml(phoneHref)}">${escapeHtml(request.phone || 'Chưa có SĐT')}</a>` : escapeHtml(request.phone || 'Chưa có SĐT')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Email</span>
+                <strong>${emailHref ? `<a class="admin-inline-link" href="mailto:${escapeHtml(emailHref)}">${escapeHtml(emailText)}</a>` : escapeHtml(emailText || 'Chưa có email')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Tỉnh/thành</span>
+                <strong>${escapeHtml(request.province || 'Chưa cập nhật')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Mức tiền</span>
+                <strong>${escapeHtml(getCarBuyRequestBudgetLabel(request.budgetRange))}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Trạng thái</span>
+                <strong>${escapeHtml(getCarBuyRequestStatusLabel(request.status))}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Cập nhật</span>
+                <strong>${escapeHtml(updatedDate)}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Mã tin</span>
+                <strong>${escapeHtml(request.code || `MX-${request.id}`)}</strong>
+            </div>
+            <div class="customer-detail__item customer-detail__item--wide">
+                <span>Địa chỉ</span>
+                <strong>${escapeHtml(request.address || 'Chưa có địa chỉ.')}</strong>
+            </div>
+            <div class="customer-detail__item customer-detail__item--wide">
+                <span>Nội dung nhu cầu</span>
+                <strong>${escapeHtml(request.content || 'Khách hàng chưa nhập nội dung chi tiết.')}</strong>
+            </div>
+            <div class="customer-detail__item customer-detail__item--wide">
+                <span>Ghi chú xử lý</span>
+                <strong>${escapeHtml(request.statusNote || 'Chưa có ghi chú xử lý.')}</strong>
+            </div>
+        </div>
+    `;
+
+    customerDetailPanel.hidden = false;
+    customerDetailPanel.setAttribute('aria-hidden', 'false');
+    customerDetailPanel.classList.remove('is-closing');
+    document.body.classList.add('modal-open');
+    window.clearTimeout(customerDetailCloseTimer);
+    window.requestAnimationFrame(() => {
+        customerDetailPanel.classList.add('is-visible');
+    });
 };
 
 const resetPromotionForm = () => {
@@ -2552,6 +3475,12 @@ promotionResetButton?.addEventListener('click', resetPromotionForm);
 promotionSearchInput?.addEventListener('input', renderPromotions);
 testDriveRefreshButton?.addEventListener('click', loadTestDriveAppointments);
 testDriveSearchInput?.addEventListener('input', renderTestDriveAppointments);
+consultationRefreshButton?.addEventListener('click', loadConsultationRequests);
+consultationSearchInput?.addEventListener('input', renderConsultationRequests);
+consultationStatusFilter?.addEventListener('change', renderConsultationRequests);
+carBuyRequestRefreshButton?.addEventListener('click', loadCarBuyRequests);
+carBuyRequestSearchInput?.addEventListener('input', renderCarBuyRequests);
+carBuyRequestStatusFilter?.addEventListener('change', renderCarBuyRequests);
 
 testDriveStatusSaveButton?.addEventListener('click', async () => {
     const appointment = getTestDriveAppointment(activeTestDriveAppointmentId);
@@ -2616,6 +3545,120 @@ testDriveStatusSaveButton?.addEventListener('click', async () => {
     }
 });
 
+consultationStatusSaveButton?.addEventListener('click', async () => {
+    const request = getConsultationRequest(activeConsultationRequestId);
+    const status = String(consultationStatusSelect?.value || '').trim().toLowerCase();
+    const statusNote = String(consultationStatusNote?.value || '').trim();
+
+    if (!request) {
+        setConsultationStatusFeedback('Không tìm thấy yêu cầu tư vấn cần cập nhật.', 'error');
+        return;
+    }
+
+    if (!consultationStatusConfig[status]) {
+        setConsultationStatusFeedback('Trạng thái yêu cầu tư vấn không hợp lệ.', 'error');
+        consultationStatusSelect?.focus();
+        return;
+    }
+
+    setConsultationStatusLoading(true);
+    setConsultationStatusFeedback('');
+
+    try {
+        const { response, data } = await requestJson(`/api/admin/consultation-requests/${request.id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+                status,
+                statusNote
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể cập nhật trạng thái yêu cầu tư vấn.');
+        }
+
+        await loadConsultationRequests();
+        closeConsultationStatusPanel();
+        showToast(data.message || 'Cập nhật trạng thái yêu cầu tư vấn thành công.', 'success', 'Đã cập nhật');
+    } catch (error) {
+        setConsultationStatusFeedback(error.message || 'Không thể cập nhật trạng thái yêu cầu tư vấn.', 'error');
+    } finally {
+        setConsultationStatusLoading(false);
+    }
+});
+
+carBuyRequestStatusSelect?.addEventListener('change', () => {
+    const status = String(carBuyRequestStatusSelect.value || '').trim().toLowerCase();
+    const currentNote = String(carBuyRequestStatusNote?.value || '').trim();
+
+    if (
+        activeCarBuyRequestOriginalStatus === 'rejected'
+        && status !== 'rejected'
+        && currentNote === activeCarBuyRequestOriginalRejectedNote
+    ) {
+        carBuyRequestStatusNote.value = '';
+    }
+
+    syncCarBuyRequestStatusNoteField();
+    setCarBuyRequestStatusFeedback('');
+});
+
+carBuyRequestStatusSaveButton?.addEventListener('click', async () => {
+    const request = getCarBuyRequest(activeCarBuyRequestId);
+    const status = String(carBuyRequestStatusSelect?.value || '').trim().toLowerCase();
+    let statusNote = String(carBuyRequestStatusNote?.value || '').trim();
+
+    if (!request) {
+        setCarBuyRequestStatusFeedback('Không tìm thấy tin mua xe cần cập nhật.', 'error');
+        return;
+    }
+
+    if (!carBuyRequestStatusConfig[status]) {
+        setCarBuyRequestStatusFeedback('Trạng thái tin mua xe không hợp lệ.', 'error');
+        carBuyRequestStatusSelect?.focus();
+        return;
+    }
+
+    if (status === 'rejected' && statusNote.length < 3) {
+        setCarBuyRequestStatusFeedback('Vui lòng nhập lý do khi từ chối tin mua xe.', 'error');
+        carBuyRequestStatusNote?.focus();
+        return;
+    }
+
+    if (
+        activeCarBuyRequestOriginalStatus === 'rejected'
+        && status !== 'rejected'
+        && statusNote === activeCarBuyRequestOriginalRejectedNote
+    ) {
+        statusNote = '';
+    }
+
+    setCarBuyRequestStatusLoading(true);
+    setCarBuyRequestStatusFeedback('');
+
+    try {
+        const { response, data } = await requestJson(`/api/admin/car-buy-requests/${request.id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+                status,
+                statusNote
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể cập nhật trạng thái tin mua xe.');
+        }
+
+        await loadCarBuyRequests();
+        closeCarBuyRequestStatusPanel();
+        showToast(data.message || 'Cập nhật trạng thái tin mua xe thành công.', 'success', 'Đã cập nhật');
+    } catch (error) {
+        setCarBuyRequestStatusFeedback(error.message || 'Không thể cập nhật trạng thái tin mua xe.', 'error');
+    } finally {
+        setCarBuyRequestStatusLoading(false);
+    }
+});
+
 const handleTestDriveTableAction = async (event) => {
     const editButton = event.target.closest('[data-edit-test-drive-status]');
     const deleteButton = event.target.closest('[data-delete-test-drive]');
@@ -2663,6 +3706,132 @@ const handleTestDriveTableAction = async (event) => {
 
 testDriveTableBody?.addEventListener('click', handleTestDriveTableAction);
 testDriveProcessedTableBody?.addEventListener('click', handleTestDriveTableAction);
+
+consultationTableBody?.addEventListener('click', async (event) => {
+    const editStatusButton = event.target.closest('[data-edit-consultation-status]');
+    const explicitViewButton = event.target.closest('button[data-view-consultation]');
+    const deleteButton = event.target.closest('[data-delete-consultation]');
+    const rowTarget = event.target.closest('tr[data-view-consultation]');
+
+    if (editStatusButton) {
+        const request = getConsultationRequest(editStatusButton.dataset.editConsultationStatus);
+        openConsultationStatusPanel(request);
+        return;
+    }
+
+    if (deleteButton) {
+        const request = getConsultationRequest(deleteButton.dataset.deleteConsultation);
+
+        if (!request) {
+            return;
+        }
+
+        const isConfirmed = window.confirm(`Bạn có chắc muốn xóa yêu cầu tư vấn #${request.id} của ${request.fullName || 'khách hàng'}?`);
+
+        if (!isConfirmed) {
+            return;
+        }
+
+        deleteButton.disabled = true;
+
+        try {
+            const { response, data } = await requestJson(`/api/admin/consultation-requests/${request.id}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Không thể xóa yêu cầu tư vấn.');
+            }
+
+            await loadConsultationRequests();
+            showToast(data.message || 'Xóa yêu cầu tư vấn thành công.', 'success', 'Đã xóa yêu cầu');
+        } catch (error) {
+            deleteButton.disabled = false;
+            setConsultationFeedback(error.message || 'Không thể xóa yêu cầu tư vấn.', 'error');
+            showToast(error.message || 'Không thể xóa yêu cầu tư vấn.', 'error');
+        }
+        return;
+    }
+
+    const target = explicitViewButton || rowTarget;
+
+    if (!target) {
+        return;
+    }
+
+    if (event.target.closest('button, select, a, input, textarea') && !explicitViewButton) {
+        return;
+    }
+
+    const request = getConsultationRequest(target.dataset.viewConsultation);
+
+    if (request) {
+        openConsultationDetail(request);
+    }
+});
+
+carBuyRequestTableBody?.addEventListener('click', async (event) => {
+    const editStatusButton = event.target.closest('[data-edit-car-buy-request-status]');
+    const explicitViewButton = event.target.closest('button[data-view-car-buy-request]');
+    const deleteButton = event.target.closest('[data-delete-car-buy-request]');
+    const rowTarget = event.target.closest('tr[data-view-car-buy-request]');
+
+    if (editStatusButton) {
+        const request = getCarBuyRequest(editStatusButton.dataset.editCarBuyRequestStatus);
+        openCarBuyRequestStatusPanel(request);
+        return;
+    }
+
+    if (deleteButton) {
+        const request = getCarBuyRequest(deleteButton.dataset.deleteCarBuyRequest);
+
+        if (!request) {
+            return;
+        }
+
+        const isConfirmed = window.confirm(`Bạn có chắc muốn xóa tin mua xe ${request.code || `#${request.id}`} của ${request.fullName || 'khách hàng'}?`);
+
+        if (!isConfirmed) {
+            return;
+        }
+
+        deleteButton.disabled = true;
+
+        try {
+            const { response, data } = await requestJson(`/api/admin/car-buy-requests/${request.id}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Không thể xóa tin mua xe.');
+            }
+
+            await loadCarBuyRequests();
+            showToast(data.message || 'Xóa tin mua xe thành công.', 'success', 'Đã xóa tin');
+        } catch (error) {
+            deleteButton.disabled = false;
+            setCarBuyRequestFeedback(error.message || 'Không thể xóa tin mua xe.', 'error');
+            showToast(error.message || 'Không thể xóa tin mua xe.', 'error');
+        }
+        return;
+    }
+
+    const target = explicitViewButton || rowTarget;
+
+    if (!target) {
+        return;
+    }
+
+    if (event.target.closest('button, select, a, input, textarea') && !explicitViewButton) {
+        return;
+    }
+
+    const request = getCarBuyRequest(target.dataset.viewCarBuyRequest);
+
+    if (request) {
+        openCarBuyRequestDetail(request);
+    }
+});
 
 choosePromotionImageButton?.addEventListener('click', () => {
     promotionImageInput?.click();
@@ -3035,6 +4204,14 @@ testDriveStatusCloseButtons.forEach((button) => {
     button.addEventListener('click', closeTestDriveStatusPanel);
 });
 
+consultationStatusCloseButtons.forEach((button) => {
+    button.addEventListener('click', closeConsultationStatusPanel);
+});
+
+carBuyRequestStatusCloseButtons.forEach((button) => {
+    button.addEventListener('click', closeCarBuyRequestStatusPanel);
+});
+
 testDriveStatusOptionButtons.forEach((button) => {
     button.addEventListener('click', () => {
         setActiveTestDriveStatus(button.dataset.statusOption);
@@ -3054,6 +4231,18 @@ testDriveStatusPanel?.addEventListener('click', (event) => {
     }
 });
 
+consultationStatusPanel?.addEventListener('click', (event) => {
+    if (event.target === consultationStatusPanel) {
+        closeConsultationStatusPanel();
+    }
+});
+
+carBuyRequestStatusPanel?.addEventListener('click', (event) => {
+    if (event.target === carBuyRequestStatusPanel) {
+        closeCarBuyRequestStatusPanel();
+    }
+});
+
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !promotionCropPanel?.hidden) {
         closePromotionCropPanel();
@@ -3067,6 +4256,16 @@ document.addEventListener('keydown', (event) => {
 
     if (event.key === 'Escape' && !testDriveStatusPanel?.hidden) {
         closeTestDriveStatusPanel();
+        return;
+    }
+
+    if (event.key === 'Escape' && !consultationStatusPanel?.hidden) {
+        closeConsultationStatusPanel();
+        return;
+    }
+
+    if (event.key === 'Escape' && !carBuyRequestStatusPanel?.hidden) {
+        closeCarBuyRequestStatusPanel();
         return;
     }
 

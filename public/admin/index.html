@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OkXe Quản trị</title>
-    <link rel="stylesheet" href="admin.css">
+    <link rel="stylesheet" href="/admin/style.css">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
 </head>
 <body>
@@ -22,6 +22,14 @@
                 <a href="#" class="admin-sidebar__link" data-admin-nav="test-drives">
                     <i class="bx bxs-calendar-check" aria-hidden="true"></i>
                     <span>Quản lý lịch hẹn lái thử</span>
+                </a>
+                <a href="#" class="admin-sidebar__link" data-admin-nav="consultations">
+                    <i class="bx bxs-phone-call" aria-hidden="true"></i>
+                    <span>Yêu cầu tư vấn</span>
+                </a>
+                <a href="#" class="admin-sidebar__link" data-admin-nav="car-buy-requests">
+                    <i class="bx bxs-message-square-edit" aria-hidden="true"></i>
+                    <span>Quản lý tin mua xe</span>
                 </a>
                 <a href="#" class="admin-sidebar__link" data-admin-nav="customers">
                     <i class="bx bxs-user-account" aria-hidden="true"></i>
@@ -138,22 +146,28 @@
                     </div>
 
                     <div class="admin-overview__stats test-drive-stats" aria-label="Thống kê lịch hẹn lái thử">
-                        <article class="overview-stat">
-                            <span>Lượt đăng ký</span>
-                            <strong id="test-drive-stat-total">0</strong>
+                        <article class="test-drive-chart-card">
+                            <div class="test-drive-chart" id="test-drive-stats-chart" role="img" aria-label="Biểu đồ tỷ lệ lịch hẹn lái thử">
+                                <span class="test-drive-chart__center">
+                                    <small>Lượt đăng ký</small>
+                                    <strong id="test-drive-stat-total">0</strong>
+                                </span>
+                            </div>
                         </article>
-                        <article class="overview-stat">
-                            <span>Đồng ý lái thử</span>
-                            <strong id="test-drive-stat-approved">0</strong>
-                        </article>
-                        <article class="overview-stat">
-                            <span>Hủy lịch hẹn</span>
-                            <strong id="test-drive-stat-cancelled">0</strong>
-                        </article>
-                        <article class="overview-stat">
-                            <span>Chờ xử lý</span>
-                            <strong id="test-drive-stat-pending">0</strong>
-                        </article>
+                        <div class="test-drive-stat-list">
+                            <article class="overview-stat test-drive-stat-item test-drive-stat-item--approved">
+                                <span>Đồng ý lái thử</span>
+                                <strong id="test-drive-stat-approved">0</strong>
+                            </article>
+                            <article class="overview-stat test-drive-stat-item test-drive-stat-item--cancelled">
+                                <span>Hủy lịch hẹn</span>
+                                <strong id="test-drive-stat-cancelled">0</strong>
+                            </article>
+                            <article class="overview-stat test-drive-stat-item test-drive-stat-item--pending">
+                                <span>Chờ xử lý</span>
+                                <strong id="test-drive-stat-pending">0</strong>
+                            </article>
+                        </div>
                     </div>
 
                     <section class="employee-card">
@@ -221,6 +235,170 @@
                                 </tbody>
                             </table>
                         </div>
+                    </section>
+                </section>
+            </section>
+
+            <section class="admin-view" data-admin-view="consultations" hidden>
+                <section class="employee-shell consultation-admin-shell">
+                    <div class="employee-shell__header">
+                        <div>
+                            <p class="eyebrow">Liên hệ tư vấn</p>
+                            <h1>Yêu cầu tư vấn khách hàng</h1>
+                            <p>Theo dõi khách quan tâm từng xe, nhu cầu báo giá, chi phí lăn bánh, trả góp và lịch xem xe.</p>
+                        </div>
+                    </div>
+
+                    <div class="admin-overview__stats consultation-stats" aria-label="Thống kê yêu cầu tư vấn">
+                        <article class="overview-stat consultation-stat-item consultation-stat-item--new">
+                            <span>Yêu cầu mới</span>
+                            <strong id="consultation-stat-new">0</strong>
+                        </article>
+                        <article class="overview-stat consultation-stat-item consultation-stat-item--contacted">
+                            <span>Đã liên hệ</span>
+                            <strong id="consultation-stat-contacted">0</strong>
+                        </article>
+                        <article class="overview-stat consultation-stat-item consultation-stat-item--appointment">
+                            <span>Đã hẹn xem xe</span>
+                            <strong id="consultation-stat-appointment">0</strong>
+                        </article>
+                        <article class="overview-stat consultation-stat-item consultation-stat-item--closed">
+                            <span>Đã chốt</span>
+                            <strong id="consultation-stat-closed">0</strong>
+                        </article>
+                        <article class="overview-stat consultation-stat-item consultation-stat-item--failed">
+                            <span>Không thành công</span>
+                            <strong id="consultation-stat-failed">0</strong>
+                        </article>
+                    </div>
+
+                    <section class="employee-card">
+                        <div class="employee-card__header">
+                            <div>
+                                <p class="eyebrow">Danh sách liên hệ</p>
+                                <h2>Khách hàng cần tư vấn</h2>
+                            </div>
+                            <div class="inventory-shell__actions">
+                                <label class="inventory-search employee-search consultation-status-filter">
+                                    <i class="bx bx-filter-alt"></i>
+                                    <select id="consultation-status-filter" aria-label="Lọc trạng thái yêu cầu tư vấn">
+                                        <option value="">Tất cả trạng thái</option>
+                                        <option value="new">Mới</option>
+                                        <option value="contacted">Đã liên hệ</option>
+                                        <option value="appointment">Đã hẹn xem xe</option>
+                                        <option value="closed">Đã chốt</option>
+                                        <option value="failed">Không thành công</option>
+                                    </select>
+                                </label>
+                                <label class="inventory-search employee-search">
+                                    <i class="bx bx-search"></i>
+                                    <input type="search" id="consultation-search" placeholder="Tìm theo khách, SĐT, xe hoặc nhu cầu">
+                                </label>
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="consultation-refresh-button">
+                                    <i class="bx bx-refresh"></i>
+                                    <span>Tải lại</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="inventory-table-wrap">
+                            <table class="inventory-table consultation-table">
+                                <thead>
+                                    <tr>
+                                        <th>Khách hàng</th>
+                                        <th>Xe quan tâm</th>
+                                        <th>Nhu cầu</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="consultation-table-body">
+                                    <tr>
+                                        <td colspan="5" class="table-empty">Đang tải yêu cầu tư vấn...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="admin-feedback" id="consultation-feedback" aria-live="polite"></p>
+                    </section>
+                </section>
+            </section>
+
+            <section class="admin-view" data-admin-view="car-buy-requests" hidden>
+                <section class="employee-shell car-buy-request-admin-shell">
+                    <div class="employee-shell__header">
+                        <div>
+                            <p class="eyebrow">Tin mua ô tô</p>
+                            <h1>Quản lý tin mua xe</h1>
+                            <p>Duyệt tin khách hàng đăng nhu cầu mua xe để đội ngũ cửa hàng chủ động tìm xe phù hợp.</p>
+                        </div>
+                    </div>
+
+                    <div class="admin-overview__stats car-buy-request-stats" aria-label="Thống kê tin mua xe">
+                        <article class="overview-stat car-buy-request-stat-item car-buy-request-stat-item--pending">
+                            <span>Chờ duyệt</span>
+                            <strong id="car-buy-request-stat-pending">0</strong>
+                        </article>
+                        <article class="overview-stat car-buy-request-stat-item car-buy-request-stat-item--approved">
+                            <span>Đã duyệt</span>
+                            <strong id="car-buy-request-stat-approved">0</strong>
+                        </article>
+                        <article class="overview-stat car-buy-request-stat-item car-buy-request-stat-item--rejected">
+                            <span>Từ chối</span>
+                            <strong id="car-buy-request-stat-rejected">0</strong>
+                        </article>
+                        <article class="overview-stat car-buy-request-stat-item">
+                            <span>Tổng tin</span>
+                            <strong id="car-buy-request-stat-total">0</strong>
+                        </article>
+                    </div>
+
+                    <section class="employee-card">
+                        <div class="employee-card__header">
+                            <div>
+                                <p class="eyebrow">Danh sách tin</p>
+                                <h2>Tin mua xe của khách hàng</h2>
+                            </div>
+                            <div class="inventory-shell__actions">
+                                <label class="inventory-search employee-search consultation-status-filter">
+                                    <i class="bx bx-filter-alt"></i>
+                                    <select id="car-buy-request-status-filter" aria-label="Lọc trạng thái tin mua xe">
+                                        <option value="">Tất cả trạng thái</option>
+                                        <option value="pending">Chờ duyệt</option>
+                                        <option value="approved">Đã duyệt</option>
+                                        <option value="rejected">Từ chối</option>
+                                    </select>
+                                </label>
+                                <label class="inventory-search employee-search">
+                                    <i class="bx bx-search"></i>
+                                    <input type="search" id="car-buy-request-search" placeholder="Tìm khách, SĐT, tỉnh, tiêu đề">
+                                </label>
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="car-buy-request-refresh-button">
+                                    <i class="bx bx-refresh"></i>
+                                    <span>Tải lại</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="inventory-table-wrap">
+                            <table class="inventory-table car-buy-request-table">
+                                <thead>
+                                    <tr>
+                                        <th>Khách hàng</th>
+                                        <th>Nhu cầu mua xe</th>
+                                        <th>Liên hệ</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="car-buy-request-table-body">
+                                    <tr>
+                                        <td colspan="5" class="table-empty">Đang tải tin mua xe...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="admin-feedback" id="car-buy-request-feedback" aria-live="polite"></p>
                     </section>
                 </section>
             </section>
@@ -784,6 +962,88 @@
         </div>
     </section>
 
+    <section class="modal-backdrop" id="consultation-status-panel" hidden aria-hidden="true">
+        <div class="customer-detail-modal test-drive-status-modal consultation-status-update-panel" role="dialog" aria-modal="true" aria-labelledby="consultation-status-title">
+            <div class="customer-detail__header">
+                <div>
+                    <p class="eyebrow">Yêu cầu tư vấn</p>
+                    <h3 id="consultation-status-title">Cập nhật trạng thái tư vấn</h3>
+                </div>
+                <button type="button" class="icon-btn icon-btn--neutral" data-close-consultation-status aria-label="Đóng cập nhật trạng thái tư vấn">
+                    <i class="bx bx-x"></i>
+                </button>
+            </div>
+            <div class="test-drive-status-body">
+                <p id="consultation-status-summary">Chọn trạng thái xử lý yêu cầu tư vấn.</p>
+                <label class="test-drive-status-note consultation-status-select-field">
+                    <span>Trạng thái xử lý</span>
+                    <select id="consultation-status-select">
+                        <option value="new">Mới</option>
+                        <option value="contacted">Đã liên hệ</option>
+                        <option value="appointment">Đã hẹn xem xe</option>
+                        <option value="closed">Đã chốt</option>
+                        <option value="failed">Không thành công</option>
+                    </select>
+                </label>
+                <label class="test-drive-status-note">
+                    <span>Ghi chú xử lý nội bộ</span>
+                    <textarea id="consultation-status-note" rows="5" maxlength="500" placeholder="Nhập kết quả liên hệ, hẹn gọi lại hoặc lý do chưa chốt..."></textarea>
+                </label>
+                <div class="employee-form__actions">
+                    <button type="button" class="toolbar-btn toolbar-btn--primary" id="consultation-status-save-button">
+                        <i class="bx bx-save"></i>
+                        <span>Cập nhật trạng thái</span>
+                    </button>
+                    <button type="button" class="toolbar-btn toolbar-btn--soft" data-close-consultation-status>
+                        <i class="bx bx-x"></i>
+                        <span>Hủy thao tác</span>
+                    </button>
+                </div>
+                <p class="admin-feedback" id="consultation-status-feedback" aria-live="polite"></p>
+            </div>
+        </div>
+    </section>
+
+    <section class="modal-backdrop" id="car-buy-request-status-panel" hidden aria-hidden="true">
+        <div class="customer-detail-modal test-drive-status-modal consultation-status-update-panel" role="dialog" aria-modal="true" aria-labelledby="car-buy-request-status-title">
+            <div class="customer-detail__header">
+                <div>
+                    <p class="eyebrow">Tin mua xe</p>
+                    <h3 id="car-buy-request-status-title">Cập nhật xử lý tin mua xe</h3>
+                </div>
+                <button type="button" class="icon-btn icon-btn--neutral" data-close-car-buy-request-status aria-label="Đóng cập nhật xử lý tin mua xe">
+                    <i class="bx bx-x"></i>
+                </button>
+            </div>
+            <div class="test-drive-status-body">
+                <p id="car-buy-request-status-summary">Chọn trạng thái và ghi chú xử lý tin mua xe.</p>
+                <label class="test-drive-status-note consultation-status-select-field">
+                    <span>Trạng thái xử lý</span>
+                    <select id="car-buy-request-status-select">
+                        <option value="pending">Chờ duyệt</option>
+                        <option value="approved">Đã duyệt</option>
+                        <option value="rejected">Từ chối</option>
+                    </select>
+                </label>
+                <label class="test-drive-status-note">
+                    <span>Ghi chú xử lý</span>
+                    <textarea id="car-buy-request-status-note" rows="5" maxlength="500" placeholder="Nhập ghi chú xử lý hoặc lý do từ chối..."></textarea>
+                </label>
+                <div class="employee-form__actions">
+                    <button type="button" class="toolbar-btn toolbar-btn--primary" id="car-buy-request-status-save-button">
+                        <i class="bx bx-save"></i>
+                        <span>Cập nhật trạng thái</span>
+                    </button>
+                    <button type="button" class="toolbar-btn toolbar-btn--soft" data-close-car-buy-request-status>
+                        <i class="bx bx-x"></i>
+                        <span>Hủy thao tác</span>
+                    </button>
+                </div>
+                <p class="admin-feedback" id="car-buy-request-status-feedback" aria-live="polite"></p>
+            </div>
+        </div>
+    </section>
+
     <section class="modal-backdrop promotion-crop-panel" id="promotion-crop-panel" hidden aria-hidden="true">
         <div class="promotion-crop-modal" role="dialog" aria-modal="true" aria-labelledby="promotion-crop-title">
             <div class="promotion-crop-modal__header">
@@ -831,6 +1091,6 @@
 
     <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
-    <script src="js/admin.js"></script>
+    <script src="/admin/script.js"></script>
 </body>
 </html>

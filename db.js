@@ -27,6 +27,8 @@ const employeeRoles = new Set(['staff', 'admin']);
 const salesTitles = new Set(['Nhân viên kinh doanh', 'Trưởng phòng kinh doanh']);
 const testDriveAppointmentStatuses = new Set(['pending', 'approved', 'cancelled']);
 const approvedTestDriveAppointmentStatus = 'approved';
+const consultationRequestStatuses = new Set(['new', 'contacted', 'appointment', 'closed', 'failed']);
+const carBuyRequestStatuses = new Set(['pending', 'approved', 'rejected']);
 
 const normalizeConfiguredEmail = (email) =>
   String(email || '').trim().toLowerCase();
@@ -56,6 +58,22 @@ const normalizeTestDriveAppointmentStatus = (status) => {
   }
 
   return testDriveAppointmentStatuses.has(normalizedStatus)
+    ? normalizedStatus
+    : 'pending';
+};
+
+const normalizeConsultationRequestStatus = (status) => {
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+
+  return consultationRequestStatuses.has(normalizedStatus)
+    ? normalizedStatus
+    : 'new';
+};
+
+const normalizeCarBuyRequestStatus = (status) => {
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+
+  return carBuyRequestStatuses.has(normalizedStatus)
     ? normalizedStatus
     : 'pending';
 };
@@ -133,6 +151,7 @@ const openDatabase = () => {
 
 const initializeSchema = (database) => {
   database.exec(`
+  PRAGMA journal_mode = MEMORY;
   PRAGMA foreign_keys = ON;
 
   CREATE TABLE IF NOT EXISTS users (
@@ -249,6 +268,45 @@ const initializeSchema = (database) => {
     FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE SET NULL
   );
 
+  CREATE TABLE IF NOT EXISTS consultation_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    car_id INTEGER,
+    car_name TEXT NOT NULL DEFAULT '',
+    car_brand TEXT NOT NULL DEFAULT '',
+    car_price_text TEXT NOT NULL DEFAULT '',
+    full_name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL DEFAULT '',
+    request_type TEXT NOT NULL DEFAULT 'consultation',
+    preferred_contact_time TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'new',
+    status_note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS car_buy_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    budget_range TEXT NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL DEFAULT '',
+    province TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    status_note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
   CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id
   ON user_sessions (user_id);
 
@@ -281,6 +339,21 @@ const initializeSchema = (database) => {
 
   CREATE INDEX IF NOT EXISTS idx_test_drive_appointments_preferred_date
   ON test_drive_appointments (preferred_date, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_consultation_requests_status
+  ON consultation_requests (status, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_consultation_requests_car_id
+  ON consultation_requests (car_id, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_car_buy_requests_status
+  ON car_buy_requests (status, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_car_buy_requests_budget
+  ON car_buy_requests (budget_range, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_car_buy_requests_user_id
+  ON car_buy_requests (user_id, created_at);
 
 `);
 
@@ -1029,6 +1102,121 @@ const deleteTestDriveAppointmentStatement = db.prepare(`
   WHERE id = ?
 `);
 
+const insertConsultationRequestStatement = db.prepare(`
+  INSERT INTO consultation_requests (
+    user_id, car_id, car_name, car_brand, car_price_text,
+    full_name, phone, email, request_type, preferred_contact_time, note
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+const findConsultationRequestByIdStatement = db.prepare(`
+  SELECT consultation_requests.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM consultation_requests
+  LEFT JOIN users ON users.id = consultation_requests.user_id
+  WHERE consultation_requests.id = ?
+`);
+
+const listConsultationRequestsStatement = db.prepare(`
+  SELECT consultation_requests.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM consultation_requests
+  LEFT JOIN users ON users.id = consultation_requests.user_id
+  ORDER BY
+    CASE consultation_requests.status
+      WHEN 'new' THEN 0
+      WHEN 'contacted' THEN 1
+      WHEN 'appointment' THEN 2
+      WHEN 'closed' THEN 3
+      ELSE 4
+    END,
+    datetime(consultation_requests.created_at) DESC,
+    consultation_requests.id DESC
+`);
+
+const updateConsultationRequestStatusStatement = db.prepare(`
+  UPDATE consultation_requests
+  SET status = ?,
+      status_note = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const deleteConsultationRequestStatement = db.prepare(`
+  DELETE FROM consultation_requests
+  WHERE id = ?
+`);
+
+const insertCarBuyRequestStatement = db.prepare(`
+  INSERT INTO car_buy_requests (
+    user_id, budget_range, title, content, full_name, phone, email, province, address
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+const findCarBuyRequestByIdStatement = db.prepare(`
+  SELECT car_buy_requests.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM car_buy_requests
+  LEFT JOIN users ON users.id = car_buy_requests.user_id
+  WHERE car_buy_requests.id = ?
+`);
+
+const listPublicCarBuyRequestsStatement = db.prepare(`
+  SELECT car_buy_requests.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM car_buy_requests
+  LEFT JOIN users ON users.id = car_buy_requests.user_id
+  WHERE car_buy_requests.status = 'approved'
+  ORDER BY datetime(car_buy_requests.created_at) DESC,
+           car_buy_requests.id DESC
+`);
+
+const listCarBuyRequestsStatement = db.prepare(`
+  SELECT car_buy_requests.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM car_buy_requests
+  LEFT JOIN users ON users.id = car_buy_requests.user_id
+  ORDER BY
+    CASE car_buy_requests.status
+      WHEN 'pending' THEN 0
+      WHEN 'approved' THEN 1
+      ELSE 2
+    END,
+    datetime(car_buy_requests.created_at) DESC,
+    car_buy_requests.id DESC
+`);
+
+const listCarBuyRequestsByUserStatement = db.prepare(`
+  SELECT car_buy_requests.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM car_buy_requests
+  LEFT JOIN users ON users.id = car_buy_requests.user_id
+  WHERE car_buy_requests.user_id = ?
+  ORDER BY datetime(car_buy_requests.created_at) DESC,
+           car_buy_requests.id DESC
+`);
+
+const updateCarBuyRequestStatusStatement = db.prepare(`
+  UPDATE car_buy_requests
+  SET status = ?,
+      status_note = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const deleteCarBuyRequestStatement = db.prepare(`
+  DELETE FROM car_buy_requests
+  WHERE id = ?
+`);
+
 const seedCars = [
   {
     brand: 'Rolls-Royce',
@@ -1391,6 +1579,71 @@ const sanitizeTestDriveAppointment = (appointmentRow) => {
     statusNote: appointmentRow.status_note || '',
     createdAt: appointmentRow.created_at || '',
     updatedAt: appointmentRow.updated_at || '',
+  };
+};
+
+const sanitizeConsultationRequest = (requestRow) => {
+  if (!requestRow) {
+    return null;
+  }
+
+  return {
+    id: requestRow.id,
+    userId: requestRow.user_id,
+    userEmail: requestRow.user_email || '',
+    userAvatarUrl: requestRow.user_avatar_url || '',
+    carId: requestRow.car_id,
+    carName: requestRow.car_name || '',
+    carBrand: requestRow.car_brand || '',
+    carPrice: requestRow.car_price_text || '',
+    fullName: requestRow.full_name || '',
+    phone: requestRow.phone || '',
+    email: requestRow.email || '',
+    requestType: requestRow.request_type || 'consultation',
+    preferredContactTime: requestRow.preferred_contact_time || '',
+    note: requestRow.note || '',
+    status: normalizeConsultationRequestStatus(requestRow.status),
+    statusNote: requestRow.status_note || '',
+    createdAt: requestRow.created_at || '',
+    updatedAt: requestRow.updated_at || '',
+  };
+};
+
+const normalizeCarBuyRequestPayload = (request = {}) => ({
+  userId: request.userId ? Number(request.userId) : null,
+  budgetRange: String(request.budgetRange || request.budget_range || '').trim(),
+  title: String(request.title || '').trim().replace(/\s+/g, ' '),
+  content: String(request.content || '').trim(),
+  fullName: normalizeFullName(request.fullName || request.full_name),
+  phone: String(request.phone || '').trim(),
+  email: normalizeEmail(request.email),
+  province: String(request.province || '').trim().replace(/\s+/g, ' '),
+  address: String(request.address || '').trim().replace(/\s+/g, ' '),
+});
+
+const sanitizeCarBuyRequest = (requestRow) => {
+  if (!requestRow) {
+    return null;
+  }
+
+  return {
+    id: requestRow.id,
+    code: `MX-${String(requestRow.id).padStart(6, '0')}`,
+    userId: requestRow.user_id,
+    userEmail: requestRow.user_email || '',
+    userAvatarUrl: requestRow.user_avatar_url || '',
+    budgetRange: requestRow.budget_range || '',
+    title: requestRow.title || '',
+    content: requestRow.content || '',
+    fullName: requestRow.full_name || '',
+    phone: requestRow.phone || '',
+    email: requestRow.email || '',
+    province: requestRow.province || '',
+    address: requestRow.address || '',
+    status: normalizeCarBuyRequestStatus(requestRow.status),
+    statusNote: requestRow.status_note || '',
+    createdAt: requestRow.created_at || '',
+    updatedAt: requestRow.updated_at || '',
   };
 };
 
@@ -1870,6 +2123,18 @@ const listPublicPromotions = () =>
 const getPromotionById = (promotionId) =>
   sanitizePromotion(findPromotionByIdStatement.get(promotionId));
 
+const getCarBuyRequestById = (requestId) =>
+  sanitizeCarBuyRequest(findCarBuyRequestByIdStatement.get(requestId));
+
+const listPublicCarBuyRequests = () =>
+  listPublicCarBuyRequestsStatement.all().map(sanitizeCarBuyRequest);
+
+const listCarBuyRequests = () =>
+  listCarBuyRequestsStatement.all().map(sanitizeCarBuyRequest);
+
+const listCarBuyRequestsByUser = (userId) =>
+  listCarBuyRequestsByUserStatement.all(userId).map(sanitizeCarBuyRequest);
+
 const listFavoriteCarsByUser = (userId) =>
   listFavoriteCarsByUserStatement.all(userId).map(sanitizeCar);
 
@@ -1916,6 +2181,12 @@ const listTestDriveAppointmentsByUser = (userId) =>
 
 const getTestDriveAppointmentById = (appointmentId) =>
   sanitizeTestDriveAppointment(findTestDriveAppointmentByIdStatement.get(appointmentId));
+
+const listConsultationRequests = () =>
+  listConsultationRequestsStatement.all().map(sanitizeConsultationRequest);
+
+const getConsultationRequestById = (requestId) =>
+  sanitizeConsultationRequest(findConsultationRequestByIdStatement.get(requestId));
 
 const getApprovedTestDriveScheduleConflict = ({
   appointmentId = 0,
@@ -2017,6 +2288,138 @@ const deleteTestDriveAppointment = (appointmentId) => {
 
   deleteTestDriveAppointmentStatement.run(appointmentId);
   return existingAppointment;
+};
+
+const createConsultationRequest = ({
+  userId = null,
+  carId,
+  fullName,
+  phone,
+  email = '',
+  requestType = 'consultation',
+  preferredContactTime = '',
+  note = '',
+}) => {
+  const selectedCar = getCarById(carId);
+
+  if (!selectedCar) {
+    return null;
+  }
+
+  const soldCarConsultationNote = 'Khách quan tâm xe đã hết hàng, cần tư vấn xe tương tự.';
+  const canConsultExactCar = isCarAvailableForTestDrive(selectedCar);
+  const normalizedNote = String(note || '').trim();
+  const normalizedRequestType = String(requestType || 'consultation').trim();
+  const finalRequestType = canConsultExactCar ? normalizedRequestType : 'similar_car';
+  const finalNote = canConsultExactCar || normalizedNote.includes(soldCarConsultationNote)
+    ? normalizedNote
+    : [soldCarConsultationNote, normalizedNote].filter(Boolean).join('\n');
+  const savedNote = finalNote.slice(0, 700);
+  const normalizedUserId = Number(userId || 0);
+  const result = insertConsultationRequestStatement.run(
+    Number.isInteger(normalizedUserId) && normalizedUserId > 0 ? normalizedUserId : null,
+    selectedCar.id,
+    selectedCar.name,
+    selectedCar.brand,
+    selectedCar.price,
+    normalizeFullName(fullName),
+    String(phone || '').trim(),
+    normalizeEmail(email),
+    finalRequestType,
+    String(preferredContactTime || '').trim(),
+    savedNote
+  );
+
+  return getConsultationRequestById(result.lastInsertRowid);
+};
+
+const updateConsultationRequestStatus = (requestId, {
+  status,
+  statusNote = '',
+}) => {
+  const existingRequest = getConsultationRequestById(requestId);
+
+  if (!existingRequest) {
+    return null;
+  }
+
+  updateConsultationRequestStatusStatement.run(
+    normalizeConsultationRequestStatus(status),
+    String(statusNote || '').trim(),
+    requestId
+  );
+
+  return getConsultationRequestById(requestId);
+};
+
+const deleteConsultationRequest = (requestId) => {
+  const existingRequest = getConsultationRequestById(requestId);
+
+  if (!existingRequest) {
+    return null;
+  }
+
+  deleteConsultationRequestStatement.run(requestId);
+  return existingRequest;
+};
+
+const createCarBuyRequest = (request) => {
+  const normalizedRequest = normalizeCarBuyRequestPayload(request);
+  const normalizedUserId = Number(normalizedRequest.userId || 0);
+  const result = insertCarBuyRequestStatement.run(
+    Number.isInteger(normalizedUserId) && normalizedUserId > 0 ? normalizedUserId : null,
+    normalizedRequest.budgetRange,
+    normalizedRequest.title,
+    normalizedRequest.content,
+    normalizedRequest.fullName,
+    normalizedRequest.phone,
+    normalizedRequest.email,
+    normalizedRequest.province,
+    normalizedRequest.address
+  );
+
+  return getCarBuyRequestById(result.lastInsertRowid);
+};
+
+const updateCarBuyRequestStatus = (requestId, {
+  status,
+  statusNote = '',
+}) => {
+  const existingRequest = getCarBuyRequestById(requestId);
+
+  if (!existingRequest) {
+    return null;
+  }
+
+  const normalizedStatus = normalizeCarBuyRequestStatus(status);
+  let normalizedStatusNote = String(statusNote || '').trim();
+
+  if (
+    existingRequest.status === 'rejected'
+    && normalizedStatus !== 'rejected'
+    && normalizedStatusNote === String(existingRequest.statusNote || '').trim()
+  ) {
+    normalizedStatusNote = '';
+  }
+
+  updateCarBuyRequestStatusStatement.run(
+    normalizedStatus,
+    normalizedStatusNote,
+    requestId
+  );
+
+  return getCarBuyRequestById(requestId);
+};
+
+const deleteCarBuyRequest = (requestId) => {
+  const existingRequest = getCarBuyRequestById(requestId);
+
+  if (!existingRequest) {
+    return null;
+  }
+
+  deleteCarBuyRequestStatement.run(requestId);
+  return existingRequest;
 };
 
 const createTestDriveAppointment = ({
@@ -2146,6 +2549,8 @@ module.exports = {
   addFavoriteCarForUser,
   authenticateUser,
   createCar,
+  createCarBuyRequest,
+  createConsultationRequest,
   createPasswordResetOtp,
   createPromotion,
   createSession,
@@ -2153,11 +2558,15 @@ module.exports = {
   createUser,
   countAdminUsers,
   deleteCar,
+  deleteCarBuyRequest,
+  deleteConsultationRequest,
   deletePromotion,
   deleteSession,
   deleteTestDriveAppointment,
   deleteUser,
   getCarById,
+  getCarBuyRequestById,
+  getConsultationRequestById,
   getPromotionById,
   getTestDriveAppointmentById,
   getUserById,
@@ -2166,21 +2575,27 @@ module.exports = {
   isFavoriteCarByUser,
   listHomepagePromotions,
   listAvailableTestDriveCars,
+  listCarBuyRequests,
+  listCarBuyRequestsByUser,
   listUsers,
   listHomepageTeamMembers,
   listPublicTeamMembers,
   listCars,
   listFavoriteCarsByUser,
   listPublicPromotions,
+  listPublicCarBuyRequests,
   listPromotions,
+  listConsultationRequests,
   listTestDriveAppointments,
   listTestDriveAppointmentsByUser,
   removeFavoriteCarForUser,
   resetPasswordWithOtp,
+  updateConsultationRequestStatus,
   updatePromotion,
   updateTestDriveAppointmentStatus,
   updateUserProfile,
   updateUserSelfProfile,
   updateUserRole,
   updateCar,
+  updateCarBuyRequestStatus,
 };

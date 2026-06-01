@@ -106,7 +106,7 @@ img {
     overflow: hidden;
     background:
         linear-gradient(90deg, rgba(8, 21, 74, 0.78), rgba(8, 21, 74, 0.36)),
-        url("/images/untitled-design-11-.png") center / cover no-repeat;
+        url("/images/car-buy-requests-hero.png") center / cover no-repeat;
     box-shadow: var(--shadow-soft);
 }
 
