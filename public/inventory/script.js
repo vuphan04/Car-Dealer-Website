@@ -8,6 +8,9 @@ const filterToggleButton = document.querySelector('#inventory-filter-toggle');
 const priceMinInput = document.querySelector('#filter-price-min');
 const priceMaxInput = document.querySelector('#filter-price-max');
 const priceRange = document.querySelector('#filter-price-range');
+const priceEnabledInput = document.querySelector('#filter-price-enabled');
+const priceEnabledLabel = document.querySelector('#filter-price-enabled-label');
+const priceControl = document.querySelector('#filter-price-control');
 const priceMinOutput = document.querySelector('#filter-price-min-output');
 const priceMaxOutput = document.querySelector('#filter-price-max-output');
 const yearFromSelect = document.querySelector('#filter-year-from');
@@ -252,6 +255,25 @@ const getPriceRangeValues = () => {
     };
 };
 
+const isPriceFilterEnabled = () => priceEnabledInput?.checked !== false;
+
+const syncPriceFilterState = () => {
+    const isEnabled = isPriceFilterEnabled();
+
+    priceControl?.classList.toggle('is-disabled', !isEnabled);
+    if (priceEnabledLabel) {
+        priceEnabledLabel.textContent = isEnabled ? 'Bật' : 'Tắt';
+    }
+
+    [priceMinInput, priceMaxInput].forEach((input) => {
+        if (!input) {
+            return;
+        }
+
+        input.disabled = !isEnabled;
+    });
+};
+
 const updatePriceOutput = () => {
     const { min, max } = getPriceRangeValues();
 
@@ -325,6 +347,7 @@ const renderFilterOptions = () => {
     setYearOptions(yearFromSelect, 'Từ năm', years);
     setYearOptions(yearToSelect, 'Đến năm', years);
     syncYearClearState();
+    syncPriceFilterState();
     updatePriceOutput();
 };
 
@@ -425,6 +448,7 @@ const getSelectedFilters = () => ({
     drivetrain: normalizeText(getFilterGroupValue('drivetrain')),
     imageState: getFilterGroupValue('imageState'),
     priceRange: getPriceRangeValues(),
+    priceLimitEnabled: isPriceFilterEnabled(),
     yearRange: getYearRange()
 });
 
@@ -467,7 +491,8 @@ const applyFilters = () => {
             || (carYear && carYear >= filters.yearRange.min && carYear <= filters.yearRange.max);
         const carPrice = parsePriceValue(car);
         const priceMax = filters.priceRange.max >= PRICE_FILTER_MAX ? Infinity : filters.priceRange.max;
-        const matchesPrice = carPrice >= filters.priceRange.min && carPrice <= priceMax;
+        const matchesPrice = !filters.priceLimitEnabled
+            || (carPrice >= filters.priceRange.min && carPrice <= priceMax);
         const hasImages = getCarImages(car).length > 0;
         const matchesImageState = !filters.imageState
             || (filters.imageState === 'with' ? hasImages : !hasImages);
@@ -953,11 +978,16 @@ const resetFilters = () => {
         priceMaxInput.value = String(PRICE_FILTER_MAX);
     }
 
+    if (priceEnabledInput) {
+        priceEnabledInput.checked = true;
+    }
+
     if (sortSelect) {
         sortSelect.value = 'newest';
     }
 
     syncYearClearState();
+    syncPriceFilterState();
     syncPriceInputs();
     applyFilters();
 };
@@ -1027,6 +1057,11 @@ const bindEvents = () => {
 
     priceMaxInput?.addEventListener('input', () => {
         syncPriceInputs('max');
+        applyFilters();
+    });
+
+    priceEnabledInput?.addEventListener('change', () => {
+        syncPriceFilterState();
         applyFilters();
     });
 

@@ -7,14 +7,19 @@
     <link href="https://cdn.boxicons.com/3.0.8/css/boxicons.min.css" rel="stylesheet">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/inventory/style.css">
+    <link rel="stylesheet" href="/global/responsive-nav.css">
 </head>
 <body>
     <header class="inventory-header">
-        <nav class="inventory-nav">
+        <nav class="inventory-nav" data-responsive-nav>
             <a href="/" class="inventory-logo">Ok<span>Xe</span></a>
-            <div class="inventory-nav__links">
+            <button class="inventory-menu-toggle" type="button" aria-label="Mở menu điều hướng" aria-expanded="false" aria-controls="inventory-navigation" data-responsive-nav-toggle>
+                <i class="bx bx-menu" aria-hidden="true"></i>
+            </button>
+            <div class="inventory-nav__links" id="inventory-navigation" data-responsive-nav-panel>
                 <a href="/">Trang Chủ</a>
                 <a href="/mua-xe" aria-current="page">Tìm mua ô tô</a>
+                <a href="/dang-tin-ban-xe">Đăng bán xe</a>
                 <a href="/tin-mua-o-to">Tin mua ô tô</a>
                 <a href="/dang-tin-mua-o-to">Đăng tin mua ô tô</a>
                 <a href="/khuyen-mai">Khuyến mại</a>
@@ -83,8 +88,14 @@
                 </div>
 
                 <div class="inventory-filter-row inventory-filter-row--price">
-                    <span class="inventory-filter-row__label">Giới hạn giá:</span>
-                    <div class="inventory-price-filter">
+                    <div class="inventory-filter-row__label inventory-price-filter__label">
+                        <span>Giới hạn giá:</span>
+                        <label class="inventory-price-toggle" for="filter-price-enabled">
+                            <input type="checkbox" id="filter-price-enabled" checked>
+                            <span id="filter-price-enabled-label">Bật</span>
+                        </label>
+                    </div>
+                    <div class="inventory-price-filter" id="filter-price-control">
                         <div class="inventory-price-filter__summary">
                             <output class="inventory-price-filter__value inventory-price-filter__value--min" id="filter-price-min-output" for="filter-price-min">Từ 0</output>
                             <output class="inventory-price-filter__value inventory-price-filter__value--max" id="filter-price-max-output" for="filter-price-max">Đến &gt;3 tỷ</output>
@@ -215,5 +226,6 @@
     </footer>
 
     <script src="/inventory/script.js"></script>
+    <script src="/global/responsive-nav.js"></script>
 </body>
 </html>

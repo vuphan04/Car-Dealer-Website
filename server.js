@@ -88,6 +88,7 @@ const publicPages = {
   promotions: 'promotions',
   buyRequests: 'buy-requests',
   buyRequestForm: 'buy-request-form',
+  sellCarForm: 'sell-car',
   salesTeam: 'sales-team',
 };
 const legacyImageAliases = new Map([
@@ -1394,6 +1395,10 @@ app.get(['/tin-mua-o-to', '/tin-mua-o-to/', '/tin-mua-o-to.html'], (req, res) =>
 
 app.get(['/dang-tin-mua-o-to', '/dang-tin-mua-o-to/', '/dang-tin-mua-o-to.html'], (req, res) => {
   sendPublicPage(res, publicPages.buyRequestForm);
+});
+
+app.get(['/dang-tin-ban-xe', '/dang-tin-ban-xe/', '/dang-tin-ban-xe.html'], (req, res) => {
+  sendPublicPage(res, publicPages.sellCarForm);
 });
 
 app.get(['/tu-van-ban-hang', '/tu-van-ban-hang/', '/tu-van-ban-hang.html'], (req, res) => {

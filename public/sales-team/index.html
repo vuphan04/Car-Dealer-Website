@@ -8,14 +8,19 @@
     <link href="https://cdn.boxicons.com/3.0.8/css/boxicons.min.css" rel="stylesheet">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/sales-team/style.css">
+    <link rel="stylesheet" href="/global/responsive-nav.css">
 </head>
 <body>
     <header class="sales-header">
-        <nav class="sales-nav">
+        <nav class="sales-nav" data-responsive-nav>
             <a href="/" class="sales-logo">Ok<span>Xe</span></a>
-            <div class="sales-nav__links">
+            <button class="sales-menu-toggle" type="button" aria-label="Mở menu điều hướng" aria-expanded="false" aria-controls="sales-navigation" data-responsive-nav-toggle>
+                <i class="bx bx-menu" aria-hidden="true"></i>
+            </button>
+            <div class="sales-nav__links" id="sales-navigation" data-responsive-nav-panel>
                 <a href="/">Trang Chủ</a>
                 <a href="/mua-xe">Tìm mua ô tô</a>
+                <a href="/dang-tin-ban-xe">Đăng bán xe</a>
                 <a href="/tin-mua-o-to">Tin mua ô tô</a>
                 <a href="/dang-tin-mua-o-to">Đăng tin mua ô tô</a>
                 <a href="/khuyen-mai">Khuyến mại</a>
@@ -67,5 +72,6 @@
     </footer>
 
     <script src="/sales-team/script.js"></script>
+    <script src="/global/responsive-nav.js"></script>
 </body>
 </html>

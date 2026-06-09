@@ -7,15 +7,20 @@
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/global/site.css">
     <link rel="stylesheet" href="/test-drive/style.css">
+    <link rel="stylesheet" href="/global/responsive-nav.css">
 </head>
 <body>
     <header class="header">
-        <div class="nav container">
+        <div class="nav container" data-responsive-nav>
             <a href="/" class="logo">Ok<span>Xe</span></a>
-            <div class="nav-panel test-drive-nav">
+            <button class="menu-toggle" type="button" aria-label="Mở menu điều hướng" aria-expanded="false" aria-controls="test-drive-navigation" data-responsive-nav-toggle>
+                <i class="bx bx-menu" aria-hidden="true"></i>
+            </button>
+            <div class="nav-panel test-drive-nav" id="test-drive-navigation" data-responsive-nav-panel>
                 <div class="nav-links">
                     <a href="/" class="nav-link">Trang Chủ</a>
                     <a href="/mua-xe" class="nav-link">Tìm mua ô tô</a>
+                    <a href="/dang-tin-ban-xe" class="nav-link">Đăng bán xe</a>
                     <a href="/tin-mua-o-to" class="nav-link">Tin mua ô tô</a>
                     <a href="/dang-tin-mua-o-to" class="nav-link">Đăng tin mua ô tô</a>
                     <a href="/khuyen-mai" class="nav-link">Khuyến mại</a>
@@ -204,5 +209,6 @@
     </div>
 
     <script src="/test-drive/script.js"></script>
+    <script src="/global/responsive-nav.js"></script>
 </body>
 </html>

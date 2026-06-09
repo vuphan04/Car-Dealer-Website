@@ -7,14 +7,19 @@
     <link href="https://cdn.boxicons.com/3.0.8/css/boxicons.min.css" rel="stylesheet">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/buy-requests/style.css">
+    <link rel="stylesheet" href="/global/responsive-nav.css">
 </head>
 <body>
     <header class="buy-request-header">
-        <nav class="buy-request-nav">
+        <nav class="buy-request-nav" data-responsive-nav>
             <a href="/" class="buy-request-logo">Ok<span>Xe</span></a>
-            <div class="buy-request-nav__links">
+            <button class="buy-request-menu-toggle" type="button" aria-label="Mở menu điều hướng" aria-expanded="false" aria-controls="buy-request-form-navigation" data-responsive-nav-toggle>
+                <i class="bx bx-menu" aria-hidden="true"></i>
+            </button>
+            <div class="buy-request-nav__links" id="buy-request-form-navigation" data-responsive-nav-panel>
                 <a href="/">Trang Chủ</a>
                 <a href="/mua-xe">Tìm mua ô tô</a>
+                <a href="/dang-tin-ban-xe">Đăng bán xe</a>
                 <a href="/tin-mua-o-to">Tin mua ô tô</a>
                 <a href="/dang-tin-mua-o-to" aria-current="page">Đăng tin mua ô tô</a>
                 <a href="/khuyen-mai">Khuyến mại</a>
@@ -130,5 +135,6 @@
     </footer>
 
     <script src="/buy-request-form/script.js"></script>
+    <script src="/global/responsive-nav.js"></script>
 </body>
 </html>

@@ -1,0 +1,1540 @@
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap");
+
+:root {
+    --main-color: #f15a29;
+    --main-color-dark: #da4c1f;
+    --text-color: #08154a;
+    --muted-color: #687390;
+    --surface: #ffffff;
+    --surface-soft: #fff6f1;
+    --page-bg: #f4f6fb;
+    --line-color: #e7ebf4;
+    --success: #1f9d63;
+    --danger: #d93025;
+    --font-ui: "Be Vietnam Pro", "Segoe UI", Arial, sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-ui);
+}
+
+body {
+    min-height: 100vh;
+    color: var(--text-color);
+    background: var(--page-bg);
+    font-size: 16px;
+    line-height: 1.6;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+button,
+input,
+select {
+    font: inherit;
+}
+
+button,
+select,
+input {
+    outline: none;
+}
+
+button {
+    cursor: pointer;
+}
+
+img {
+    display: block;
+    max-width: 100%;
+}
+
+.sell-car-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: rgba(255, 255, 255, 0.94);
+    border-bottom: 1px solid rgba(8, 21, 74, 0.07);
+    backdrop-filter: blur(16px);
+}
+
+.sell-car-nav {
+    width: min(1320px, calc(100% - 48px));
+    min-height: 78px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+}
+
+.sell-car-logo {
+    color: var(--text-color);
+    font-size: clamp(1.7rem, 2.6vw, 2rem);
+    font-weight: 900;
+    line-height: 1.1;
+}
+
+.sell-car-logo span {
+    color: var(--main-color);
+}
+
+.sell-car-nav__links {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.75rem, 1.8vw, 1.45rem);
+    color: var(--muted-color);
+    font-size: 0.92rem;
+    line-height: 1.4;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.sell-car-nav__links a {
+    transition: color 0.2s ease;
+}
+
+.sell-car-nav__links a:hover,
+.sell-car-nav__links a[aria-current="page"] {
+    color: var(--main-color);
+}
+
+.sell-car-hero {
+    position: relative;
+    overflow: hidden;
+    min-height: 620px;
+    background:
+        linear-gradient(120deg, rgba(255, 255, 255, 0.1) 0 14%, transparent 14% 100%),
+        linear-gradient(160deg, rgba(255, 255, 255, 0.16) 0 18%, transparent 18% 100%),
+        linear-gradient(135deg, var(--main-color) 0%, #ff7a45 52%, #0d1f6f 148%);
+}
+
+.sell-car-hero::before,
+.sell-car-hero::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+}
+
+.sell-car-hero::before {
+    inset: 0;
+    background:
+        linear-gradient(24deg, rgba(255, 255, 255, 0.12) 0 18%, transparent 18% 100%),
+        linear-gradient(150deg, transparent 0 54%, rgba(8, 21, 74, 0.16) 54% 72%, transparent 72% 100%);
+}
+
+.sell-car-hero::after {
+    right: -12rem;
+    top: 3rem;
+    width: 34rem;
+    height: 25rem;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.09);
+    transform: rotate(38deg);
+}
+
+.sell-car-hero__inner {
+    position: relative;
+    z-index: 1;
+    width: min(1320px, calc(100% - 48px));
+    min-height: 620px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(360px, 550px) minmax(420px, 1fr);
+    align-items: center;
+    gap: clamp(2rem, 5vw, 5rem);
+    padding: 3.2rem 0;
+}
+
+.sell-car-hero__content {
+    display: grid;
+    justify-items: start;
+}
+
+.sell-car-eyebrow {
+    margin-bottom: 0.6rem;
+    color: rgba(255, 255, 255, 0.84);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.sell-car-hero h1 {
+    max-width: 700px;
+    color: #ffffff;
+    font-size: clamp(2.15rem, 4.2vw, 3.75rem);
+    line-height: 1.16;
+    font-weight: 800;
+}
+
+.sell-car-hero h1 span {
+    display: block;
+}
+
+.sell-car-lead {
+    max-width: 640px;
+    margin-top: 0.9rem;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: clamp(1rem, 1.25vw, 1.12rem);
+    line-height: 1.75;
+    font-weight: 600;
+}
+
+.sell-car-question {
+    margin: 1.45rem 0 0.85rem;
+    color: #ffffff;
+    font-size: 1.03rem;
+    line-height: 1.45;
+    font-weight: 800;
+}
+
+.sell-car-form {
+    width: min(100%, 520px);
+    scroll-margin-top: 100px;
+    border: 1px solid rgba(255, 255, 255, 0.36);
+    border-radius: 8px;
+    padding: clamp(1rem, 2vw, 1.3rem);
+    background: #ffffff;
+    box-shadow: 0 22px 45px rgba(8, 21, 74, 0.2);
+}
+
+.sell-car-form__heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--line-color);
+}
+
+.sell-car-form__heading h2 {
+    color: var(--text-color);
+    font-size: 1rem;
+    line-height: 1.45;
+    font-weight: 800;
+}
+
+.sell-car-form__heading a {
+    color: var(--text-color);
+    font-size: 0.8rem;
+    line-height: 1.4;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.sell-car-form__heading a:hover {
+    color: var(--main-color);
+}
+
+.sell-car-form__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.8rem 0.9rem;
+    padding-top: 0.9rem;
+}
+
+.sell-car-form label {
+    display: grid;
+    gap: 0.4rem;
+    color: #1a2544;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    font-weight: 700;
+}
+
+.sell-car-form label > span {
+    min-width: 0;
+}
+
+.sell-car-form b {
+    color: var(--main-color);
+}
+
+.sell-car-form select {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid #d9dfeb;
+    border-radius: 8px;
+    padding: 0 0.8rem;
+    color: var(--text-color);
+    background: #ffffff;
+    font-size: 0.9rem;
+    line-height: 1.35;
+    font-weight: 600;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sell-car-form select:disabled {
+    color: #a7afc3;
+    background: #f7f8fb;
+}
+
+.sell-car-form select:focus {
+    border-color: var(--main-color);
+    box-shadow: 0 0 0 3px rgba(241, 90, 41, 0.14);
+}
+
+.sell-car-form__submit {
+    width: 100%;
+    min-height: 46px;
+    border: 0;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    margin-top: 1rem;
+    color: #ffffff;
+    background: var(--main-color);
+    font-size: 0.94rem;
+    line-height: 1.35;
+    font-weight: 800;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.sell-car-form__submit:hover {
+    background: var(--main-color-dark);
+    transform: translateY(-1px);
+}
+
+.sell-car-form__agree {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 0.55rem;
+    margin-top: 0.85rem;
+    color: #24304f;
+    font-size: 0.84rem;
+    line-height: 1.6;
+}
+
+.sell-car-form__agree input {
+    width: 18px;
+    height: 18px;
+    margin-top: 0.08rem;
+    accent-color: var(--main-color);
+}
+
+.sell-car-feedback {
+    min-height: 20px;
+    margin-top: 0.75rem;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    font-weight: 700;
+}
+
+.sell-car-feedback.is-success {
+    color: var(--success);
+}
+
+.sell-car-feedback.is-error {
+    color: var(--danger);
+}
+
+.sell-car-hotline {
+    min-height: 42px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    margin-top: 1rem;
+    padding: 0 1rem;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
+    font-size: 0.94rem;
+    line-height: 1.35;
+    font-weight: 800;
+}
+
+.sell-car-hotline i {
+    font-size: 1.12rem;
+}
+
+.sell-car-visual {
+    min-width: 0;
+}
+
+.sell-car-visual__stage {
+    position: relative;
+    min-height: 540px;
+    display: grid;
+    place-items: end center;
+}
+
+.sell-car-visual__stage::before {
+    content: "";
+    position: absolute;
+    inset: 12% 10% 7% 18%;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.12);
+    transform: skewX(-8deg);
+}
+
+.sell-car-visual img {
+    position: relative;
+    z-index: 1;
+    width: auto;
+    height: clamp(430px, 46vw, 560px);
+    max-width: 92%;
+    object-fit: contain;
+    object-position: center bottom;
+    filter: drop-shadow(0 30px 34px rgba(8, 21, 74, 0.24));
+}
+
+.sell-car-badge {
+    position: absolute;
+    z-index: 2;
+    max-width: 280px;
+    border: 1px solid rgba(255, 255, 255, 0.42);
+    border-radius: 8px;
+    padding: 0.7rem 0.9rem;
+    color: var(--text-color);
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 16px 28px rgba(8, 21, 74, 0.16);
+    font-size: 0.88rem;
+    line-height: 1.5;
+    font-weight: 700;
+}
+
+.sell-car-badge--top {
+    top: 16%;
+    left: 2%;
+}
+
+.sell-car-badge--bottom {
+    right: 0;
+    bottom: 11%;
+    text-align: right;
+}
+
+.sell-brand-section {
+    padding: clamp(3.2rem, 6vw, 5.2rem) 0 clamp(2.4rem, 4vw, 3.2rem);
+    overflow: hidden;
+    background: #edf2fb;
+}
+
+.sell-brand-heading {
+    width: min(1120px, calc(100% - 48px));
+    margin: 0 auto 2rem;
+    text-align: center;
+}
+
+.sell-brand-heading span {
+    color: var(--main-color);
+    font-size: 0.88rem;
+    line-height: 1.45;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.sell-brand-heading h2 {
+    margin-top: 0.35rem;
+    color: var(--text-color);
+    font-size: clamp(1.75rem, 3vw, 2.65rem);
+    line-height: 1.2;
+    font-weight: 800;
+}
+
+.sell-brand-carousel {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+}
+
+.sell-brand-carousel::before,
+.sell-brand-carousel::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    bottom: 0;
+    width: min(9vw, 120px);
+    pointer-events: none;
+}
+
+.sell-brand-carousel::before {
+    left: 0;
+    background: linear-gradient(90deg, #edf2fb, rgba(237, 242, 251, 0));
+}
+
+.sell-brand-carousel::after {
+    right: 0;
+    background: linear-gradient(270deg, #edf2fb, rgba(237, 242, 251, 0));
+}
+
+.sell-brand-track {
+    width: max-content;
+    display: flex;
+    align-items: stretch;
+    gap: 1.35rem;
+    animation: sellBrandMarquee 34s linear infinite;
+}
+
+.sell-brand-carousel:hover .sell-brand-track {
+    animation-play-state: paused;
+}
+
+.sell-brand-card {
+    flex: 0 0 128px;
+    min-height: 148px;
+    border: 0;
+    border-radius: 0;
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 0.65rem;
+    padding: 0;
+    color: var(--text-color);
+    background: transparent;
+    box-shadow: none;
+    text-align: center;
+}
+
+.sell-brand-card__logo {
+    width: 112px;
+    height: 112px;
+    border: 1px solid #d8e0ee;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.9rem;
+    background: #ffffff;
+    box-shadow: 0 14px 28px rgba(8, 21, 74, 0.05);
+}
+
+.sell-brand-card__logo img {
+    width: 100%;
+    height: 72px;
+    object-fit: contain;
+}
+
+.sell-brand-card strong {
+    max-width: 100%;
+    color: #42546f;
+    font-size: 0.98rem;
+    line-height: 1.35;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.sell-guide-section {
+    background: linear-gradient(180deg, #edf2fb 0%, #f7f9fd 100%);
+    padding: clamp(2.8rem, 5vw, 4rem) 0 clamp(2.2rem, 4vw, 3.3rem);
+    overflow: hidden;
+}
+
+.sell-guide-inner {
+    width: min(1500px, calc(100% - 64px));
+    margin: 0 auto;
+}
+
+.sell-guide-heading {
+    max-width: 980px;
+    margin: 0 auto 1.1rem;
+    text-align: center;
+}
+
+.sell-guide-heading > span {
+    color: var(--main-color);
+    font-size: 0.88rem;
+    line-height: 1.45;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.sell-guide-heading h2 {
+    margin-top: 0.35rem;
+    color: #26364d;
+    font-size: clamp(2rem, 3.4vw, 3rem);
+    line-height: 1.18;
+    font-weight: 900;
+}
+
+.sell-guide-heading h2 span {
+    display: block;
+}
+
+.sell-guide-heading h2 strong {
+    color: var(--main-color);
+    font-weight: 900;
+}
+
+.sell-guide-heading p {
+    max-width: 920px;
+    margin: 0.8rem auto 0;
+    color: #586981;
+    font-size: 1rem;
+    line-height: 1.75;
+    font-weight: 600;
+}
+
+.sell-guide-steps {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.85rem;
+    margin-bottom: 2rem;
+}
+
+.sell-guide-step {
+    flex: 0 1 255px;
+    min-height: 58px;
+    border: 1px solid #dce4f0;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.65rem;
+    padding: 0.65rem 1rem;
+    color: #3d4d68;
+    background: rgba(255, 255, 255, 0.92);
+    font-size: 0.95rem;
+    line-height: 1.35;
+    font-weight: 800;
+    text-align: left;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        color 0.2s ease,
+        background 0.2s ease,
+        transform 0.2s ease;
+}
+
+.sell-guide-step i {
+    flex: 0 0 auto;
+    color: #61a9da;
+    font-size: 1.35rem;
+}
+
+.sell-guide-step span {
+    min-width: 0;
+}
+
+.sell-guide-step:hover,
+.sell-guide-step:focus-visible {
+    border-color: rgba(241, 90, 41, 0.42);
+    color: var(--main-color);
+    box-shadow: 0 12px 24px rgba(8, 21, 74, 0.08);
+    transform: translateY(-1px);
+}
+
+.sell-guide-step:focus-visible {
+    outline: 3px solid rgba(241, 90, 41, 0.18);
+    outline-offset: 2px;
+}
+
+.sell-guide-step.is-active {
+    border-color: var(--main-color);
+    color: var(--main-color);
+    background: #fff6f1;
+    box-shadow: 0 12px 24px rgba(241, 90, 41, 0.12);
+}
+
+.sell-guide-step.is-active i {
+    color: var(--main-color);
+}
+
+.sell-guide-panel {
+    min-height: 430px;
+    border: 1px solid rgba(8, 21, 74, 0.08);
+    border-radius: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 0.94fr) minmax(360px, 1.06fr);
+    gap: clamp(1.4rem, 3vw, 2.6rem);
+    padding: clamp(1.35rem, 2.5vw, 2rem);
+    background: #ffffff;
+    box-shadow: 0 24px 48px rgba(8, 21, 74, 0.08);
+}
+
+.sell-guide-panel__copy {
+    min-width: 0;
+    display: grid;
+    align-content: center;
+    justify-items: start;
+}
+
+.sell-guide-panel__eyebrow {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.75rem;
+    border-radius: 999px;
+    padding: 0 0.75rem;
+    color: var(--main-color);
+    background: #fff6f1;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.sell-guide-panel h3 {
+    max-width: 650px;
+    color: #26364d;
+    font-size: clamp(1.55rem, 2.5vw, 2.25rem);
+    line-height: 1.2;
+    font-weight: 900;
+}
+
+.sell-guide-panel p {
+    max-width: 650px;
+    margin-top: 0.85rem;
+    color: #586981;
+    font-size: 1rem;
+    line-height: 1.75;
+    font-weight: 600;
+}
+
+.sell-guide-checklist {
+    display: grid;
+    gap: 0.8rem;
+    margin-top: 1.2rem;
+    list-style: none;
+}
+
+.sell-guide-checklist li {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr);
+    gap: 0.7rem;
+    align-items: start;
+    color: #34445f;
+    font-size: 0.95rem;
+    line-height: 1.6;
+    font-weight: 700;
+}
+
+.sell-guide-checklist i {
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.05rem;
+    color: #ffffff;
+    background: #1f9d63;
+    font-size: 1.1rem;
+}
+
+.sell-guide-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.35rem;
+}
+
+.sell-guide-primary,
+.sell-guide-secondary {
+    min-height: 46px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0 1rem;
+    font-size: 0.94rem;
+    line-height: 1.35;
+    font-weight: 900;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.sell-guide-primary {
+    border: 0;
+    color: #ffffff;
+    background: var(--main-color);
+    box-shadow: 0 14px 26px rgba(241, 90, 41, 0.2);
+}
+
+.sell-guide-primary:hover {
+    background: var(--main-color-dark);
+    transform: translateY(-1px);
+}
+
+.sell-guide-secondary {
+    border: 1px solid rgba(8, 21, 74, 0.1);
+    color: var(--text-color);
+    background: #ffffff;
+}
+
+.sell-guide-secondary:hover {
+    border-color: rgba(241, 90, 41, 0.38);
+    color: var(--main-color);
+    transform: translateY(-1px);
+}
+
+.sell-guide-panel__visual {
+    position: relative;
+    min-width: 0;
+    min-height: 365px;
+    border-radius: 8px;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    overflow: hidden;
+    padding: clamp(1rem, 2vw, 1.45rem);
+    background:
+        linear-gradient(145deg, rgba(255, 246, 241, 0.98) 0%, rgba(234, 242, 251, 0.98) 100%);
+}
+
+.sell-guide-panel__visual::before {
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    bottom: -70px;
+    height: 180px;
+    border: 1px solid rgba(241, 90, 41, 0.18);
+    border-bottom: 0;
+    border-radius: 999px 999px 0 0;
+    background: rgba(255, 255, 255, 0.52);
+}
+
+.sell-guide-visual-copy {
+    position: relative;
+    z-index: 1;
+    max-width: 540px;
+    display: grid;
+    gap: 0.45rem;
+}
+
+.sell-guide-visual-copy strong {
+    width: fit-content;
+    max-width: 100%;
+    border-radius: 8px;
+    padding: 0.35rem 0.65rem;
+    color: #ffffff;
+    background: var(--main-color);
+    font-size: clamp(1.25rem, 2.2vw, 1.9rem);
+    line-height: 1.18;
+    font-weight: 900;
+}
+
+.sell-guide-visual-copy span {
+    max-width: 520px;
+    color: #26364d;
+    font-size: clamp(1rem, 1.35vw, 1.12rem);
+    line-height: 1.55;
+    font-weight: 800;
+}
+
+.sell-guide-panel__visual img {
+    position: relative;
+    z-index: 1;
+    align-self: end;
+    justify-self: center;
+    width: auto;
+    height: auto;
+    max-width: min(96%, 520px);
+    max-height: 290px;
+    object-fit: contain;
+    object-position: center bottom;
+    filter: drop-shadow(0 18px 24px rgba(8, 21, 74, 0.16));
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.sell-guide-panel.is-changing .sell-guide-panel__visual img {
+    opacity: 0.25;
+    transform: translateY(6px);
+}
+
+.sell-guide-section.is-ready .sell-guide-heading,
+.sell-guide-section.is-ready .sell-guide-step,
+.sell-guide-section.is-ready .sell-guide-panel {
+    opacity: 0;
+    transform: translateY(28px);
+    transition:
+        opacity 0.65s ease,
+        transform 0.65s ease;
+}
+
+.sell-guide-section.is-visible .sell-guide-heading,
+.sell-guide-section.is-visible .sell-guide-step,
+.sell-guide-section.is-visible .sell-guide-panel {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.sell-guide-section.is-visible .sell-guide-step:nth-child(1) {
+    transition-delay: 0.12s;
+}
+
+.sell-guide-section.is-visible .sell-guide-step:nth-child(2) {
+    transition-delay: 0.16s;
+}
+
+.sell-guide-section.is-visible .sell-guide-step:nth-child(3) {
+    transition-delay: 0.2s;
+}
+
+.sell-guide-section.is-visible .sell-guide-step:nth-child(4) {
+    transition-delay: 0.24s;
+}
+
+.sell-guide-section.is-visible .sell-guide-step:nth-child(5) {
+    transition-delay: 0.28s;
+}
+
+.sell-guide-section.is-visible .sell-guide-step:nth-child(6) {
+    transition-delay: 0.32s;
+}
+
+.sell-guide-section.is-visible .sell-guide-step:nth-child(7) {
+    transition-delay: 0.36s;
+}
+
+.sell-guide-section.is-visible .sell-guide-panel {
+    transition-delay: 0.42s;
+}
+
+.sell-compare-section {
+    overflow: hidden;
+    background: #eaf2fb;
+    padding: clamp(0.75rem, 1.8vw, 1.6rem) 0 clamp(4rem, 7vw, 6rem);
+}
+
+.sell-compare-inner {
+    width: min(1500px, calc(100% - 64px));
+    margin: 0 auto;
+}
+
+.sell-compare-heading {
+    max-width: 980px;
+    margin-bottom: 2rem;
+}
+
+.sell-compare-heading span {
+    color: var(--main-color);
+    font-size: 0.88rem;
+    line-height: 1.45;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.sell-compare-heading h2 {
+    margin-top: 0.35rem;
+    color: #26364d;
+    font-size: clamp(2rem, 3.4vw, 3rem);
+    line-height: 1.18;
+    font-weight: 900;
+}
+
+.sell-compare-heading h2 strong {
+    color: var(--main-color);
+    font-weight: 900;
+}
+
+.sell-compare-heading p {
+    max-width: 820px;
+    margin-top: 0.8rem;
+    color: #586981;
+    font-size: 1rem;
+    line-height: 1.75;
+    font-weight: 600;
+}
+
+.sell-compare-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 130px minmax(0, 1fr);
+    align-items: center;
+    gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+.sell-compare-panel {
+    position: relative;
+    min-width: 0;
+    min-height: 575px;
+    border-radius: 8px;
+    overflow: hidden;
+    padding: clamp(1.35rem, 2vw, 1.55rem) clamp(1.15rem, 2vw, 1.45rem) 265px;
+    box-shadow: 0 22px 44px rgba(8, 21, 74, 0.08);
+}
+
+.sell-compare-panel--okxe {
+    color: #ffffff;
+    background:
+        linear-gradient(155deg, rgba(255, 255, 255, 0.18) 0 24%, transparent 24% 100%),
+        linear-gradient(180deg, #ff7a45 0%, var(--main-color) 100%);
+}
+
+.sell-compare-panel--other {
+    border: 1px solid rgba(8, 21, 74, 0.07);
+    color: #26364d;
+    background: #ffffff;
+}
+
+.sell-compare-panel__top {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1.05rem;
+}
+
+.sell-compare-panel--okxe .sell-compare-panel__top {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.26);
+}
+
+.sell-compare-panel--other .sell-compare-panel__top {
+    border-bottom: 1px solid var(--line-color);
+}
+
+.sell-compare-panel__top h3 {
+    min-width: 0;
+    font-size: clamp(1.25rem, 2vw, 1.55rem);
+    line-height: 1.25;
+    font-weight: 900;
+}
+
+.sell-compare-panel__top span {
+    flex: 0 0 auto;
+    max-width: 170px;
+    border-radius: 999px;
+    padding: 0.48rem 0.7rem;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    font-weight: 800;
+    text-align: center;
+}
+
+.sell-compare-panel--okxe .sell-compare-panel__top span {
+    color: var(--main-color);
+    background: #ffffff;
+}
+
+.sell-compare-panel--other .sell-compare-panel__top span {
+    color: #b8241a;
+    background: #fff2ef;
+}
+
+.sell-compare-list {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.05rem 1.15rem;
+    list-style: none;
+}
+
+.sell-compare-list li {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 0.65rem;
+    align-items: start;
+    font-size: 0.94rem;
+    line-height: 1.55;
+    font-weight: 700;
+}
+
+.sell-compare-list i {
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.08rem;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.sell-compare-panel--okxe .sell-compare-list i {
+    color: #ffffff;
+    background: rgba(31, 157, 99, 0.95);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+}
+
+.sell-compare-panel--other .sell-compare-list i {
+    color: var(--danger);
+    background: #fff3f1;
+    box-shadow: inset 0 0 0 2px rgba(217, 48, 37, 0.2);
+}
+
+.sell-compare-visual {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 275px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.sell-compare-visual::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: -44px;
+    width: min(78%, 430px);
+    aspect-ratio: 2 / 1;
+    border-radius: 999px 999px 0 0;
+    transform: translateX(-50%);
+}
+
+.sell-compare-panel--okxe .sell-compare-visual::before {
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    border-bottom: 0;
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.sell-compare-panel--other .sell-compare-visual::before {
+    border: 1px solid rgba(241, 90, 41, 0.2);
+    border-bottom: 0;
+    background: linear-gradient(180deg, rgba(241, 90, 41, 0.13), rgba(241, 90, 41, 0.04));
+}
+
+.sell-compare-visual img {
+    position: relative;
+    z-index: 1;
+    width: auto;
+    height: auto;
+    max-width: min(calc(100% - 40px), 395px);
+    max-height: 250px;
+    object-fit: contain;
+    object-position: center bottom;
+    filter: drop-shadow(0 20px 28px rgba(8, 21, 74, 0.2));
+}
+
+.sell-compare-panel--other .sell-compare-visual img {
+    max-height: 285px;
+    margin-bottom: -4px;
+}
+
+.sell-compare-vs {
+    min-height: 235px;
+    display: grid;
+    grid-template-rows: 1fr auto 1fr;
+    align-items: center;
+    justify-items: center;
+    color: rgba(16, 146, 229, 0.26);
+}
+
+.sell-compare-vs::before,
+.sell-compare-vs::after {
+    content: "";
+    width: 1px;
+    height: 100%;
+    background: rgba(8, 21, 74, 0.13);
+}
+
+.sell-compare-vs span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 0;
+    color: rgba(16, 146, 229, 0.34);
+    font-size: clamp(2.3rem, 4vw, 3.2rem);
+    line-height: 1;
+    font-weight: 900;
+}
+
+.sell-compare-section.is-ready .sell-compare-heading,
+.sell-compare-section.is-ready .sell-compare-panel,
+.sell-compare-section.is-ready .sell-compare-vs {
+    opacity: 0;
+    transform: translateY(28px);
+    transition:
+        opacity 0.65s ease,
+        transform 0.65s ease;
+}
+
+.sell-compare-section.is-visible .sell-compare-heading,
+.sell-compare-section.is-visible .sell-compare-panel,
+.sell-compare-section.is-visible .sell-compare-vs {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.sell-compare-section.is-visible .sell-compare-panel--okxe {
+    transition-delay: 0.1s;
+}
+
+.sell-compare-section.is-visible .sell-compare-vs {
+    transition-delay: 0.18s;
+}
+
+.sell-compare-section.is-visible .sell-compare-panel--other {
+    transition-delay: 0.26s;
+}
+
+.sell-car-footer {
+    width: min(1120px, calc(100% - 48px));
+    margin: 0 auto 2rem;
+    border-top: 1px solid rgba(8, 21, 74, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+    padding-top: 1.25rem;
+}
+
+.sell-car-footer div {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--muted-color);
+    font-size: 0.94rem;
+    line-height: 1.45;
+    font-weight: 700;
+}
+
+.sell-car-footer a:hover {
+    color: var(--main-color);
+}
+
+@keyframes sellBrandMarquee {
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(calc(-50% - 0.675rem));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sell-brand-track {
+        animation: none;
+        transform: none;
+    }
+
+    .sell-guide-section.is-ready .sell-guide-heading,
+    .sell-guide-section.is-ready .sell-guide-step,
+    .sell-guide-section.is-ready .sell-guide-panel,
+    .sell-compare-section.is-ready .sell-compare-heading,
+    .sell-compare-section.is-ready .sell-compare-panel,
+    .sell-compare-section.is-ready .sell-compare-vs {
+        opacity: 1;
+        transform: none;
+        transition: none;
+    }
+}
+
+@media (max-width: 1180px) {
+    .sell-guide-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .sell-guide-panel__visual {
+        min-height: 340px;
+    }
+
+    .sell-compare-grid {
+        grid-template-columns: 1fr;
+        gap: 1.1rem;
+    }
+
+    .sell-compare-vs {
+        min-height: 72px;
+        grid-template-columns: 1fr auto 1fr;
+        grid-template-rows: none;
+    }
+
+    .sell-compare-vs::before,
+    .sell-compare-vs::after {
+        width: 100%;
+        height: 1px;
+    }
+
+    .sell-compare-vs span {
+        padding: 0 1rem;
+    }
+}
+
+@media (max-width: 980px) {
+    .sell-car-hero__inner {
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+        padding: 2rem 0 2.6rem;
+    }
+
+    .sell-car-visual__stage {
+        min-height: 430px;
+    }
+
+    .sell-car-visual img {
+        height: min(440px, 58vw);
+        max-width: 88%;
+    }
+
+    .sell-guide-step {
+        flex-basis: calc(50% - 0.5rem);
+        justify-content: flex-start;
+    }
+
+    .sell-guide-panel__copy {
+        align-content: start;
+    }
+
+}
+
+@media (max-width: 760px) {
+    html,
+    body {
+        overflow-x: hidden;
+    }
+
+    .sell-car-page,
+    .sell-car-hero,
+    .sell-brand-section,
+    .sell-guide-section,
+    .sell-compare-section {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .sell-car-nav,
+    .sell-car-hero__inner,
+    .sell-brand-heading,
+    .sell-guide-inner,
+    .sell-compare-inner,
+    .sell-car-footer {
+        width: calc(100% - 48px);
+        max-width: 1120px;
+    }
+
+    .sell-car-nav {
+        min-height: auto;
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 1rem 0;
+    }
+
+    .sell-car-nav__links {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 0.2rem;
+    }
+
+    .sell-car-hero {
+        min-height: auto;
+    }
+
+    .sell-car-hero::after {
+        display: none;
+    }
+
+    .sell-car-hero__inner {
+        min-height: auto;
+        min-width: 0;
+    }
+
+    .sell-car-hero__content,
+    .sell-car-form,
+    .sell-car-form label,
+    .sell-guide-panel,
+    .sell-guide-panel__copy {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .sell-car-hero h1,
+    .sell-car-lead,
+    .sell-car-question,
+    .sell-guide-heading h2,
+    .sell-guide-heading p,
+    .sell-guide-panel h3,
+    .sell-guide-panel p {
+        max-width: 100%;
+        overflow-wrap: anywhere;
+    }
+
+    .sell-car-hero h1 {
+        font-size: clamp(2rem, 10vw, 2.35rem);
+    }
+
+    .sell-car-lead {
+        max-width: 30ch;
+    }
+
+    .sell-guide-heading h2 {
+        font-size: clamp(1.75rem, 8vw, 2rem);
+    }
+
+    .sell-guide-heading p {
+        max-width: 32ch;
+    }
+
+    .sell-car-form__heading,
+    .sell-car-footer {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .sell-car-form__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sell-car-form__submit {
+        height: auto;
+        min-height: 48px;
+        padding: 0.7rem 0.85rem;
+        text-align: center;
+    }
+
+    .sell-car-form__submit span,
+    .sell-car-form__agree span,
+    .sell-car-hotline span {
+        min-width: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .sell-car-form__submit span {
+        max-width: 24ch;
+    }
+
+    .sell-car-visual {
+        display: none;
+    }
+
+    .sell-brand-card {
+        flex-basis: 118px;
+        min-height: 138px;
+    }
+
+    .sell-brand-card__logo {
+        width: 102px;
+        height: 102px;
+    }
+
+    .sell-brand-card__logo img {
+        height: 66px;
+    }
+
+    .sell-guide-section {
+        padding: 2.8rem 0 1.5rem;
+    }
+
+    .sell-guide-heading {
+        margin-bottom: 1.25rem;
+    }
+
+    .sell-guide-steps {
+        justify-content: stretch;
+        gap: 0.65rem;
+        margin-bottom: 1.2rem;
+    }
+
+    .sell-guide-step {
+        flex-basis: 100%;
+        min-height: 54px;
+        padding: 0.65rem 0.85rem;
+    }
+
+    .sell-guide-step span {
+        overflow-wrap: anywhere;
+    }
+
+    .sell-guide-panel {
+        min-height: 0;
+        gap: 1.2rem;
+        padding: 1rem;
+    }
+
+    .sell-guide-panel h3 {
+        font-size: 1.45rem;
+        line-height: 1.25;
+        max-width: 17ch;
+    }
+
+    .sell-guide-panel p,
+    .sell-guide-checklist span {
+        max-width: 34ch;
+    }
+
+    .sell-guide-checklist li {
+        grid-template-columns: 24px minmax(0, 1fr);
+        font-size: 0.9rem;
+    }
+
+    .sell-guide-checklist i {
+        width: 24px;
+        height: 24px;
+    }
+
+    .sell-guide-actions {
+        width: 100%;
+    }
+
+    .sell-guide-primary,
+    .sell-guide-secondary {
+        width: 100%;
+    }
+
+    .sell-guide-panel__visual {
+        min-height: 290px;
+        padding: 0.9rem;
+    }
+
+    .sell-guide-visual-copy strong {
+        width: auto;
+    }
+
+    .sell-guide-panel__visual img {
+        max-height: 205px;
+    }
+
+    .sell-compare-section {
+        padding: 1rem 0 3.5rem;
+    }
+
+    .sell-compare-heading {
+        margin-bottom: 1.25rem;
+    }
+
+    .sell-compare-panel {
+        min-height: 0;
+        padding: 1.15rem 1rem 245px;
+    }
+
+    .sell-compare-panel__top {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .sell-compare-panel__top span {
+        align-self: flex-start;
+    }
+
+    .sell-compare-list {
+        grid-template-columns: 1fr;
+        gap: 0.85rem;
+    }
+
+    .sell-compare-list li {
+        font-size: 0.9rem;
+    }
+
+    .sell-compare-visual {
+        height: 230px;
+    }
+
+    .sell-compare-visual img {
+        max-height: 215px;
+    }
+
+    .sell-compare-panel--other .sell-compare-visual img {
+        max-height: 240px;
+    }
+
+}

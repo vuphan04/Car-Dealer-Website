@@ -2038,6 +2038,10 @@ const logoutButton = document.querySelector('#logout-button');
 const accountMenu = document.querySelector('#account-menu');
 const accountMenuTrigger = document.querySelector('#account-menu-trigger');
 const accountMenuItems = document.querySelectorAll('.account-menu__item');
+const accountMenuAvatar = document.querySelector('#account-menu-avatar');
+const accountMenuName = document.querySelector('#account-menu-name');
+const accountMenuEmail = document.querySelector('#account-menu-email');
+const accountMenuPhone = document.querySelector('#account-menu-phone');
 const profileOpenButtons = document.querySelectorAll('[data-open-profile]');
 const favoriteOpenButtons = document.querySelectorAll('[data-open-favorites]');
 const notificationOpenButtons = document.querySelectorAll('[data-open-notifications]');
@@ -2045,8 +2049,18 @@ const profileModal = document.querySelector('#profile-modal');
 const profileCloseButtons = document.querySelectorAll('[data-close-profile]');
 const profileForm = document.querySelector('.profile-form');
 const profileFeedback = document.querySelector('#profile-feedback');
+const profileEditToggle = document.querySelector('#profile-edit-toggle');
+const profileEditPanel = document.querySelector('#profile-edit-panel');
 const profileAvatarInput = document.querySelector('#profile-avatar-input');
 const profileAvatarPreview = document.querySelector('#profile-avatar-preview');
+const profileOverviewAvatar = document.querySelector('#profile-overview-avatar');
+const profileOverviewName = document.querySelector('#profile-overview-name');
+const profileOverviewEmail = document.querySelector('#profile-overview-email');
+const profileOverviewPhone = document.querySelector('#profile-overview-phone');
+const profileOverviewCitizen = document.querySelector('#profile-overview-citizen');
+const profileOverviewBirthDate = document.querySelector('#profile-overview-birth-date');
+const profileOverviewGender = document.querySelector('#profile-overview-gender');
+const profileOverviewAddress = document.querySelector('#profile-overview-address');
 const chooseAvatarButton = document.querySelector('#choose-avatar-button');
 const switchToSignupLink = document.querySelector('#switch-to-signup');
 const switchToLoginLink = document.querySelector('#switch-to-login');
@@ -2199,12 +2213,122 @@ const setProfileAvatarPreview = (imageUrl = '') => {
         : '<i class="bx bx-user"></i>';
 };
 
+const profileGenderLabels = {
+    male: 'Nam',
+    female: 'Nữ',
+    other: 'Khác'
+};
+
+const profileDateFormatter = new Intl.DateTimeFormat('vi-VN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+});
+
+const getProfileDisplayValue = (value, fallback = 'Chưa cập nhật') => {
+    const normalizedValue = String(value || '').trim();
+
+    return normalizedValue || fallback;
+};
+
+const formatProfileDate = (value) => {
+    const normalizedValue = String(value || '').trim();
+
+    if (!normalizedValue) {
+        return 'Chưa cập nhật';
+    }
+
+    const date = new Date(`${normalizedValue}T00:00:00`);
+
+    return Number.isNaN(date.getTime())
+        ? normalizedValue
+        : profileDateFormatter.format(date);
+};
+
+const getProfileAddress = (user = {}) => {
+    const address = user.address || {};
+    const parts = [
+        address.detail,
+        address.ward,
+        address.district,
+        address.province
+    ].map((part) => String(part || '').trim()).filter(Boolean);
+
+    return parts.length ? parts.join(', ') : 'Chưa cập nhật';
+};
+
+const setProfileAvatarElement = (element, imageUrl = '') => {
+    if (!element) {
+        return;
+    }
+
+    element.innerHTML = imageUrl
+        ? `<img src="${escapeHtml(imageUrl)}" alt="Ảnh đại diện khách hàng">`
+        : '<i class="bx bx-user" aria-hidden="true"></i>';
+};
+
+const renderCustomerProfileSummary = (user) => {
+    const fullName = getProfileDisplayValue(user?.fullName, 'Khách hàng OkXe');
+    const email = getProfileDisplayValue(user?.email, 'Chưa có email');
+    const phone = getProfileDisplayValue(user?.phone, 'Chưa cập nhật số điện thoại');
+    const citizenId = getProfileDisplayValue(user?.citizenId);
+    const normalizedGender = String(user?.gender || '').trim().toLowerCase();
+    const gender = profileGenderLabels[normalizedGender] || getProfileDisplayValue(user?.gender);
+    const address = getProfileAddress(user || {});
+    const avatarUrl = user?.avatarUrl || '';
+
+    setProfileAvatarElement(accountMenuAvatar, avatarUrl);
+    setProfileAvatarElement(profileOverviewAvatar, avatarUrl);
+
+    if (accountMenuName) {
+        accountMenuName.textContent = fullName;
+    }
+
+    if (accountMenuEmail) {
+        accountMenuEmail.textContent = email;
+    }
+
+    if (accountMenuPhone) {
+        accountMenuPhone.textContent = phone;
+    }
+
+    if (profileOverviewName) {
+        profileOverviewName.textContent = fullName;
+    }
+
+    if (profileOverviewEmail) {
+        profileOverviewEmail.textContent = email;
+    }
+
+    if (profileOverviewPhone) {
+        profileOverviewPhone.textContent = phone;
+    }
+
+    if (profileOverviewCitizen) {
+        profileOverviewCitizen.textContent = citizenId;
+    }
+
+    if (profileOverviewBirthDate) {
+        profileOverviewBirthDate.textContent = formatProfileDate(user?.birthDate);
+    }
+
+    if (profileOverviewGender) {
+        profileOverviewGender.textContent = gender;
+    }
+
+    if (profileOverviewAddress) {
+        profileOverviewAddress.textContent = address;
+    }
+};
+
 const fillProfileForm = (user) => {
     if (!profileForm || !user) {
         return;
     }
 
     const address = user.address || {};
+
+    renderCustomerProfileSummary(user);
 
     profileForm.elements.fullName.value = user.fullName || '';
     profileForm.elements.phone.value = user.phone || '';
@@ -2224,6 +2348,26 @@ const fillProfileForm = (user) => {
     setProfileAvatarPreview(user.avatarUrl || '');
 };
 
+const setProfileEditPanelOpen = (isOpen, shouldFocus = false) => {
+    if (!profileEditToggle || !profileEditPanel) {
+        return;
+    }
+
+    profileEditPanel.hidden = !isOpen;
+    profileEditToggle.setAttribute('aria-expanded', String(isOpen));
+    profileEditToggle.innerHTML = isOpen
+        ? '<i class="bx bx-chevron-up" aria-hidden="true"></i><span>Ẩn phần chỉnh sửa</span>'
+        : '<i class="bx bx-edit-alt" aria-hidden="true"></i><span>Thay đổi thông tin</span>';
+
+    if (isOpen && shouldFocus) {
+        const firstInput = profileEditPanel.querySelector('input:not([readonly]):not([type="hidden"]), select');
+
+        if (firstInput) {
+            firstInput.focus();
+        }
+    }
+};
+
 const closeProfileModal = () => {
     if (!profileModal) {
         return;
@@ -2232,6 +2376,7 @@ const closeProfileModal = () => {
     profileModal.classList.remove('is-open');
     profileModal.setAttribute('aria-hidden', 'true');
     setBodyModalClass('profile-modal-open', false);
+    setProfileEditPanelOpen(false);
     setFormFeedback(profileFeedback, '');
 };
 
@@ -2246,14 +2391,13 @@ const openProfileModal = () => {
     }
 
     fillProfileForm(currentUser);
+    setProfileEditPanelOpen(false);
     profileModal.classList.add('is-open');
     profileModal.setAttribute('aria-hidden', 'false');
     setBodyModalClass('profile-modal-open', true);
 
-    const firstInput = profileModal.querySelector('input');
-
-    if (firstInput) {
-        firstInput.focus();
+    if (profileEditToggle) {
+        profileEditToggle.focus();
     }
 };
 
@@ -2290,6 +2434,8 @@ const updateAuthUi = (user) => {
     if (authUserName) {
         authUserName.textContent = user?.fullName || 'bạn';
     }
+
+    renderCustomerProfileSummary(user);
 
     if (loginButton) {
         loginButton.classList.toggle('is-hidden', isLoggedIn);
@@ -2578,6 +2724,12 @@ if (profileModal) {
         }
     });
 }
+
+profileEditToggle?.addEventListener('click', () => {
+    const isOpen = profileEditToggle.getAttribute('aria-expanded') === 'true';
+
+    setProfileEditPanelOpen(!isOpen, true);
+});
 
 if (notificationsModal) {
     notificationsModal.addEventListener('click', (event) => {

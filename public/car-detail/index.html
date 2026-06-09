@@ -21,14 +21,20 @@
     <script type="application/ld+json" id="car-seo-json">{}</script>
     <!-- /OKXE_SEO_META -->
     <link rel="stylesheet" href="/car-detail/style.css">
+    <link rel="stylesheet" href="/global/responsive-nav.css">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
 </head>
 <body>
     <header class="detail-header">
-        <nav class="detail-nav">
+        <nav class="detail-nav" data-responsive-nav>
             <a href="/" class="detail-logo">Ok<span>Xe</span></a>
-            <div class="detail-nav__links">
+            <button class="detail-menu-toggle" type="button" aria-label="Mở menu điều hướng" aria-expanded="false" aria-controls="detail-navigation" data-responsive-nav-toggle>
+                <i class="bx bx-menu" aria-hidden="true"></i>
+            </button>
+            <div class="detail-nav__links" id="detail-navigation" data-responsive-nav-panel>
+                <a href="/">Trang Chủ</a>
                 <a href="/mua-xe">Tìm mua ô tô</a>
+                <a href="/dang-tin-ban-xe">Đăng bán xe</a>
                 <a href="/tin-mua-o-to">Tin mua ô tô</a>
                 <a href="/dang-tin-mua-o-to">Đăng tin mua ô tô</a>
                 <a href="/khuyen-mai">Khuyến mại</a>
@@ -153,5 +159,6 @@
     </div>
 
     <script src="/car-detail/script.js"></script>
+    <script src="/global/responsive-nav.js"></script>
 </body>
 </html>

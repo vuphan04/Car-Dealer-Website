@@ -217,14 +217,16 @@ const loadPromotions = async () => {
     }
 };
 
-menuToggle?.addEventListener('click', () => {
-    const isOpen = nav?.classList.toggle('is-open');
+if (!menuToggle?.hasAttribute('data-responsive-nav-toggle')) {
+    menuToggle?.addEventListener('click', () => {
+        const isOpen = nav?.classList.toggle('is-open');
 
-    menuToggle.setAttribute('aria-expanded', String(Boolean(isOpen)));
-    menuToggle.innerHTML = isOpen
-        ? '<i class="bx bx-x"></i>'
-        : '<i class="bx bx-menu"></i>';
-});
+        menuToggle.setAttribute('aria-expanded', String(Boolean(isOpen)));
+        menuToggle.innerHTML = isOpen
+            ? '<i class="bx bx-x"></i>'
+            : '<i class="bx bx-menu"></i>';
+    });
+}
 
 promotionSearchInput?.addEventListener('input', renderPromotions);
 

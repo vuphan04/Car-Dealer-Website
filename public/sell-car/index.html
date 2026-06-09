@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bán xe ô tô cũ cho OkXe - Thu mua xe cũ minh bạch</title>
+    <meta name="description" content="Bán xe ô tô cũ cho OkXe, nhận tư vấn thu mua, kiểm định xe minh bạch và hỗ trợ hoàn tất thủ tục để OkXe nhập kho cửa hàng.">
+    <link href="https://cdn.boxicons.com/3.0.8/css/boxicons.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/sell-car/style.css">
+    <link rel="stylesheet" href="/global/responsive-nav.css">
+</head>
+<body>
+    <header class="sell-car-header">
+        <nav class="sell-car-nav" data-responsive-nav>
+            <a href="/" class="sell-car-logo">Ok<span>Xe</span></a>
+            <button class="sell-car-menu-toggle" type="button" aria-label="Mở menu điều hướng" aria-expanded="false" aria-controls="sell-car-navigation" data-responsive-nav-toggle>
+                <i class="bx bx-menu" aria-hidden="true"></i>
+            </button>
+            <div class="sell-car-nav__links" id="sell-car-navigation" data-responsive-nav-panel>
+                <a href="/">Trang Chủ</a>
+                <a href="/mua-xe">Tìm mua ô tô</a>
+                <a href="/dang-tin-ban-xe" aria-current="page">Đăng bán xe</a>
+                <a href="/tin-mua-o-to">Tin mua ô tô</a>
+                <a href="/khuyen-mai">Khuyến mại</a>
+                <a href="/#footer">Liên hệ</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="sell-car-page">
+        <section class="sell-car-hero" aria-labelledby="sell-car-title">
+            <div class="sell-car-hero__inner">
+                <div class="sell-car-hero__content">
+                    <span class="sell-car-eyebrow">Thu mua xe cũ</span>
+                    <h1 id="sell-car-title"><span>Bán xe ô tô cũ</span><span>cho OkXe</span></h1>
+                    <p class="sell-car-lead">OkXe tiếp nhận thông tin, kiểm định tình trạng và thu mua xe phù hợp để nhập kho cửa hàng.</p>
+                    <p class="sell-car-question">Xe bạn muốn bán giá bao nhiêu?</p>
+
+                    <form class="sell-car-form" id="sell-car-form" novalidate>
+                        <div class="sell-car-form__heading">
+                            <h2>Điền thông tin xe cần bán</h2>
+                        </div>
+
+                        <div class="sell-car-form__grid">
+                            <label>
+                                <span>Hãng xe <b>*</b></span>
+                                <select name="brand" id="sell-car-brand" required>
+                                    <option value="">Chọn hãng xe</option>
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>Dòng xe <b>*</b></span>
+                                <select name="model" id="sell-car-model" required disabled>
+                                    <option value="">Chọn dòng xe</option>
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>Đời xe <b>*</b></span>
+                                <select name="year" id="sell-car-year" required>
+                                    <option value="">Chọn đời xe</option>
+                                </select>
+                            </label>
+
+                            <label>
+                                <span>Phiên bản</span>
+                                <select name="version" id="sell-car-version" disabled>
+                                    <option value="">Chọn phiên bản</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <button type="submit" class="sell-car-form__submit" id="sell-car-submit">
+                            <i class="bx bx-car" aria-hidden="true"></i>
+                            <span>Gửi thông tin xe cho OkXe</span>
+                        </button>
+
+                        <label class="sell-car-form__agree">
+                            <input type="checkbox" name="agree" checked required>
+                            <span>Tôi đã đọc, hiểu rõ và đồng ý với chính sách bảo mật và quy chế hoạt động của OkXe.</span>
+                        </label>
+
+                        <p class="sell-car-feedback" id="sell-car-feedback" aria-live="polite"></p>
+                    </form>
+
+                    <a href="tel:0854955761" class="sell-car-hotline">
+                        <i class="bx bx-phone-call" aria-hidden="true"></i>
+                        <span>Gọi tư vấn miễn phí: 0854955761</span>
+                    </a>
+                </div>
+
+                <div class="sell-car-visual" aria-label="Tư vấn viên hỗ trợ thu mua xe cũ">
+                    <div class="sell-car-visual__stage">
+                        <span class="sell-car-badge sell-car-badge--top">OkXe thu mua xe cũ</span>
+                        <img src="/sell-car/sales-consultant-hero.png" alt="Tư vấn viên OkXe hỗ trợ thu mua xe cũ">
+                        <span class="sell-car-badge sell-car-badge--bottom">Đội ngũ OkXe hỗ trợ định giá, thủ tục và nhập kho cửa hàng</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="sell-brand-section" aria-labelledby="sell-brand-title">
+            <div class="sell-brand-heading">
+                <span>Đối tác xe cũ</span>
+                <h2 id="sell-brand-title">Thương hiệu đối tác</h2>
+            </div>
+
+            <div class="sell-brand-carousel" aria-label="Danh sách hãng xe tự động chạy">
+                <div class="sell-brand-track">
+                    <article class="sell-brand-card"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/toyota.png" alt="Logo Toyota"></span><strong>Toyota</strong></article>
+                    <article class="sell-brand-card"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/honda.png" alt="Logo Honda"></span><strong>Honda</strong></article>
+                    <article class="sell-brand-card"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/hyundai.png" alt="Logo Hyundai"></span><strong>Hyundai</strong></article>
+                    <article class="sell-brand-card"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/kia.png" alt="Logo Kia"></span><strong>Kia</strong></article>
+                    <article class="sell-brand-card"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/mazda.png" alt="Logo Mazda"></span><strong>Mazda</strong></article>
+                    <article class="sell-brand-card"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/mercedes-benz.png" alt="Logo Mercedes-Benz"></span><strong>Mercedes</strong></article>
+                    <article class="sell-brand-card"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/bmw.png" alt="Logo BMW"></span><strong>BMW</strong></article>
+                    <article class="sell-brand-card"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/ford.png" alt="Logo Ford"></span><strong>Ford</strong></article>
+                    <article class="sell-brand-card"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/mitsubishi.png" alt="Logo Mitsubishi"></span><strong>Mitsubishi</strong></article>
+                    <article class="sell-brand-card"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/vinfast.png" alt="Logo VinFast"></span><strong>VinFast</strong></article>
+                    <article class="sell-brand-card"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/nissan.png" alt="Logo Nissan"></span><strong>Nissan</strong></article>
+                    <article class="sell-brand-card"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/suzuki.png" alt="Logo Suzuki"></span><strong>Suzuki</strong></article>
+                    <article class="sell-brand-card" aria-hidden="true"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/toyota.png" alt=""></span><strong>Toyota</strong></article>
+                    <article class="sell-brand-card" aria-hidden="true"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/honda.png" alt=""></span><strong>Honda</strong></article>
+                    <article class="sell-brand-card" aria-hidden="true"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/hyundai.png" alt=""></span><strong>Hyundai</strong></article>
+                    <article class="sell-brand-card" aria-hidden="true"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/kia.png" alt=""></span><strong>Kia</strong></article>
+                    <article class="sell-brand-card" aria-hidden="true"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/mazda.png" alt=""></span><strong>Mazda</strong></article>
+                    <article class="sell-brand-card" aria-hidden="true"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/mercedes-benz.png" alt=""></span><strong>Mercedes</strong></article>
+                    <article class="sell-brand-card" aria-hidden="true"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/bmw.png" alt=""></span><strong>BMW</strong></article>
+                    <article class="sell-brand-card" aria-hidden="true"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/ford.png" alt=""></span><strong>Ford</strong></article>
+                    <article class="sell-brand-card" aria-hidden="true"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/mitsubishi.png" alt=""></span><strong>Mitsubishi</strong></article>
+                    <article class="sell-brand-card" aria-hidden="true"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/vinfast.png" alt=""></span><strong>VinFast</strong></article>
+                    <article class="sell-brand-card" aria-hidden="true"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/nissan.png" alt=""></span><strong>Nissan</strong></article>
+                    <article class="sell-brand-card" aria-hidden="true"><span class="sell-brand-card__logo"><img src="/sell-car/logos-real/suzuki.png" alt=""></span><strong>Suzuki</strong></article>
+                </div>
+            </div>
+        </section>
+
+        <section class="sell-guide-section" aria-labelledby="sell-guide-title">
+            <div class="sell-guide-inner">
+                <div class="sell-guide-heading">
+                    <span>Cẩm nang bán xe cũ</span>
+                    <h2 id="sell-guide-title"><span>Cẩm nang khi bán</span><span>ô tô cũ cho <strong>OkXe</strong></span></h2>
+                    <p>OkXe thu mua xe đã qua sử dụng để nhập kho showroom. Khách hàng được tư vấn rõ giá, tình trạng xe, hồ sơ và thời gian thanh toán trước khi chốt giao dịch.</p>
+                </div>
+
+                <div class="sell-guide-steps" role="tablist" aria-label="Các bước bán xe cho OkXe">
+                    <button type="button" class="sell-guide-step is-active" role="tab" aria-selected="true" aria-controls="sell-guide-panel" data-guide-step="price">
+                        <i class="bx bx-purchase-tag-alt" aria-hidden="true"></i>
+                        <span>1. Định giá thu mua</span>
+                    </button>
+                    <button type="button" class="sell-guide-step" role="tab" aria-selected="false" aria-controls="sell-guide-panel" data-guide-step="demand">
+                        <i class="bx bx-user-check" aria-hidden="true"></i>
+                        <span>2. Xác nhận nhu cầu</span>
+                    </button>
+                    <button type="button" class="sell-guide-step" role="tab" aria-selected="false" aria-controls="sell-guide-panel" data-guide-step="inspect">
+                        <i class="bx bx-search-alt-2" aria-hidden="true"></i>
+                        <span>3. Kiểm định xe</span>
+                    </button>
+                    <button type="button" class="sell-guide-step" role="tab" aria-selected="false" aria-controls="sell-guide-panel" data-guide-step="papers">
+                        <i class="bx bx-file" aria-hidden="true"></i>
+                        <span>4. Kiểm tra giấy tờ</span>
+                    </button>
+                    <button type="button" class="sell-guide-step" role="tab" aria-selected="false" aria-controls="sell-guide-panel" data-guide-step="deal">
+                        <i class="bx bx-conversation" aria-hidden="true"></i>
+                        <span>5. Chốt giá bán</span>
+                    </button>
+                    <button type="button" class="sell-guide-step" role="tab" aria-selected="false" aria-controls="sell-guide-panel" data-guide-step="payment">
+                        <i class="bx bx-wallet" aria-hidden="true"></i>
+                        <span>6. Thanh toán</span>
+                    </button>
+                    <button type="button" class="sell-guide-step" role="tab" aria-selected="false" aria-controls="sell-guide-panel" data-guide-step="handover">
+                        <i class="bx bx-check-shield" aria-hidden="true"></i>
+                        <span>7. Bàn giao & nhập kho</span>
+                    </button>
+                </div>
+
+                <article class="sell-guide-panel" id="sell-guide-panel" role="tabpanel" aria-live="polite">
+                    <div class="sell-guide-panel__copy">
+                        <span class="sell-guide-panel__eyebrow" id="sell-guide-panel-step">Bước 1</span>
+                        <h3 id="sell-guide-panel-title">Định giá thu mua xe cũ theo tình trạng thực tế</h3>
+                        <p id="sell-guide-panel-desc">OkXe tham khảo giá thị trường, đời xe, số km, lịch sử sử dụng và tình trạng hiện tại để tư vấn khoảng giá thu mua ban đầu cho khách hàng.</p>
+
+                        <ul class="sell-guide-checklist" id="sell-guide-panel-list">
+                            <li><i class="bx bx-check" aria-hidden="true"></i><span>Cung cấp hãng xe, dòng xe, đời xe và phiên bản để đội ngũ tư vấn nắm thông tin nhanh.</span></li>
+                            <li><i class="bx bx-check" aria-hidden="true"></i><span>Chia sẻ thêm số km, tình trạng bảo dưỡng và nhu cầu bán để OkXe tư vấn sát hơn.</span></li>
+                            <li><i class="bx bx-check" aria-hidden="true"></i><span>Giá cuối cùng sẽ được xác nhận sau khi kiểm định xe trực tiếp tại showroom hoặc điểm hẹn phù hợp.</span></li>
+                        </ul>
+
+                        <div class="sell-guide-actions">
+                            <a href="#sell-car-form" class="sell-guide-primary">
+                                <i class="bx bx-send" aria-hidden="true"></i>
+                                <span>Gửi thông tin xe</span>
+                            </a>
+                            <a href="tel:0854955761" class="sell-guide-secondary">
+                                <i class="bx bx-phone-call" aria-hidden="true"></i>
+                                <span>Gọi 0854955761</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="sell-guide-panel__visual">
+                        <div class="sell-guide-visual-copy">
+                            <strong id="sell-guide-visual-title">Định giá rõ ràng trước khi giao dịch</strong>
+                            <span id="sell-guide-visual-text">Khách hàng biết trước các yếu tố ảnh hưởng tới giá thu mua, tránh kỳ vọng sai hoặc thương lượng thiếu cơ sở.</span>
+                        </div>
+                        <img id="sell-guide-image" src="/sell-car/process-step-price-transparent.png" alt="Minh họa OkXe định giá thu mua xe cũ" loading="lazy">
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <section class="sell-compare-section" aria-labelledby="sell-compare-title">
+            <div class="sell-compare-inner">
+                <div class="sell-compare-heading">
+                    <span>Vì sao chọn showroom OkXe</span>
+                    <h2 id="sell-compare-title">So sánh bán xe cho <strong>OkXe</strong> và tự đăng bán xe cũ</h2>
+                    <p>OkXe thu mua xe cũ trực tiếp từ khách hàng, kiểm định rõ tình trạng, hỗ trợ hồ sơ và nhập kho showroom trước khi bán lại.</p>
+                </div>
+
+                <div class="sell-compare-grid">
+                    <article class="sell-compare-panel sell-compare-panel--okxe">
+                        <div class="sell-compare-panel__top">
+                            <h3>Bán xe cho OkXe</h3>
+                            <span>Thu mua tại showroom</span>
+                        </div>
+
+                        <ul class="sell-compare-list" aria-label="Ưu điểm khi bán xe cho OkXe">
+                            <li><i class="bx bx-check" aria-hidden="true"></i><span>Báo giá thu mua rõ ràng theo tình trạng xe</span></li>
+                            <li><i class="bx bx-check" aria-hidden="true"></i><span>Kiểm định ngoại thất, nội thất và vận hành minh bạch</span></li>
+                            <li><i class="bx bx-check" aria-hidden="true"></i><span>Hỗ trợ hồ sơ mua bán, sang tên và bàn giao xe</span></li>
+                            <li><i class="bx bx-check" aria-hidden="true"></i><span>Thanh toán nhanh sau khi hai bên thống nhất giá</span></li>
+                            <li><i class="bx bx-check" aria-hidden="true"></i><span>Xe được nhập kho OkXe để kiểm tra và trưng bày lại</span></li>
+                            <li><i class="bx bx-check" aria-hidden="true"></i><span>Bảo mật thông tin khách hàng trong suốt giao dịch</span></li>
+                        </ul>
+
+                        <div class="sell-compare-visual" aria-hidden="true">
+                            <img src="/sell-car/process-step-stock-transparent.png" alt="">
+                        </div>
+                    </article>
+
+                    <div class="sell-compare-vs" aria-hidden="true"><span>VS</span></div>
+
+                    <article class="sell-compare-panel sell-compare-panel--other">
+                        <div class="sell-compare-panel__top">
+                            <h3>Tự đăng bán xe cũ</h3>
+                            <span>Dễ mất thời gian xử lý</span>
+                        </div>
+
+                        <ul class="sell-compare-list" aria-label="Bất tiện khi tự đăng bán xe cũ">
+                            <li><i class="bx bx-x" aria-hidden="true"></i><span>Mất thời gian gặp nhiều người xem xe</span></li>
+                            <li><i class="bx bx-x" aria-hidden="true"></i><span>Giá dễ bị ép, thương lượng kéo dài</span></li>
+                            <li><i class="bx bx-x" aria-hidden="true"></i><span>Tự kiểm tra người mua và rủi ro giao dịch</span></li>
+                            <li><i class="bx bx-x" aria-hidden="true"></i><span>Phải tự xử lý giấy tờ, cọc và thanh toán</span></li>
+                            <li><i class="bx bx-x" aria-hidden="true"></i><span>Chờ chốt giao dịch lâu, khó chủ động kế hoạch</span></li>
+                            <li><i class="bx bx-x" aria-hidden="true"></i><span>Dễ lộ thông tin cá nhân khi đăng công khai</span></li>
+                        </ul>
+
+                        <div class="sell-compare-visual" aria-hidden="true">
+                            <img src="/sell-car/comparison-other-customer.png" alt="">
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="sell-car-footer">
+        <a href="/" class="sell-car-logo">Ok<span>Xe</span></a>
+        <div>
+            <a href="/">Trang chủ</a>
+            <a href="/mua-xe">Tìm mua ô tô</a>
+            <a href="/#footer">Liên hệ</a>
+        </div>
+    </footer>
+
+    <script src="/sell-car/script.js"></script>
+    <script src="/global/responsive-nav.js"></script>
+</body>
+</html>

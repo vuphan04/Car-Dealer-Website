@@ -16,6 +16,7 @@
     <link href="https://cdn.boxicons.com/3.0.8/css/boxicons.min.css" rel="stylesheet">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/promotions/style.css">
+    <link rel="stylesheet" href="/global/responsive-nav.css">
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -32,14 +33,15 @@
 </head>
 <body>
     <header class="promo-header">
-        <nav class="promo-nav" aria-label="Điều hướng chính">
+        <nav class="promo-nav" aria-label="Điều hướng chính" data-responsive-nav>
             <a href="/" class="promo-logo" aria-label="Về trang chủ OkXe">Ok<span>Xe</span></a>
-            <button class="promo-menu-toggle" type="button" aria-label="Mở menu điều hướng" aria-expanded="false" aria-controls="promo-navigation">
+            <button class="promo-menu-toggle" type="button" aria-label="Mở menu điều hướng" aria-expanded="false" aria-controls="promo-navigation" data-responsive-nav-toggle>
                 <i class="bx bx-menu"></i>
             </button>
-            <div class="promo-nav__links" id="promo-navigation">
+            <div class="promo-nav__links" id="promo-navigation" data-responsive-nav-panel>
                 <a href="/">Trang Chủ</a>
                 <a href="/mua-xe">Tìm mua ô tô</a>
+                <a href="/dang-tin-ban-xe">Đăng bán xe</a>
                 <a href="/tin-mua-o-to">Tin mua ô tô</a>
                 <a href="/dang-tin-mua-o-to">Đăng tin mua ô tô</a>
                 <a href="/khuyen-mai" aria-current="page">Khuyến mại</a>
@@ -114,5 +116,6 @@
     </footer>
 
     <script src="/promotions/script.js"></script>
+    <script src="/global/responsive-nav.js"></script>
 </body>
 </html>

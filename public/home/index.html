@@ -21,6 +21,7 @@
                 <div class="nav-links">
                     <a href="#" class="nav-link">Trang Chủ</a>
                     <a href="/mua-xe" class="nav-link">Tìm mua ô tô</a>
+                    <a href="/dang-tin-ban-xe" class="nav-link">Đăng bán xe</a>
                     <a href="/tin-mua-o-to" class="nav-link">Tin mua ô tô</a>
                     <a href="/khuyen-mai" class="nav-link">Khuyến mại</a>
                     <a href="/tu-van-ban-hang" class="nav-link">Đội ngũ tư vấn bán hàng</a>
@@ -38,9 +39,19 @@
                                 <i class="bx bx-chevron-down account-menu__chevron" aria-hidden="true"></i>
                             </button>
                             <div class="account-menu__dropdown" id="account-menu-dropdown" role="menu" aria-labelledby="account-menu-trigger">
+                                <div class="account-menu__summary" aria-label="Thông tin tài khoản đang đăng nhập">
+                                    <span class="account-menu__avatar" id="account-menu-avatar">
+                                        <i class="bx bx-user" aria-hidden="true"></i>
+                                    </span>
+                                    <div>
+                                        <strong id="account-menu-name">Khách hàng OkXe</strong>
+                                        <span id="account-menu-email">Chưa có email</span>
+                                        <small id="account-menu-phone">Chưa cập nhật số điện thoại</small>
+                                    </div>
+                                </div>
                                 <button type="button" class="account-menu__item" role="menuitem" data-open-profile>
-                                    <i class="bx bx-edit-alt" aria-hidden="true"></i>
-                                    <span>Thay đổi thông tin</span>
+                                    <i class="bx bx-id-card" aria-hidden="true"></i>
+                                    <span>Thông tin của tôi</span>
                                 </button>
                                 <button type="button" class="account-menu__item" role="menuitem" data-open-favorites>
                                     <i class="bx bx-heart" aria-hidden="true"></i>
@@ -61,10 +72,10 @@
                                     <i class="bx bx-cart" aria-hidden="true"></i>
                                     <span>Giỏ hàng</span>
                                 </button>
-                                <button type="button" class="account-menu__item" role="menuitem">
+                                <a href="/dang-tin-ban-xe" class="account-menu__item" role="menuitem">
                                     <i class="bx bx-car" aria-hidden="true"></i>
                                     <span>Đăng bán xe cũ</span>
-                                </button>
+                                </a>
                             </div>
                         </div>
                         <button type="button" class="nav-action auth-logout-btn" id="logout-button">Đăng xuất</button>
@@ -547,83 +558,132 @@
         <form class="profile-form">
             <div class="profile-form__header">
                 <span class="profile-form__eyebrow">Tài khoản khách hàng</span>
-                <h2 id="profile-modal-title">Thay đổi thông tin cá nhân</h2>
+                <h2 id="profile-modal-title">Thông tin tài khoản của tôi</h2>
+                <p>Xem thông tin đang lưu trên hệ thống OkXe và cập nhật hồ sơ liên hệ khi cần.</p>
             </div>
 
-            <section class="profile-form__section">
-                <div class="profile-avatar">
-                    <div class="profile-avatar__preview" id="profile-avatar-preview">
-                        <i class="bx bx-user"></i>
+            <section class="profile-overview" aria-label="Thông tin khách hàng">
+                <div class="profile-overview__identity">
+                    <span class="profile-overview__avatar" id="profile-overview-avatar">
+                        <i class="bx bx-user" aria-hidden="true"></i>
+                    </span>
+                    <div>
+                        <span>Khách hàng OkXe</span>
+                        <strong id="profile-overview-name">Chưa có họ tên</strong>
+                        <p id="profile-overview-email">Chưa có email</p>
+                    </div>
+                </div>
+                <dl class="profile-overview__details">
+                    <div>
+                        <dt>Số điện thoại</dt>
+                        <dd id="profile-overview-phone">Chưa cập nhật</dd>
                     </div>
                     <div>
-                        <strong>Ảnh đại diện</strong>
-                        <span>Chọn ảnh JPG, PNG, WEBP hoặc GIF, tối đa 5MB.</span>
-                        <button type="button" class="profile-avatar__button" id="choose-avatar-button">
-                            <i class="bx bx-upload"></i>
-                            <span>Upload ảnh</span>
-                        </button>
-                        <input type="file" id="profile-avatar-input" accept="image/*" hidden>
+                        <dt>CCCD</dt>
+                        <dd id="profile-overview-citizen">Chưa cập nhật</dd>
                     </div>
-                </div>
-
-                <div class="profile-form__grid">
-                    <label>
-                        <span>Họ và tên</span>
-                        <input type="text" name="fullName" placeholder="Nguyễn Văn A" readonly aria-readonly="true" title="Họ và tên không thể thay đổi tại đây">
-                    </label>
-                    <label>
-                        <span>Số điện thoại</span>
-                        <input type="tel" name="phone" placeholder="0912345678">
-                    </label>
-                    <label>
-                        <span>Số CCCD</span>
-                        <input type="text" name="citizenId" inputmode="numeric" pattern="[0-9]{12}" maxlength="12" placeholder="012345678901">
-                    </label>
-                    <label>
-                        <span>Email</span>
-                        <input type="email" name="email" placeholder="email@example.com" readonly aria-readonly="true" title="Email không thể thay đổi tại đây">
-                    </label>
-                    <label>
-                        <span>Ngày sinh</span>
-                        <input type="date" name="birthDate">
-                    </label>
-                    <label>
-                        <span>Giới tính</span>
-                        <select name="gender">
-                            <option value="">Chọn giới tính</option>
-                            <option value="male">Nam</option>
-                            <option value="female">Nữ</option>
-                            <option value="other">Khác</option>
-                        </select>
-                    </label>
-                </div>
+                    <div>
+                        <dt>Ngày sinh</dt>
+                        <dd id="profile-overview-birth-date">Chưa cập nhật</dd>
+                    </div>
+                    <div>
+                        <dt>Giới tính</dt>
+                        <dd id="profile-overview-gender">Chưa cập nhật</dd>
+                    </div>
+                    <div class="profile-overview__wide">
+                        <dt>Địa chỉ liên hệ</dt>
+                        <dd id="profile-overview-address">Chưa cập nhật</dd>
+                    </div>
+                </dl>
             </section>
 
-            <section class="profile-form__section">
-                <h3>Địa chỉ liên hệ</h3>
-                <div class="profile-form__grid">
-                    <label>
-                        <span>Tỉnh/thành phố</span>
-                        <input type="text" name="addressProvince" placeholder="TP. Hà Nội">
-                    </label>
-                    <label>
-                        <span>Quận/huyện</span>
-                        <input type="text" name="addressDistrict" placeholder="Quận Hoàn Kiếm">
-                    </label>
-                    <label>
-                        <span>Phường/xã</span>
-                        <input type="text" name="addressWard" placeholder="Phường Tràng Tiền">
-                    </label>
-                    <label class="profile-form__field--wide">
-                        <span>Địa chỉ chi tiết</span>
-                        <input type="text" name="addressDetail" placeholder="Số nhà, tên đường">
-                    </label>
+            <div class="profile-edit-callout">
+                <div>
+                    <strong>Cần chỉnh sửa hồ sơ?</strong>
+                    <span>Cập nhật số điện thoại, CCCD, ảnh đại diện và địa chỉ liên hệ của bạn.</span>
                 </div>
-            </section>
+                <button type="button" class="profile-edit-toggle" id="profile-edit-toggle" aria-expanded="false" aria-controls="profile-edit-panel">
+                    <i class="bx bx-edit-alt" aria-hidden="true"></i>
+                    <span>Thay đổi thông tin</span>
+                </button>
+            </div>
 
-            <div class="profile-form__actions">
-                <button type="button" class="profile-form__secondary" data-close-profile>Hủy</button>
-                <button type="submit" class="profile-form__submit">Cập nhật thông tin</button>
+            <div class="profile-edit-panel" id="profile-edit-panel" hidden>
+                <section class="profile-form__section">
+                    <div class="profile-avatar">
+                        <div class="profile-avatar__preview" id="profile-avatar-preview">
+                            <i class="bx bx-user"></i>
+                        </div>
+                        <div>
+                            <strong>Ảnh đại diện</strong>
+                            <span>Chọn ảnh JPG, PNG, WEBP hoặc GIF, tối đa 5MB.</span>
+                            <button type="button" class="profile-avatar__button" id="choose-avatar-button">
+                                <i class="bx bx-upload"></i>
+                                <span>Upload ảnh</span>
+                            </button>
+                            <input type="file" id="profile-avatar-input" accept="image/*" hidden>
+                        </div>
+                    </div>
+
+                    <div class="profile-form__grid">
+                        <label>
+                            <span>Họ và tên</span>
+                            <input type="text" name="fullName" placeholder="Nguyễn Văn A" readonly aria-readonly="true" title="Họ và tên không thể thay đổi tại đây">
+                        </label>
+                        <label>
+                            <span>Số điện thoại</span>
+                            <input type="tel" name="phone" placeholder="0912345678">
+                        </label>
+                        <label>
+                            <span>Số CCCD</span>
+                            <input type="text" name="citizenId" inputmode="numeric" pattern="[0-9]{12}" maxlength="12" placeholder="012345678901">
+                        </label>
+                        <label>
+                            <span>Email</span>
+                            <input type="email" name="email" placeholder="email@example.com" readonly aria-readonly="true" title="Email không thể thay đổi tại đây">
+                        </label>
+                        <label>
+                            <span>Ngày sinh</span>
+                            <input type="date" name="birthDate">
+                        </label>
+                        <label>
+                            <span>Giới tính</span>
+                            <select name="gender">
+                                <option value="">Chọn giới tính</option>
+                                <option value="male">Nam</option>
+                                <option value="female">Nữ</option>
+                                <option value="other">Khác</option>
+                            </select>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="profile-form__section">
+                    <h3>Địa chỉ liên hệ</h3>
+                    <div class="profile-form__grid">
+                        <label>
+                            <span>Tỉnh/thành phố</span>
+                            <input type="text" name="addressProvince" placeholder="TP. Hà Nội">
+                        </label>
+                        <label>
+                            <span>Quận/huyện</span>
+                            <input type="text" name="addressDistrict" placeholder="Quận Hoàn Kiếm">
+                        </label>
+                        <label>
+                            <span>Phường/xã</span>
+                            <input type="text" name="addressWard" placeholder="Phường Tràng Tiền">
+                        </label>
+                        <label class="profile-form__field--wide">
+                            <span>Địa chỉ chi tiết</span>
+                            <input type="text" name="addressDetail" placeholder="Số nhà, tên đường">
+                        </label>
+                    </div>
+                </section>
+
+                <div class="profile-form__actions">
+                    <button type="button" class="profile-form__secondary" data-close-profile>Hủy</button>
+                    <button type="submit" class="profile-form__submit">Cập nhật thông tin</button>
+                </div>
             </div>
             <p class="form-feedback" id="profile-feedback" aria-live="polite"></p>
         </form>
@@ -716,6 +776,7 @@
         <div class="footer-links-col">
             <h3>Dịch vụ hỗ trợ</h3>
             <a href="/dang-ky-lai-thu">Đăng ký lái thử</a>
+            <a href="/dang-tin-ban-xe">Đăng bán xe cũ</a>
             <a href="/dang-tin-mua-o-to">Đăng tin mua ô tô</a>
             <a href="/tu-van-ban-hang">Tư vấn bán hàng</a>
             <a href="#rentals">Xe đang bán</a>
@@ -735,7 +796,10 @@
                 <i class="bx bx-envelope"></i>
                 <span>contact@okxe.vn</span>
             </a>
-            <p class="footer-work-time">Thứ 2 - Chủ nhật: 8:00 - 20:00</p>
+            <div class="footer-contact-item footer-work-time">
+                <i class="bx bx-time-five"></i>
+                <span>Thứ 2 - Chủ nhật: 8:00 - 20:00</span>
+            </div>
             <div class="footer-socials">
                 <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" aria-label="Facebook"><i class="bx bxl-facebook"></i></a>
                 <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" aria-label="Instagram"><i class="bx bxl-instagram"></i></a>
