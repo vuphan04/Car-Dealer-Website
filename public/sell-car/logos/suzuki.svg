@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 90" role="img" aria-labelledby="title">
+  <title id="title">Suzuki logo</title>
+  <rect width="180" height="90" fill="white"/>
+  <path d="M82 10L125 30L102 42L124 58L94 79L54 60L78 47L55 31Z" fill="#e30613"/>
+  <path d="M82 10L103 20L78 33L101 47L80 59L54 47L78 34L55 31Z" fill="#ffffff" opacity="0.9"/>
+  <text x="90" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="21" font-weight="900" fill="#0057b8">SUZUKI</text>
+</svg>

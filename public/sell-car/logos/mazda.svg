@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 90" role="img" aria-labelledby="title">
+  <title id="title">Mazda logo</title>
+  <rect width="180" height="90" fill="white"/>
+  <ellipse cx="90" cy="34" rx="38" ry="24" fill="none" stroke="#202b3f" stroke-width="6"/>
+  <path d="M58 31C72 52 108 52 122 31C109 36 101 43 90 51C79 43 71 36 58 31Z" fill="none" stroke="#202b3f" stroke-width="6" stroke-linejoin="round"/>
+  <text x="90" y="77" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="800" fill="#1f58a8">mazda</text>
+</svg>

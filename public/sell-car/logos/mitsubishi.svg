@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 90" role="img" aria-labelledby="title">
+  <title id="title">Mitsubishi logo</title>
+  <rect width="180" height="90" fill="white"/>
+  <path d="M90 10L107 36L90 62L73 36Z" fill="#e60012"/>
+  <path d="M55 62L72 36L90 62L72 88Z" transform="translate(0 -20)" fill="#e60012"/>
+  <path d="M125 62L108 36L90 62L108 88Z" transform="translate(0 -20)" fill="#e60012"/>
+  <text x="90" y="77" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="900" fill="#111827">MITSUBISHI</text>
+</svg>

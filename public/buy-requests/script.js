@@ -8,6 +8,13 @@ const paginationBottom = document.querySelector('#buy-request-pagination-bottom'
 const statTotal = document.querySelector('#buy-request-stat-total');
 const statProvinces = document.querySelector('#buy-request-stat-provinces');
 const statLatest = document.querySelector('#buy-request-stat-latest');
+const offerPanel = document.querySelector('#buy-request-offer-panel');
+const offerForm = document.querySelector('#buy-request-offer-form');
+const offerRequestIdInput = document.querySelector('#buy-request-offer-request-id');
+const offerSummary = document.querySelector('#buy-request-offer-summary');
+const offerSubmitButton = document.querySelector('#buy-request-offer-submit');
+const offerFeedback = document.querySelector('#buy-request-offer-feedback');
+const offerCloseButtons = document.querySelectorAll('[data-close-buy-request-offer]');
 
 const defaultBudgetLabels = {
     'under-200': 'Dưới 200 Triệu',
@@ -23,6 +30,8 @@ let budgetLabels = { ...defaultBudgetLabels };
 let activeBudget = 'all';
 let activeProvince = '';
 let currentPage = 1;
+let activeOfferRequestId = null;
+let currentUser = null;
 const pageSize = 8;
 
 const requestDateFormatter = new Intl.DateTimeFormat('vi-VN', {
@@ -59,6 +68,22 @@ const requestJson = async (url) => {
     return { response, data };
 };
 
+const postJson = async (url, payload) => {
+    const resolvedUrl = window.location.protocol === 'file:'
+        ? `http://localhost:3000${url}`
+        : url;
+    const response = await fetch(resolvedUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+    const data = await response.json().catch(() => ({}));
+
+    return { response, data };
+};
+
 const formatDate = (value) => {
     if (!value) {
         return 'Chưa rõ';
@@ -78,16 +103,6 @@ const getLatestRequestDate = (requests) => {
     return latestTimestamp ? formatDate(latestTimestamp) : 'Đang cập nhật';
 };
 
-const getPhoneHref = (phone) => {
-    const normalizedPhone = String(phone || '').replace(/[^\d+]/g, '');
-    return normalizedPhone ? `tel:${normalizedPhone}` : '';
-};
-
-const getMailHref = (email) => {
-    const normalizedEmail = String(email || '').trim();
-    return normalizedEmail ? `mailto:${normalizedEmail}` : '';
-};
-
 const renderRequestStats = (requests) => {
     const provinces = new Set(requests.map((request) => String(request.province || '').trim()).filter(Boolean));
 
@@ -102,6 +117,92 @@ const renderRequestStats = (requests) => {
     if (statLatest) {
         statLatest.textContent = getLatestRequestDate(requests);
     }
+};
+
+const setOfferFeedback = (message, type = 'success') => {
+    if (!offerFeedback) {
+        return;
+    }
+
+    offerFeedback.textContent = message || '';
+    offerFeedback.className = 'buy-request-offer-feedback';
+
+    if (message) {
+        offerFeedback.classList.add(type === 'success' ? 'is-success' : 'is-error');
+    }
+};
+
+const setOfferLoading = (isLoading) => {
+    if (!offerSubmitButton) {
+        return;
+    }
+
+    offerSubmitButton.disabled = isLoading;
+    offerSubmitButton.innerHTML = isLoading
+        ? '<i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i><span>Đang gửi...</span>'
+        : '<i class="bx bx-send" aria-hidden="true"></i><span>Gửi xe phù hợp</span>';
+};
+
+const getBuyRequestById = (requestId) =>
+    buyRequests.find((request) => String(request.id) === String(requestId));
+
+const isCurrentUserRequestOwner = (request) =>
+    Boolean(currentUser?.id && request?.userId && String(currentUser.id) === String(request.userId));
+
+const prefillOfferContactFields = () => {
+    if (!offerForm || !currentUser) {
+        return;
+    }
+
+    offerForm.elements.sellerName.value = currentUser.fullName || '';
+    offerForm.elements.sellerPhone.value = currentUser.phone || '';
+    offerForm.elements.sellerEmail.value = currentUser.email || '';
+};
+
+const openOfferPanel = (request) => {
+    if (!offerPanel || !offerForm || !request) {
+        return;
+    }
+
+    if (isCurrentUserRequestOwner(request)) {
+        setOfferFeedback('Bạn là người đăng tin mua xe này nên không thể tự gửi xe phù hợp cho chính tin của mình.', 'error');
+        return;
+    }
+
+    activeOfferRequestId = request.id;
+    offerForm.reset();
+    prefillOfferContactFields();
+    setOfferFeedback('');
+
+    if (offerRequestIdInput) {
+        offerRequestIdInput.value = request.id;
+    }
+
+    if (offerSummary) {
+        offerSummary.textContent = `${request.code || `MX-${request.id}`} - ${request.title || 'Khách cần mua ô tô'} - ${getBudgetLabel(request.budgetRange)}`;
+    }
+
+    offerPanel.hidden = false;
+    offerPanel.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    window.requestAnimationFrame(() => {
+        offerPanel.classList.add('is-visible');
+        offerForm.elements.sellerName?.focus();
+    });
+};
+
+const closeOfferPanel = () => {
+    if (!offerPanel) {
+        return;
+    }
+
+    offerPanel.classList.remove('is-visible');
+    offerPanel.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    activeOfferRequestId = null;
+    window.setTimeout(() => {
+        offerPanel.hidden = true;
+    }, 220);
 };
 
 const getBudgetLabel = (budgetRange) =>
@@ -213,11 +314,11 @@ const renderRequests = () => {
         const contactText = [contactName, request.phone ? `ĐT:${request.phone}` : 'Chưa có SĐT']
             .filter(Boolean)
             .join(' - ');
-        const phoneHref = getPhoneHref(request.phone);
-        const mailHref = getMailHref(request.email);
+        const offerCount = Number(request.offerCount || 0);
+        const isOwner = isCurrentUserRequestOwner(request);
         const contactActions = [
-            phoneHref ? `<a href="${escapeHtml(phoneHref)}"><i class="bx bx-phone" aria-hidden="true"></i><span>Gọi khách</span></a>` : '',
-            mailHref ? `<a href="${escapeHtml(mailHref)}"><i class="bx bx-envelope" aria-hidden="true"></i><span>Gửi email</span></a>` : ''
+            `<button type="button" data-offer-request-id="${escapeHtml(request.id)}" ${isOwner ? 'disabled aria-disabled="true" title="Bạn là người đăng tin mua xe này"' : ''}><i class="bx bx-car" aria-hidden="true"></i><span>${isOwner ? 'Tin mua của bạn' : 'Tôi có xe này'}</span></button>`,
+            '<a href="tel:0854955761"><i class="bx bx-support" aria-hidden="true"></i><span>Liên hệ OkXe</span></a>'
         ].filter(Boolean).join('');
 
         return `
@@ -237,9 +338,11 @@ const renderRequests = () => {
                     <div class="buy-request-meta">
                         <strong><i class="bx bx-map" aria-hidden="true"></i>${escapeHtml(request.province || 'Toàn quốc')}</strong>
                         <time datetime="${escapeHtml(request.createdAt || '')}">Ngày đăng: ${escapeHtml(formatDate(request.createdAt))}</time>
+                        <span class="buy-request-offer-count"><i class="bx bx-transfer-alt" aria-hidden="true"></i>${escapeHtml(offerCount)} đề xuất xe</span>
                     </div>
                 </div>
                 <div class="buy-request-contact">
+                    <strong class="buy-request-connect-title">Kết nối giao dịch</strong>
                     <p><span class="buy-request-contact-label">Liên hệ:</span><span class="buy-request-contact-value">${escapeHtml(contactText)}</span></p>
                     <p><span class="buy-request-contact-label">Địa chỉ:</span><span class="buy-request-contact-value">${escapeHtml(request.address || request.province || 'Chưa cập nhật')}</span></p>
                     ${request.email ? `<p><span class="buy-request-contact-label">Email:</span><span class="buy-request-contact-value">${escapeHtml(request.email)}</span></p>` : ''}
@@ -270,6 +373,15 @@ const loadBuyRequests = async () => {
     }
 };
 
+const loadCurrentUser = async () => {
+    try {
+        const { response, data } = await requestJson('/api/auth/me');
+        currentUser = response.ok ? data.user || null : null;
+    } catch (error) {
+        currentUser = null;
+    }
+};
+
 budgetOptionsContainer?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-budget-filter]');
 
@@ -289,6 +401,89 @@ provinceFilter?.addEventListener('change', () => {
     renderRequests();
 });
 
+requestList?.addEventListener('click', (event) => {
+    const offerButton = event.target.closest('[data-offer-request-id]');
+
+    if (!offerButton) {
+        return;
+    }
+
+    if (offerButton.disabled || offerButton.getAttribute('aria-disabled') === 'true') {
+        return;
+    }
+
+    const request = getBuyRequestById(offerButton.dataset.offerRequestId);
+    openOfferPanel(request);
+});
+
+offerCloseButtons.forEach((button) => {
+    button.addEventListener('click', closeOfferPanel);
+});
+
+offerPanel?.addEventListener('click', (event) => {
+    if (event.target === offerPanel) {
+        closeOfferPanel();
+    }
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !offerPanel?.hidden) {
+        closeOfferPanel();
+    }
+});
+
+offerForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    setOfferFeedback('');
+
+    const requestId = activeOfferRequestId || offerRequestIdInput?.value;
+    const request = getBuyRequestById(requestId);
+
+    if (!request) {
+        setOfferFeedback('Không tìm thấy tin mua xe cần gửi đề xuất.', 'error');
+        return;
+    }
+
+    if (!offerForm.checkValidity()) {
+        offerForm.reportValidity();
+        return;
+    }
+
+    const formData = new FormData(offerForm);
+    const payload = {
+        sellerName: formData.get('sellerName'),
+        sellerPhone: formData.get('sellerPhone'),
+        sellerEmail: formData.get('sellerEmail'),
+        carBrand: formData.get('carBrand'),
+        carModel: formData.get('carModel'),
+        carYear: formData.get('carYear'),
+        carVersion: formData.get('carVersion'),
+        expectedPrice: formData.get('expectedPrice'),
+        mileage: formData.get('mileage'),
+        conditionNote: formData.get('conditionNote'),
+        contactPreference: formData.get('contactPreference')
+    };
+
+    setOfferLoading(true);
+
+    try {
+        const { response, data } = await postJson(`/api/car-buy-requests/${request.id}/offers`, payload);
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể gửi đề xuất xe lúc này.');
+        }
+
+        request.offerCount = Number(request.offerCount || 0) + 1;
+        renderRequests();
+        setOfferFeedback(data.message || 'OkXe đã nhận đề xuất xe phù hợp.');
+        window.setTimeout(closeOfferPanel, 900);
+    } catch (error) {
+        setOfferFeedback(error.message || 'Không thể gửi đề xuất xe lúc này.', 'error');
+    } finally {
+        setOfferLoading(false);
+    }
+});
+
 [paginationTop, paginationBottom].forEach((container) => {
     container?.addEventListener('click', (event) => {
         const button = event.target.closest('[data-page]');
@@ -303,5 +498,10 @@ provinceFilter?.addEventListener('change', () => {
     });
 });
 
-renderBudgetFilters();
-loadBuyRequests();
+const initBuyRequestPage = async () => {
+    renderBudgetFilters();
+    await loadCurrentUser();
+    await loadBuyRequests();
+};
+
+initBuyRequestPage();

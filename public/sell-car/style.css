@@ -1173,6 +1173,233 @@ img {
     transition-delay: 0.26s;
 }
 
+.sell-faq-section {
+    overflow: hidden;
+    background: #f7f9fd;
+    padding: 4.5rem 0 5rem;
+}
+
+.sell-faq-inner {
+    width: min(1500px, calc(100% - 64px));
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(300px, 0.52fr) minmax(0, 1fr);
+    gap: 3rem;
+    align-items: start;
+}
+
+.sell-faq-copy {
+    min-width: 0;
+}
+
+.sell-faq-copy > span {
+    color: var(--main-color);
+    font-size: 0.88rem;
+    line-height: 1.45;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.sell-faq-copy h2 {
+    max-width: 680px;
+    margin-top: 0.45rem;
+    color: #26364d;
+    font-size: 2.45rem;
+    line-height: 1.18;
+    font-weight: 900;
+}
+
+.sell-faq-copy p {
+    max-width: 620px;
+    margin-top: 0.85rem;
+    color: #586981;
+    font-size: 1rem;
+    line-height: 1.75;
+    font-weight: 600;
+}
+
+.sell-faq-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.35rem;
+}
+
+.sell-faq-primary,
+.sell-faq-secondary {
+    min-height: 46px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0 1rem;
+    font-size: 0.94rem;
+    line-height: 1.35;
+    font-weight: 900;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+
+.sell-faq-primary {
+    border: 0;
+    color: #ffffff;
+    background: var(--main-color);
+    box-shadow: 0 14px 26px rgba(241, 90, 41, 0.18);
+}
+
+.sell-faq-primary:hover {
+    background: var(--main-color-dark);
+    transform: translateY(-1px);
+}
+
+.sell-faq-secondary {
+    border: 1px solid rgba(8, 21, 74, 0.1);
+    color: var(--text-color);
+    background: #ffffff;
+}
+
+.sell-faq-secondary:hover {
+    border-color: rgba(241, 90, 41, 0.38);
+    color: var(--main-color);
+    transform: translateY(-1px);
+}
+
+.sell-faq-list {
+    min-width: 0;
+    display: grid;
+    gap: 0.85rem;
+}
+
+.sell-faq-item {
+    border: 1px solid rgba(8, 21, 74, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 16px 34px rgba(8, 21, 74, 0.055);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.sell-faq-item[open] {
+    border-color: rgba(241, 90, 41, 0.2);
+    box-shadow: 0 20px 38px rgba(8, 21, 74, 0.075);
+}
+
+.sell-faq-item summary {
+    min-height: 72px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 34px;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem 1.15rem;
+    color: #26364d;
+    cursor: pointer;
+    list-style: none;
+}
+
+.sell-faq-item summary::-webkit-details-marker {
+    display: none;
+}
+
+.sell-faq-item summary span {
+    min-width: 0;
+    font-size: 1rem;
+    line-height: 1.45;
+    font-weight: 850;
+    overflow-wrap: anywhere;
+}
+
+.sell-faq-item summary i {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--main-color);
+    background: #fff6f1;
+    font-size: 1.25rem;
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.sell-faq-item[open] summary i {
+    transform: rotate(180deg);
+}
+
+.sell-faq-item.is-closing summary i {
+    transform: rotate(0deg);
+}
+
+.sell-faq-item summary:hover i,
+.sell-faq-item summary:focus-visible i {
+    background: #ffe7db;
+}
+
+.sell-faq-item summary:focus-visible {
+    outline: 3px solid rgba(241, 90, 41, 0.18);
+    outline-offset: 3px;
+}
+
+.sell-faq-answer {
+    overflow: hidden;
+}
+
+.sell-faq-item.is-animating .sell-faq-answer {
+    transition: height 0.28s ease;
+}
+
+.sell-faq-answer p {
+    margin: 0 1.15rem 1.05rem;
+    border-top: 1px solid var(--line-color);
+    padding-top: 0.9rem;
+    color: #586981;
+    font-size: 0.95rem;
+    line-height: 1.75;
+    font-weight: 600;
+}
+
+.sell-faq-section.is-ready .sell-faq-copy,
+.sell-faq-section.is-ready .sell-faq-item {
+    opacity: 0;
+    transform: translateY(28px);
+    transition:
+        opacity 0.65s ease,
+        transform 0.65s ease;
+}
+
+.sell-faq-section.is-visible .sell-faq-copy,
+.sell-faq-section.is-visible .sell-faq-item {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.sell-faq-section.is-visible .sell-faq-item:nth-child(1) {
+    transition-delay: 0.1s;
+}
+
+.sell-faq-section.is-visible .sell-faq-item:nth-child(2) {
+    transition-delay: 0.14s;
+}
+
+.sell-faq-section.is-visible .sell-faq-item:nth-child(3) {
+    transition-delay: 0.18s;
+}
+
+.sell-faq-section.is-visible .sell-faq-item:nth-child(4) {
+    transition-delay: 0.22s;
+}
+
+.sell-faq-section.is-visible .sell-faq-item:nth-child(5) {
+    transition-delay: 0.26s;
+}
+
+.sell-faq-section.is-visible .sell-faq-item:nth-child(6) {
+    transition-delay: 0.3s;
+}
+
+.sell-faq-section.is-visible .sell-faq-item:nth-child(7) {
+    transition-delay: 0.34s;
+}
+
 .sell-car-footer {
     width: min(1120px, calc(100% - 48px));
     margin: 0 auto 2rem;
@@ -1219,9 +1446,15 @@ img {
     .sell-guide-section.is-ready .sell-guide-panel,
     .sell-compare-section.is-ready .sell-compare-heading,
     .sell-compare-section.is-ready .sell-compare-panel,
-    .sell-compare-section.is-ready .sell-compare-vs {
+    .sell-compare-section.is-ready .sell-compare-vs,
+    .sell-faq-section.is-ready .sell-faq-copy,
+    .sell-faq-section.is-ready .sell-faq-item {
         opacity: 1;
         transform: none;
+        transition: none;
+    }
+
+    .sell-faq-item.is-animating .sell-faq-answer {
         transition: none;
     }
 }
@@ -1238,6 +1471,11 @@ img {
     .sell-compare-grid {
         grid-template-columns: 1fr;
         gap: 1.1rem;
+    }
+
+    .sell-faq-inner {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
     }
 
     .sell-compare-vs {
@@ -1294,7 +1532,8 @@ img {
     .sell-car-hero,
     .sell-brand-section,
     .sell-guide-section,
-    .sell-compare-section {
+    .sell-compare-section,
+    .sell-faq-section {
         width: 100%;
         max-width: 100%;
         overflow-x: hidden;
@@ -1305,6 +1544,7 @@ img {
     .sell-brand-heading,
     .sell-guide-inner,
     .sell-compare-inner,
+    .sell-faq-inner,
     .sell-car-footer {
         width: calc(100% - 48px);
         max-width: 1120px;
@@ -1352,7 +1592,9 @@ img {
     .sell-guide-heading h2,
     .sell-guide-heading p,
     .sell-guide-panel h3,
-    .sell-guide-panel p {
+    .sell-guide-panel p,
+    .sell-faq-copy h2,
+    .sell-faq-copy p {
         max-width: 100%;
         overflow-wrap: anywhere;
     }
@@ -1535,6 +1777,41 @@ img {
 
     .sell-compare-panel--other .sell-compare-visual img {
         max-height: 240px;
+    }
+
+    .sell-faq-section {
+        padding: 3rem 0 3.5rem;
+    }
+
+    .sell-faq-copy h2 {
+        font-size: 1.8rem;
+        line-height: 1.24;
+    }
+
+    .sell-faq-copy p {
+        max-width: 34ch;
+    }
+
+    .sell-faq-actions,
+    .sell-faq-primary,
+    .sell-faq-secondary {
+        width: 100%;
+    }
+
+    .sell-faq-item summary {
+        min-height: 64px;
+        grid-template-columns: minmax(0, 1fr) 32px;
+        padding: 0.9rem 1rem;
+    }
+
+    .sell-faq-item summary i {
+        width: 32px;
+        height: 32px;
+    }
+
+    .sell-faq-answer p {
+        margin: 0 1rem 1rem;
+        font-size: 0.9rem;
     }
 
 }

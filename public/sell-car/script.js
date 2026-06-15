@@ -5,7 +5,8 @@ const yearSelect = document.querySelector('#sell-car-year');
 const versionSelect = document.querySelector('#sell-car-version');
 const feedback = document.querySelector('#sell-car-feedback');
 const submitButton = document.querySelector('#sell-car-submit');
-const revealSections = document.querySelectorAll('.sell-guide-section, .sell-compare-section');
+const revealSections = document.querySelectorAll('.sell-guide-section, .sell-compare-section, .sell-faq-section');
+const faqItems = document.querySelectorAll('.sell-faq-item');
 const guideStepButtons = document.querySelectorAll('[data-guide-step]');
 const guidePanel = document.querySelector('#sell-guide-panel');
 const guidePanelStep = document.querySelector('#sell-guide-panel-step');
@@ -391,6 +392,81 @@ const initGuideTabs = () => {
     setActiveGuideStep(initialStep);
 };
 
+const resetFaqAnimationState = (item, answer) => {
+    item.classList.remove('is-animating', 'is-opening', 'is-closing');
+    delete item.dataset.faqAnimating;
+    answer.style.height = '';
+};
+
+const animateFaqOpen = (item, answer) => {
+    item.open = true;
+    item.dataset.faqAnimating = 'true';
+    item.classList.add('is-animating', 'is-opening');
+    answer.style.height = '0px';
+
+    window.requestAnimationFrame(() => {
+        answer.style.height = `${answer.scrollHeight}px`;
+    });
+};
+
+const animateFaqClose = (item, answer) => {
+    item.dataset.faqAnimating = 'true';
+    item.classList.add('is-animating', 'is-closing');
+    answer.style.height = `${answer.scrollHeight}px`;
+
+    window.requestAnimationFrame(() => {
+        answer.style.height = '0px';
+    });
+};
+
+const initFaqAnimation = () => {
+    if (!faqItems.length) {
+        return;
+    }
+
+    const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    faqItems.forEach((item) => {
+        const summary = item.querySelector('summary');
+        const answer = item.querySelector('.sell-faq-answer');
+
+        if (!summary || !answer) {
+            return;
+        }
+
+        answer.addEventListener('transitionend', (event) => {
+            if (event.propertyName !== 'height' || !item.classList.contains('is-animating')) {
+                return;
+            }
+
+            if (item.classList.contains('is-closing')) {
+                item.open = false;
+            }
+
+            resetFaqAnimationState(item, answer);
+        });
+
+        summary.addEventListener('click', (event) => {
+            if (reduceMotionQuery.matches) {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (item.dataset.faqAnimating === 'true') {
+                return;
+            }
+
+            if (item.open) {
+                animateFaqClose(item, answer);
+                return;
+            }
+
+            animateFaqOpen(item, answer);
+        });
+    });
+};
+
 brandSelect?.addEventListener('change', () => {
     setFeedback('');
     updateModelOptions();
@@ -435,3 +511,4 @@ renderYearOptions();
 resetModelOptions();
 initGuideTabs();
 initRevealSections();
+initFaqAnimation();

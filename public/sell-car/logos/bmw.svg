@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 90" role="img" aria-labelledby="title">
+  <title id="title">BMW logo</title>
+  <rect width="180" height="90" fill="white"/>
+  <circle cx="90" cy="34" r="31" fill="#111827"/>
+  <circle cx="90" cy="34" r="22" fill="#fff"/>
+  <path d="M90 12A22 22 0 0 1 112 34H90Z" fill="#2f80ed"/>
+  <path d="M90 34H68A22 22 0 0 1 90 12Z" fill="#fff"/>
+  <path d="M90 34H112A22 22 0 0 1 90 56Z" fill="#fff"/>
+  <path d="M90 34V56A22 22 0 0 1 68 34Z" fill="#2f80ed"/>
+  <text x="90" y="39" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="900" fill="#111827">BMW</text>
+  <text x="90" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="800" fill="#111827">BMW</text>
+</svg>

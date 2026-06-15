@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 90" role="img" aria-labelledby="title">
+  <title id="title">Nissan logo</title>
+  <rect width="180" height="90" fill="white"/>
+  <circle cx="90" cy="35" r="28" fill="none" stroke="#c7ccd5" stroke-width="8"/>
+  <rect x="45" y="25" width="90" height="21" rx="4" fill="#c8102e"/>
+  <text x="90" y="41" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="900" fill="#ffffff">NISSAN</text>
+</svg>

@@ -9,6 +9,7 @@ const {
   authenticateUser,
   createCar,
   createCarBuyRequest,
+  createCarBuyRequestOffer,
   createConsultationRequest,
   createPasswordResetOtp,
   createPromotion,
@@ -49,6 +50,7 @@ const {
   resetPasswordWithOtp,
   updateCar,
   updateCarBuyRequestStatus,
+  updateCarBuyRequestOfferStatus,
   updateConsultationRequestStatus,
   updatePromotion,
   updateTestDriveAppointmentStatus,
@@ -414,6 +416,14 @@ const carBuyRequestRateLimit = createRateLimiter({
   message: 'Bạn gửi tin mua xe quá nhanh. Vui lòng thử lại sau ít phút.',
 });
 
+const carBuyRequestOfferRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  keyPrefix: 'car-buy-request-offer',
+  getKey: (req) => req.body?.sellerPhone || req.body?.phone,
+  message: 'Bạn gửi đề xuất xe quá nhanh. Vui lòng thử lại sau ít phút.',
+});
+
 const sanitizeUploadBaseName = (name, fallbackBaseName = 'car-image') => {
   const baseName = path
     .basename(String(name || fallbackBaseName))
@@ -666,6 +676,9 @@ const validateCarPayload = (car = {}) => {
 const normalizeShortText = (value, maxLength = 120) =>
   String(value || '').trim().replace(/\s+/g, ' ').slice(0, maxLength);
 
+const normalizePhoneDigits = (value) =>
+  String(value || '').replace(/\D/g, '');
+
 const normalizePromotionDate = (value) => String(value || '').trim();
 
 const isValidPromotionDate = (value) => {
@@ -865,6 +878,18 @@ const carBuyRequestStatusLabels = {
   rejected: 'Từ chối',
 };
 
+const carBuyRequestOfferStatusLabels = {
+  new: 'Mới',
+  contacted: 'Đã liên hệ',
+  matched: 'Đã kết nối',
+  rejected: 'Từ chối',
+};
+
+const carBuyRequestOfferContactPreferences = {
+  okxe_first: 'OkXe liên hệ trước',
+  direct_allowed: 'Cho khách mua liên hệ trực tiếp',
+};
+
 const normalizeConsultationRequestType = (value) => {
   const normalizedType = String(value || '').trim().toLowerCase();
 
@@ -1012,6 +1037,92 @@ const validateCarBuyRequestStatusPayload = (payload = {}) => {
 
   if (status === 'rejected' && statusNote.length < 3) {
     return { error: 'Vui lòng nhập lý do khi từ chối tin mua xe.' };
+  }
+
+  return { statusUpdate: { status, statusNote } };
+};
+
+const validateCarBuyRequestOfferPayload = (offer = {}) => {
+  const normalizedOffer = {
+    sellerName: normalizeShortText(offer.sellerName || offer.fullName, 120),
+    sellerPhone: normalizeShortText(offer.sellerPhone || offer.phone, 30),
+    sellerEmail: normalizeShortText(offer.sellerEmail || offer.email, 160).toLowerCase(),
+    carBrand: normalizeShortText(offer.carBrand || offer.brand, 80),
+    carModel: normalizeShortText(offer.carModel || offer.model, 120),
+    carYear: normalizeShortText(offer.carYear || offer.year, 12),
+    carVersion: normalizeShortText(offer.carVersion || offer.version, 120),
+    expectedPrice: normalizeShortText(offer.expectedPrice || offer.price, 80),
+    mileage: normalizeShortText(offer.mileage, 80),
+    conditionNote: String(offer.conditionNote || offer.note || '').trim().slice(0, 900),
+    contactPreference: String(offer.contactPreference || '').trim(),
+  };
+
+  if (normalizedOffer.sellerName.length < 2) {
+    return { error: 'Vui lòng nhập họ tên người có xe.' };
+  }
+
+  const phoneDigits = normalizePhoneDigits(normalizedOffer.sellerPhone);
+  const hasValidPhoneFormat = /^\+?[0-9\s.-]{8,20}$/.test(normalizedOffer.sellerPhone);
+
+  if (
+    !normalizedOffer.sellerPhone
+    || !hasValidPhoneFormat
+    || phoneDigits.length < 8
+    || phoneDigits.length > 15
+  ) {
+    return { error: 'Số điện thoại người có xe không hợp lệ.' };
+  }
+
+  if (normalizedOffer.sellerEmail && !isValidEmail(normalizedOffer.sellerEmail)) {
+    return { error: 'Email người có xe không hợp lệ.' };
+  }
+
+  if (normalizedOffer.carBrand.length < 2) {
+    return { error: 'Vui lòng nhập hãng xe đang có.' };
+  }
+
+  if (normalizedOffer.carModel.length < 1) {
+    return { error: 'Vui lòng nhập dòng xe đang có.' };
+  }
+
+  const currentYear = new Date().getFullYear();
+  const numericYear = Number(normalizedOffer.carYear);
+
+  if (
+    normalizedOffer.carYear
+    && (
+      !Number.isInteger(numericYear)
+      || numericYear < 1980
+      || numericYear > currentYear + 1
+    )
+  ) {
+    return { error: 'Đời xe không hợp lệ.' };
+  }
+
+  if (normalizedOffer.conditionNote.length < 10) {
+    return { error: 'Vui lòng mô tả ngắn tình trạng xe, tối thiểu 10 ký tự.' };
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(
+    carBuyRequestOfferContactPreferences,
+    normalizedOffer.contactPreference
+  )) {
+    normalizedOffer.contactPreference = 'okxe_first';
+  }
+
+  return { offer: normalizedOffer };
+};
+
+const validateCarBuyRequestOfferStatusPayload = (payload = {}) => {
+  const status = String(payload.status || '').trim().toLowerCase();
+  const statusNote = normalizeShortText(payload.statusNote || payload.note, 500);
+
+  if (!Object.prototype.hasOwnProperty.call(carBuyRequestOfferStatusLabels, status)) {
+    return { error: 'Trạng thái đề xuất xe không hợp lệ.' };
+  }
+
+  if (status === 'rejected' && statusNote.length < 3) {
+    return { error: 'Vui lòng nhập lý do khi từ chối đề xuất xe.' };
   }
 
   return { statusUpdate: { status, statusNote } };
@@ -1491,6 +1602,61 @@ app.post('/api/car-buy-requests', carBuyRequestRateLimit, (req, res) => {
   }
 });
 
+app.post('/api/car-buy-requests/:id/offers', carBuyRequestOfferRateLimit, (req, res) => {
+  const requestId = Number(req.params.id);
+  const { offer, error } = validateCarBuyRequestOfferPayload(req.body || {});
+
+  if (!Number.isFinite(requestId)) {
+    res.status(400).json({ message: 'Mã tin mua xe không hợp lệ.' });
+    return;
+  }
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const buyRequest = getCarBuyRequestById(requestId);
+
+    if (!buyRequest || buyRequest.status !== 'approved') {
+      res.status(404).json({ message: 'Tin mua xe này không còn nhận đề xuất.' });
+      return;
+    }
+
+    const requestUser = getRequestUser(req);
+    const isOwnerUser = Boolean(
+      requestUser?.id
+      && buyRequest.userId
+      && String(requestUser.id) === String(buyRequest.userId)
+    );
+    const usesBuyerPhone = Boolean(
+      normalizePhoneDigits(offer.sellerPhone)
+      && normalizePhoneDigits(offer.sellerPhone) === normalizePhoneDigits(buyRequest.phone)
+    );
+
+    if (isOwnerUser || usesBuyerPhone) {
+      res.status(400).json({ message: 'Bạn là người đăng tin mua xe này nên không thể tự gửi xe phù hợp cho chính tin của mình.' });
+      return;
+    }
+
+    const createdOffer = createCarBuyRequestOffer(requestId, offer);
+
+    if (!createdOffer) {
+      res.status(404).json({ message: 'Tin mua xe này không còn nhận đề xuất.' });
+      return;
+    }
+
+    res.status(201).json({
+      message: 'OkXe đã nhận thông tin xe phù hợp. Nhân viên sẽ kiểm tra và kết nối nhu cầu mua bán.',
+      offer: createdOffer,
+    });
+  } catch (dbError) {
+    console.error('Create car buy request offer error:', dbError);
+    res.status(500).json({ message: 'Không thể gửi đề xuất xe lúc này.' });
+  }
+});
+
 app.post('/api/consultation-requests', consultationRequestRateLimit, (req, res) => {
   const { request, error } = validateConsultationRequestPayload(req.body || {});
 
@@ -1858,6 +2024,38 @@ app.patch('/api/admin/car-buy-requests/:id/status', requireAdmin, (req, res) => 
   } catch (dbError) {
     console.error('Update car buy request status error:', dbError);
     res.status(500).json({ message: 'Không thể cập nhật trạng thái tin mua xe lúc này.' });
+  }
+});
+
+app.patch('/api/admin/car-buy-request-offers/:id/status', requireAdmin, (req, res) => {
+  const offerId = Number(req.params.id);
+  const { statusUpdate, error } = validateCarBuyRequestOfferStatusPayload(req.body || {});
+
+  if (!Number.isFinite(offerId)) {
+    res.status(400).json({ message: 'Mã đề xuất xe không hợp lệ.' });
+    return;
+  }
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const offer = updateCarBuyRequestOfferStatus(offerId, statusUpdate);
+
+    if (!offer) {
+      res.status(404).json({ message: 'Không tìm thấy đề xuất xe.' });
+      return;
+    }
+
+    res.json({
+      message: `Cập nhật đề xuất xe: ${carBuyRequestOfferStatusLabels[offer.status]}.`,
+      offer,
+    });
+  } catch (dbError) {
+    console.error('Update car buy request offer status error:', dbError);
+    res.status(500).json({ message: 'Không thể cập nhật đề xuất xe lúc này.' });
   }
 });
 

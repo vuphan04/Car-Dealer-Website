@@ -29,6 +29,7 @@ const testDriveAppointmentStatuses = new Set(['pending', 'approved', 'cancelled'
 const approvedTestDriveAppointmentStatus = 'approved';
 const consultationRequestStatuses = new Set(['new', 'contacted', 'appointment', 'closed', 'failed']);
 const carBuyRequestStatuses = new Set(['pending', 'approved', 'rejected']);
+const carBuyRequestOfferStatuses = new Set(['new', 'contacted', 'matched', 'rejected']);
 
 const normalizeConfiguredEmail = (email) =>
   String(email || '').trim().toLowerCase();
@@ -76,6 +77,14 @@ const normalizeCarBuyRequestStatus = (status) => {
   return carBuyRequestStatuses.has(normalizedStatus)
     ? normalizedStatus
     : 'pending';
+};
+
+const normalizeCarBuyRequestOfferStatus = (status) => {
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+
+  return carBuyRequestOfferStatuses.has(normalizedStatus)
+    ? normalizedStatus
+    : 'new';
 };
 
 const getConfiguredRoleForEmail = (email) => {
@@ -307,6 +316,27 @@ const initializeSchema = (database) => {
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
   );
 
+  CREATE TABLE IF NOT EXISTS car_buy_request_offers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    car_buy_request_id INTEGER NOT NULL,
+    seller_name TEXT NOT NULL,
+    seller_phone TEXT NOT NULL,
+    seller_email TEXT NOT NULL DEFAULT '',
+    car_brand TEXT NOT NULL DEFAULT '',
+    car_model TEXT NOT NULL DEFAULT '',
+    car_year TEXT NOT NULL DEFAULT '',
+    car_version TEXT NOT NULL DEFAULT '',
+    expected_price TEXT NOT NULL DEFAULT '',
+    mileage TEXT NOT NULL DEFAULT '',
+    condition_note TEXT NOT NULL DEFAULT '',
+    contact_preference TEXT NOT NULL DEFAULT 'okxe_first',
+    status TEXT NOT NULL DEFAULT 'new',
+    status_note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (car_buy_request_id) REFERENCES car_buy_requests(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id
   ON user_sessions (user_id);
 
@@ -354,6 +384,12 @@ const initializeSchema = (database) => {
 
   CREATE INDEX IF NOT EXISTS idx_car_buy_requests_user_id
   ON car_buy_requests (user_id, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_car_buy_request_offers_request_id
+  ON car_buy_request_offers (car_buy_request_id, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_car_buy_request_offers_status
+  ON car_buy_request_offers (status, created_at);
 
 `);
 
@@ -1217,6 +1253,60 @@ const deleteCarBuyRequestStatement = db.prepare(`
   WHERE id = ?
 `);
 
+const insertCarBuyRequestOfferStatement = db.prepare(`
+  INSERT INTO car_buy_request_offers (
+    car_buy_request_id,
+    seller_name,
+    seller_phone,
+    seller_email,
+    car_brand,
+    car_model,
+    car_year,
+    car_version,
+    expected_price,
+    mileage,
+    condition_note,
+    contact_preference
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+const findCarBuyRequestOfferByIdStatement = db.prepare(`
+  SELECT *
+  FROM car_buy_request_offers
+  WHERE id = ?
+`);
+
+const listCarBuyRequestOffersByRequestIdStatement = db.prepare(`
+  SELECT *
+  FROM car_buy_request_offers
+  WHERE car_buy_request_id = ?
+  ORDER BY
+    CASE status
+      WHEN 'new' THEN 0
+      WHEN 'contacted' THEN 1
+      WHEN 'matched' THEN 2
+      WHEN 'rejected' THEN 3
+      ELSE 4
+    END,
+    datetime(created_at) DESC,
+    id DESC
+`);
+
+const countCarBuyRequestOffersByRequestIdStatement = db.prepare(`
+  SELECT COUNT(*) AS offer_count
+  FROM car_buy_request_offers
+  WHERE car_buy_request_id = ?
+`);
+
+const updateCarBuyRequestOfferStatusStatement = db.prepare(`
+  UPDATE car_buy_request_offers
+  SET status = ?,
+      status_note = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
 const seedCars = [
   {
     brand: 'Rolls-Royce',
@@ -1621,6 +1711,24 @@ const normalizeCarBuyRequestPayload = (request = {}) => ({
   address: String(request.address || '').trim().replace(/\s+/g, ' '),
 });
 
+const normalizeCarBuyRequestOfferPayload = (offer = {}) => ({
+  sellerName: normalizeFullName(offer.sellerName || offer.seller_name),
+  sellerPhone: String(offer.sellerPhone || offer.seller_phone || '').trim(),
+  sellerEmail: normalizeEmail(offer.sellerEmail || offer.seller_email),
+  carBrand: String(offer.carBrand || offer.car_brand || '').trim().replace(/\s+/g, ' '),
+  carModel: String(offer.carModel || offer.car_model || '').trim().replace(/\s+/g, ' '),
+  carYear: String(offer.carYear || offer.car_year || '').trim().replace(/\s+/g, ' '),
+  carVersion: String(offer.carVersion || offer.car_version || '').trim().replace(/\s+/g, ' '),
+  expectedPrice: String(offer.expectedPrice || offer.expected_price || '').trim().replace(/\s+/g, ' '),
+  mileage: String(offer.mileage || '').trim().replace(/\s+/g, ' '),
+  conditionNote: String(offer.conditionNote || offer.condition_note || '').trim(),
+  contactPreference: ['okxe_first', 'direct_allowed'].includes(
+    String(offer.contactPreference || offer.contact_preference || '').trim()
+  )
+    ? String(offer.contactPreference || offer.contact_preference || '').trim()
+    : 'okxe_first',
+});
+
 const sanitizeCarBuyRequest = (requestRow) => {
   if (!requestRow) {
     return null;
@@ -1642,8 +1750,37 @@ const sanitizeCarBuyRequest = (requestRow) => {
     address: requestRow.address || '',
     status: normalizeCarBuyRequestStatus(requestRow.status),
     statusNote: requestRow.status_note || '',
+    offerCount: Number(requestRow.offer_count || 0),
+    newOfferCount: Number(requestRow.new_offer_count || 0),
     createdAt: requestRow.created_at || '',
     updatedAt: requestRow.updated_at || '',
+  };
+};
+
+const sanitizeCarBuyRequestOffer = (offerRow) => {
+  if (!offerRow) {
+    return null;
+  }
+
+  return {
+    id: offerRow.id,
+    code: `DX-${String(offerRow.id).padStart(6, '0')}`,
+    requestId: offerRow.car_buy_request_id,
+    sellerName: offerRow.seller_name || '',
+    sellerPhone: offerRow.seller_phone || '',
+    sellerEmail: offerRow.seller_email || '',
+    carBrand: offerRow.car_brand || '',
+    carModel: offerRow.car_model || '',
+    carYear: offerRow.car_year || '',
+    carVersion: offerRow.car_version || '',
+    expectedPrice: offerRow.expected_price || '',
+    mileage: offerRow.mileage || '',
+    conditionNote: offerRow.condition_note || '',
+    contactPreference: offerRow.contact_preference || 'okxe_first',
+    status: normalizeCarBuyRequestOfferStatus(offerRow.status),
+    statusNote: offerRow.status_note || '',
+    createdAt: offerRow.created_at || '',
+    updatedAt: offerRow.updated_at || '',
   };
 };
 
@@ -2126,14 +2263,55 @@ const getPromotionById = (promotionId) =>
 const getCarBuyRequestById = (requestId) =>
   sanitizeCarBuyRequest(findCarBuyRequestByIdStatement.get(requestId));
 
+const countCarBuyRequestOffersByRequestId = (requestId) =>
+  Number(countCarBuyRequestOffersByRequestIdStatement.get(requestId)?.offer_count || 0);
+
+const listCarBuyRequestOffersByRequestId = (requestId) =>
+  listCarBuyRequestOffersByRequestIdStatement.all(requestId).map(sanitizeCarBuyRequestOffer);
+
+const attachCarBuyRequestOfferSummary = (request) => {
+  if (!request) {
+    return null;
+  }
+
+  return {
+    ...request,
+    offerCount: countCarBuyRequestOffersByRequestId(request.id),
+  };
+};
+
+const attachCarBuyRequestOffers = (request) => {
+  if (!request) {
+    return null;
+  }
+
+  const offers = listCarBuyRequestOffersByRequestId(request.id);
+
+  return {
+    ...request,
+    offers,
+    offerCount: offers.length,
+    newOfferCount: offers.filter((offer) => offer.status === 'new').length,
+  };
+};
+
+const getCarBuyRequestOfferById = (offerId) =>
+  sanitizeCarBuyRequestOffer(findCarBuyRequestOfferByIdStatement.get(offerId));
+
 const listPublicCarBuyRequests = () =>
-  listPublicCarBuyRequestsStatement.all().map(sanitizeCarBuyRequest);
+  listPublicCarBuyRequestsStatement.all()
+    .map(sanitizeCarBuyRequest)
+    .map(attachCarBuyRequestOfferSummary);
 
 const listCarBuyRequests = () =>
-  listCarBuyRequestsStatement.all().map(sanitizeCarBuyRequest);
+  listCarBuyRequestsStatement.all()
+    .map(sanitizeCarBuyRequest)
+    .map(attachCarBuyRequestOffers);
 
 const listCarBuyRequestsByUser = (userId) =>
-  listCarBuyRequestsByUserStatement.all(userId).map(sanitizeCarBuyRequest);
+  listCarBuyRequestsByUserStatement.all(userId)
+    .map(sanitizeCarBuyRequest)
+    .map(attachCarBuyRequestOfferSummary);
 
 const listFavoriteCarsByUser = (userId) =>
   listFavoriteCarsByUserStatement.all(userId).map(sanitizeCar);
@@ -2381,6 +2559,32 @@ const createCarBuyRequest = (request) => {
   return getCarBuyRequestById(result.lastInsertRowid);
 };
 
+const createCarBuyRequestOffer = (requestId, offer) => {
+  const existingRequest = getCarBuyRequestById(requestId);
+
+  if (!existingRequest || existingRequest.status !== 'approved') {
+    return null;
+  }
+
+  const normalizedOffer = normalizeCarBuyRequestOfferPayload(offer);
+  const result = insertCarBuyRequestOfferStatement.run(
+    requestId,
+    normalizedOffer.sellerName,
+    normalizedOffer.sellerPhone,
+    normalizedOffer.sellerEmail,
+    normalizedOffer.carBrand,
+    normalizedOffer.carModel,
+    normalizedOffer.carYear,
+    normalizedOffer.carVersion,
+    normalizedOffer.expectedPrice,
+    normalizedOffer.mileage,
+    normalizedOffer.conditionNote,
+    normalizedOffer.contactPreference
+  );
+
+  return getCarBuyRequestOfferById(result.lastInsertRowid);
+};
+
 const updateCarBuyRequestStatus = (requestId, {
   status,
   statusNote = '',
@@ -2409,6 +2613,25 @@ const updateCarBuyRequestStatus = (requestId, {
   );
 
   return getCarBuyRequestById(requestId);
+};
+
+const updateCarBuyRequestOfferStatus = (offerId, {
+  status,
+  statusNote = '',
+}) => {
+  const existingOffer = getCarBuyRequestOfferById(offerId);
+
+  if (!existingOffer) {
+    return null;
+  }
+
+  updateCarBuyRequestOfferStatusStatement.run(
+    normalizeCarBuyRequestOfferStatus(status),
+    String(statusNote || '').trim(),
+    offerId
+  );
+
+  return getCarBuyRequestOfferById(offerId);
 };
 
 const deleteCarBuyRequest = (requestId) => {
@@ -2550,6 +2773,7 @@ module.exports = {
   authenticateUser,
   createCar,
   createCarBuyRequest,
+  createCarBuyRequestOffer,
   createConsultationRequest,
   createPasswordResetOtp,
   createPromotion,
@@ -2566,6 +2790,7 @@ module.exports = {
   deleteUser,
   getCarById,
   getCarBuyRequestById,
+  getCarBuyRequestOfferById,
   getConsultationRequestById,
   getPromotionById,
   getTestDriveAppointmentById,
@@ -2575,6 +2800,7 @@ module.exports = {
   isFavoriteCarByUser,
   listHomepagePromotions,
   listAvailableTestDriveCars,
+  listCarBuyRequestOffersByRequestId,
   listCarBuyRequests,
   listCarBuyRequestsByUser,
   listUsers,
@@ -2598,4 +2824,5 @@ module.exports = {
   updateUserRole,
   updateCar,
   updateCarBuyRequestStatus,
+  updateCarBuyRequestOfferStatus,
 };

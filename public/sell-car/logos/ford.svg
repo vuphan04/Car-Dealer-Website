@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 90" role="img" aria-labelledby="title">
+  <title id="title">Ford logo</title>
+  <rect width="180" height="90" fill="white"/>
+  <ellipse cx="90" cy="37" rx="55" ry="25" fill="#0b3f91"/>
+  <ellipse cx="90" cy="37" rx="49" ry="20" fill="none" stroke="#ffffff" stroke-width="3"/>
+  <text x="90" y="46" text-anchor="middle" font-family="Georgia, serif" font-size="32" font-weight="700" font-style="italic" fill="#ffffff">Ford</text>
+</svg>

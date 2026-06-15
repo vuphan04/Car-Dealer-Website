@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 90" role="img" aria-labelledby="title">
+  <title id="title">Kia logo</title>
+  <rect width="180" height="90" fill="white"/>
+  <path d="M43 59V28M43 45L70 28M54 42L73 59M84 59V28M104 59L126 28L148 59M116 48H139" fill="none" stroke="#101828" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="90" y="77" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" font-weight="800" fill="#101828">KIA</text>
+</svg>

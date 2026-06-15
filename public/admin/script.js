@@ -7,6 +7,7 @@ const feedbackElement = document.querySelector('#admin-feedback');
 const searchInput = document.querySelector('#car-search');
 const refreshListButton = document.querySelector('#refresh-list-button');
 const carTableBody = document.querySelector('#car-table-body');
+const carResultSummary = document.querySelector('#car-result-summary');
 const editorPanel = document.querySelector('#editor-panel');
 const openFormButton = document.querySelector('#open-form-button');
 const closeFormButton = document.querySelector('#close-form-button');
@@ -120,6 +121,7 @@ const carBuyRequestStatPending = document.querySelector('#car-buy-request-stat-p
 const carBuyRequestStatApproved = document.querySelector('#car-buy-request-stat-approved');
 const carBuyRequestStatRejected = document.querySelector('#car-buy-request-stat-rejected');
 const carBuyRequestStatTotal = document.querySelector('#car-buy-request-stat-total');
+const carBuyRequestStatOffers = document.querySelector('#car-buy-request-stat-offers');
 const carBuyRequestStatusPanel = document.querySelector('#car-buy-request-status-panel');
 const carBuyRequestStatusTitle = document.querySelector('#car-buy-request-status-title');
 const carBuyRequestStatusSummary = document.querySelector('#car-buy-request-status-summary');
@@ -130,8 +132,13 @@ const carBuyRequestStatusFeedback = document.querySelector('#car-buy-request-sta
 const carBuyRequestStatusCloseButtons = document.querySelectorAll('[data-close-car-buy-request-status]');
 
 const totalCarsElement = document.querySelector('#stat-total-cars');
-const averagePriceElement = document.querySelector('#stat-average-price');
-const newCarsElement = document.querySelector('#stat-new-cars');
+const totalCarsDetailElement = document.querySelector('#stat-total-cars-detail');
+const availableCarsElement = document.querySelector('#stat-available-cars');
+const availableCarsDetailElement = document.querySelector('#stat-available-cars-detail');
+const inventoryValueElement = document.querySelector('#stat-inventory-value');
+const inventoryValueDetailElement = document.querySelector('#stat-inventory-value-detail');
+const incompleteCarsElement = document.querySelector('#stat-incomplete-cars');
+const incompleteCarsDetailElement = document.querySelector('#stat-incomplete-cars-detail');
 
 let cars = [];
 let employees = [];
@@ -278,6 +285,28 @@ const carBuyRequestStatusConfig = {
         label: 'Từ chối',
         className: 'is-rejected'
     }
+};
+const carBuyRequestOfferStatusConfig = {
+    new: {
+        label: 'Mới',
+        className: 'is-new'
+    },
+    contacted: {
+        label: 'Đã liên hệ',
+        className: 'is-contacted'
+    },
+    matched: {
+        label: 'Đã kết nối',
+        className: 'is-matched'
+    },
+    rejected: {
+        label: 'Từ chối',
+        className: 'is-rejected'
+    }
+};
+const carBuyRequestOfferContactPreferenceLabels = {
+    okxe_first: 'OkXe liên hệ trước',
+    direct_allowed: 'Cho khách mua liên hệ trực tiếp'
 };
 let carBuyRequestBudgetLabels = {
     'under-200': 'Dưới 200 Triệu',
@@ -455,6 +484,81 @@ const formatCompactPrice = (value) => {
     }
 
     return `${currencyFormatter.format(numericValue)} VNĐ`;
+};
+
+const hasCarValue = (value) => String(value ?? '').trim().length > 0;
+
+const isAvailableCar = (car) => {
+    const normalizedStatus = normalizeSearchValue(car?.actionText || 'Còn xe');
+
+    return !normalizedStatus.includes('da ban')
+        && !normalizedStatus.includes('het hang')
+        && !normalizedStatus.includes('het xe');
+};
+
+const getCarStatusMeta = (car) => {
+    if (isAvailableCar(car)) {
+        return {
+            label: car?.actionText || 'Còn xe',
+            className: 'is-available'
+        };
+    }
+
+    return {
+        label: car?.actionText || 'Xe đã bán',
+        className: 'is-sold'
+    };
+};
+
+const formatInventoryDate = (value) => {
+    if (!value) {
+        return 'Chưa cập nhật';
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime()) ? 'Chưa cập nhật' : dateFormatter.format(date);
+};
+
+const getCarDataIssues = (car) => {
+    const images = getCarImages(car);
+    const issues = [];
+
+    if (!images.length && !hasCarValue(car?.image)) {
+        issues.push('Thiếu ảnh');
+    }
+
+    if (!hasCarValue(car?.description)) {
+        issues.push('Thiếu mô tả');
+    }
+
+    if (!Number(car?.priceValue || 0) && !hasCarValue(car?.price)) {
+        issues.push('Thiếu giá');
+    }
+
+    if (!Number(car?.year || 0)) {
+        issues.push('Thiếu đời xe');
+    }
+
+    [
+        ['brand', 'Thiếu hãng'],
+        ['category', 'Thiếu phân khúc'],
+        ['fuel', 'Thiếu nhiên liệu'],
+        ['mileage', 'Thiếu số km'],
+        ['seats', 'Thiếu số chỗ'],
+        ['gearbox', 'Thiếu hộp số'],
+        ['drivetrain', 'Thiếu dẫn động'],
+        ['origin', 'Thiếu xuất xứ'],
+        ['condition', 'Thiếu tình trạng'],
+        ['color', 'Thiếu màu sắc'],
+        ['actionText', 'Thiếu trạng thái']
+    ].forEach(([fieldName, label]) => {
+        if (!hasCarValue(car?.[fieldName])) {
+            issues.push(label);
+        }
+    });
+
+    return issues;
 };
 
 const requestJson = async (url, options = {}) => {
@@ -1337,28 +1441,56 @@ const fillForm = (car) => {
 
 const updateStats = (items) => {
     const totalCars = items.length;
-    const totalPrice = items.reduce((sum, car) => sum + Number(car.priceValue || 0), 0);
-    const averagePrice = totalCars ? Math.round(totalPrice / totalCars) : 0;
-    const newCars = items.filter((car) => String(car.condition).toLowerCase().includes('mới')).length;
+    const availableCars = items.filter(isAvailableCar);
+    const soldCars = totalCars - availableCars.length;
+    const newCars = items.filter((car) => normalizeSearchValue(car.condition).includes('moi')).length;
+    const inventoryValue = availableCars.reduce((sum, car) => sum + Number(car.priceValue || 0), 0);
+    const averageAvailablePrice = availableCars.length ? Math.round(inventoryValue / availableCars.length) : 0;
+    const incompleteCars = items.filter((car) => getCarDataIssues(car).length > 0).length;
 
     totalCarsElement.textContent = String(totalCars);
-    averagePriceElement.textContent = formatCompactPrice(averagePrice);
-    newCarsElement.textContent = String(newCars);
+    totalCarsDetailElement.textContent = `${availableCars.length} còn hàng, ${soldCars} đã bán`;
+    availableCarsElement.textContent = String(availableCars.length);
+    availableCarsDetailElement.textContent = `${newCars} xe mới, ${Math.max(0, totalCars - newCars)} xe cũ`;
+    inventoryValueElement.textContent = formatCompactPrice(inventoryValue);
+    inventoryValueDetailElement.textContent = availableCars.length
+        ? `Giá TB xe còn hàng: ${formatCompactPrice(averageAvailablePrice)}`
+        : 'Chưa có xe còn hàng';
+    incompleteCarsElement.textContent = String(incompleteCars);
+    incompleteCarsDetailElement.textContent = incompleteCars
+        ? `${totalCars - incompleteCars} xe đã đủ dữ liệu`
+        : 'Tất cả xe đã đủ dữ liệu';
 };
 
 const getFilteredCars = () => {
-    const keyword = String(searchInput?.value || '').trim().toLowerCase();
+    const keyword = normalizeSearchValue(searchInput?.value);
 
     if (!keyword) {
         return cars;
     }
 
-    return cars.filter((car) =>
-        [car.name, car.brand, car.category, car.type, car.drivetrain, car.condition, car.origin]
-            .join(' ')
-            .toLowerCase()
-            .includes(keyword)
-    );
+    return cars.filter((car) => {
+        const haystack = [
+            car.name,
+            car.brand,
+            car.category,
+            car.type,
+            car.drivetrain,
+            car.condition,
+            car.origin,
+            car.actionText,
+            car.gearbox,
+            car.fuel,
+            car.seats,
+            car.mileage,
+            car.color,
+            car.price,
+            car.description
+        ]
+            .join(' ');
+
+        return normalizeSearchValue(haystack).includes(keyword);
+    });
 };
 
 const renderCars = () => {
@@ -1367,12 +1499,19 @@ const renderCars = () => {
     }
 
     const filteredCars = getFilteredCars();
-    updateStats(filteredCars);
+    updateStats(cars);
+
+    if (carResultSummary) {
+        const keyword = String(searchInput?.value || '').trim();
+        carResultSummary.textContent = keyword
+            ? `Đang hiển thị ${filteredCars.length} / ${cars.length} xe phù hợp với "${keyword}".`
+            : `Đang hiển thị ${filteredCars.length} / ${cars.length} xe trong kho.`;
+    }
 
     if (!filteredCars.length) {
         carTableBody.innerHTML = `
             <tr>
-                <td colspan="6" class="table-empty">Không tìm thấy xe phù hợp với bộ lọc hiện tại.</td>
+                <td colspan="7" class="table-empty">Không tìm thấy xe phù hợp với bộ lọc hiện tại.</td>
             </tr>
         `;
         return;
@@ -1381,40 +1520,90 @@ const renderCars = () => {
     carTableBody.innerHTML = filteredCars.map((car) => {
         const images = getCarImages(car);
         const imageCount = images.length;
+        const imageSource = images[0] || car.image || '';
+        const statusMeta = getCarStatusMeta(car);
+        const dataIssues = getCarDataIssues(car);
+        const issuePreview = dataIssues.length
+            ? `${dataIssues.slice(0, 2).join(', ')}${dataIssues.length > 2 ? ` +${dataIssues.length - 2}` : ''}`
+            : 'Đủ dữ liệu';
+        const carTitle = getDisplayCarTitle(car.brand, car.name, 'Chưa có tên xe');
+        const descriptionPreview = getShortNotePreview(car.description, 118);
+        const priceValue = Number(car.priceValue || 0);
+        const specItems = [
+            ['Phân khúc', car.category],
+            ['Kiểu', car.type],
+            ['Hộp số', car.gearbox],
+            ['Nhiên liệu', car.fuel],
+            ['Số chỗ', car.seats],
+            ['ODO', car.mileage],
+            ['Dẫn động', car.drivetrain],
+            ['Xuất xứ', car.origin],
+            ['Màu', car.color]
+        ].filter(([, value]) => hasCarValue(value));
+        const imageMarkup = imageSource
+            ? `<img src="${escapeHtml(imageSource)}" alt="${escapeHtml(carTitle)}" class="car-image">`
+            : `<div class="car-image car-image--placeholder" aria-label="Chưa có ảnh xe"><i class="bx bx-image"></i></div>`;
+        const specMarkup = specItems.length
+            ? specItems.map(([label, value]) => `
+                <span class="spec-chip">
+                    <small>${escapeHtml(label)}</small>
+                    <strong>${escapeHtml(value)}</strong>
+                </span>
+            `).join('')
+            : '<span class="spec-chip spec-chip--empty">Chưa có thông số</span>';
 
         return `
-            <tr>
+            <tr class="${isAvailableCar(car) ? '' : 'inventory-row--muted'}">
                 <td>
                     <div class="car-image-stack">
-                        <img src="${images[0] || car.image}" alt="${car.name}" class="car-image">
+                        ${imageMarkup}
                         ${imageCount > 1 ? `<span class="car-image-count">+${imageCount - 1}</span>` : ''}
                     </div>
                 </td>
                 <td>
-                <div class="car-name">
-                    <strong>${car.name}</strong>
-                    <span>${car.brand || 'Chưa có hãng'} • ${car.year} • ${car.fuel} • ${car.drivetrain || 'Chưa có dẫn động'} • ${car.condition}</span>
-                    ${car.description ? `<small>${escapeHtml(car.description)}</small>` : ''}
-                </div>
+                    <div class="car-name car-name--detailed">
+                        <div class="car-name__title">
+                            <strong>${escapeHtml(carTitle)}</strong>
+                            <span class="car-id-badge">#${escapeHtml(car.id)}</span>
+                        </div>
+                        <span class="car-name__meta">${escapeHtml(car.brand || 'Chưa có hãng')} • ${escapeHtml(car.year || 'Chưa có đời')} • ${escapeHtml(car.condition || 'Chưa có tình trạng')}</span>
+                        <small class="car-description-preview">${escapeHtml(descriptionPreview || 'Chưa có mô tả xe.')}</small>
+                    </div>
                 </td>
                 <td>
-                    <span class="pill pill--category">${car.category}</span>
+                    <div class="price-stack price-stack--detailed">
+                        <strong>${escapeHtml(car.price || 'Giá liên hệ')}</strong>
+                        ${priceValue ? `<span class="price-note">${escapeHtml(currencyFormatter.format(priceValue))} VNĐ</span>` : '<span class="price-note">Chưa nhập giá số</span>'}
+                        <span class="inventory-status-badge ${statusMeta.className}">${escapeHtml(statusMeta.label)}</span>
+                    </div>
                 </td>
                 <td>
-                    <span class="pill pill--gearbox">${car.gearbox}</span>
+                    <div class="car-spec-grid">${specMarkup}</div>
                 </td>
                 <td>
-                    <div class="price-stack">
-                        <strong>${car.price}</strong>
-                        <span class="price-note">${currencyFormatter.format(car.priceValue)} VNĐ</span>
+                    <div class="car-data-stack">
+                        <span class="data-chip">
+                            <i class="bx bx-images"></i>
+                            ${imageCount || 0} ảnh
+                        </span>
+                        <span class="data-chip ${dataIssues.length ? 'is-incomplete' : 'is-complete'}">
+                            <i class="bx ${dataIssues.length ? 'bx-error-circle' : 'bx-check-circle'}"></i>
+                            ${escapeHtml(issuePreview)}
+                        </span>
+                    </div>
+                </td>
+                <td>
+                    <div class="car-date-stack">
+                        <strong>Tạo ${escapeHtml(formatInventoryDate(car.createdAt))}</strong>
+                        <span>Cập nhật ${escapeHtml(formatInventoryDate(car.updatedAt))}</span>
                     </div>
                 </td>
                 <td>
                     <div class="table-actions">
-                        <button type="button" class="icon-btn icon-btn--edit" data-edit-car="${car.id}" aria-label="Sửa ${car.name}">
+                        <button type="button" class="icon-btn icon-btn--edit" data-edit-car="${escapeHtml(car.id)}" aria-label="Sửa ${escapeHtml(carTitle)}" title="Sửa xe">
                             <i class="bx bx-pencil"></i>
                         </button>
-                        <button type="button" class="icon-btn icon-btn--delete" data-delete-car="${car.id}" aria-label="Xóa ${car.name}">
+                        <button type="button" class="icon-btn icon-btn--delete" data-delete-car="${escapeHtml(car.id)}" aria-label="Xóa ${escapeHtml(carTitle)}" title="Xóa xe">
                             <i class="bx bx-trash"></i>
                         </button>
                     </div>
@@ -1440,7 +1629,7 @@ const loadCars = async () => {
         setFeedback(error.message || 'Không thể tải danh sách xe.', 'error');
         carTableBody.innerHTML = `
             <tr>
-                <td colspan="6" class="table-empty">Không thể tải dữ liệu xe từ hệ thống.</td>
+                <td colspan="7" class="table-empty">Không thể tải dữ liệu xe từ hệ thống.</td>
             </tr>
         `;
     }
@@ -2402,16 +2591,45 @@ const getCarBuyRequestStatusClass = (status) => {
     return carBuyRequestStatusConfig[normalizedStatus]?.className || carBuyRequestStatusConfig.pending.className;
 };
 
+const getCarBuyRequestOfferStatusLabel = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+
+    return carBuyRequestOfferStatusConfig[normalizedStatus]?.label || carBuyRequestOfferStatusConfig.new.label;
+};
+
+const getCarBuyRequestOfferStatusClass = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+
+    return carBuyRequestOfferStatusConfig[normalizedStatus]?.className || carBuyRequestOfferStatusConfig.new.className;
+};
+
+const getCarBuyRequestOfferContactPreferenceLabel = (preference) =>
+    carBuyRequestOfferContactPreferenceLabels[String(preference || '').trim()]
+    || carBuyRequestOfferContactPreferenceLabels.okxe_first;
+
 const getCarBuyRequestBudgetLabel = (budgetRange) =>
     carBuyRequestBudgetLabels[budgetRange] || 'Giá thỏa thuận';
 
 const getCarBuyRequest = (requestId) =>
     carBuyRequests.find((request) => String(request.id) === String(requestId));
 
+const getCarBuyRequestOffer = (offerId) => {
+    for (const request of carBuyRequests) {
+        const offer = (request.offers || []).find((item) => String(item.id) === String(offerId));
+
+        if (offer) {
+            return { request, offer };
+        }
+    }
+
+    return { request: null, offer: null };
+};
+
 const updateCarBuyRequestStats = () => {
     const pending = carBuyRequests.filter((request) => request.status === 'pending').length;
     const approved = carBuyRequests.filter((request) => request.status === 'approved').length;
     const rejected = carBuyRequests.filter((request) => request.status === 'rejected').length;
+    const offerCount = carBuyRequests.reduce((total, request) => total + Number(request.offerCount || (request.offers || []).length || 0), 0);
 
     if (carBuyRequestStatPending) {
         carBuyRequestStatPending.textContent = String(pending);
@@ -2424,6 +2642,9 @@ const updateCarBuyRequestStats = () => {
     }
     if (carBuyRequestStatTotal) {
         carBuyRequestStatTotal.textContent = String(carBuyRequests.length);
+    }
+    if (carBuyRequestStatOffers) {
+        carBuyRequestStatOffers.textContent = String(offerCount);
     }
 };
 
@@ -2442,6 +2663,21 @@ const getFilteredCarBuyRequests = () => {
             return true;
         }
 
+        const offerSearchText = (request.offers || []).map((offer) => [
+            offer.code,
+            offer.sellerName,
+            offer.sellerPhone,
+            offer.sellerEmail,
+            offer.carBrand,
+            offer.carModel,
+            offer.carYear,
+            offer.expectedPrice,
+            offer.mileage,
+            offer.conditionNote,
+            getCarBuyRequestOfferStatusLabel(offer.status),
+            offer.statusNote
+        ].join(' ')).join(' ');
+
         return normalizeSearchValue([
             request.code,
             request.fullName,
@@ -2453,7 +2689,8 @@ const getFilteredCarBuyRequests = () => {
             request.content,
             getCarBuyRequestBudgetLabel(request.budgetRange),
             getCarBuyRequestStatusLabel(request.status),
-            request.statusNote
+            request.statusNote,
+            offerSearchText
         ].join(' ')).includes(keyword)
     });
 };
@@ -2486,6 +2723,20 @@ const renderCarBuyRequests = () => {
         const statusClass = getCarBuyRequestStatusClass(status);
         const createdDate = formatConsultationDate(request.createdAt);
         const statusNotePreview = getShortNotePreview(request.statusNote);
+        const offers = request.offers || [];
+        const offerCount = Number(request.offerCount || offers.length || 0);
+        const newOfferCount = Number(request.newOfferCount || offers.filter((offer) => offer.status === 'new').length || 0);
+        const latestOffer = offers[0] || null;
+        const latestOfferCar = latestOffer
+            ? [latestOffer.carBrand, latestOffer.carModel, latestOffer.carYear]
+                .filter(Boolean)
+                .join(' ') || 'Xe phù hợp'
+            : '';
+        const latestOfferMeta = latestOffer
+            ? [latestOffer.expectedPrice, latestOffer.mileage, getCarBuyRequestOfferStatusLabel(latestOffer.status)]
+                .filter(Boolean)
+                .join(' · ')
+            : '';
 
         return `
             <tr data-view-car-buy-request="${escapeHtml(request.id)}">
@@ -2504,6 +2755,14 @@ const renderCarBuyRequests = () => {
                         <strong>${escapeHtml(request.title || 'Khách cần mua ô tô')}</strong>
                         <span>${escapeHtml(getCarBuyRequestBudgetLabel(request.budgetRange))}</span>
                         <small>Tạo ${escapeHtml(createdDate)}</small>
+                        <small class="car-buy-request-offer-summary">${escapeHtml(offerCount)} đề xuất xe${newOfferCount ? ` · ${escapeHtml(newOfferCount)} mới` : ''}</small>
+                        ${latestOffer ? `
+                            <div class="car-buy-request-offer-preview">
+                                <span>Người đề xuất mới nhất</span>
+                                <strong>${escapeHtml(latestOffer.sellerName || 'Chưa có tên')} · ${escapeHtml(latestOffer.sellerPhone || 'Chưa có SĐT')}</strong>
+                                <small>${escapeHtml(latestOfferCar)}${latestOfferMeta ? ` · ${escapeHtml(latestOfferMeta)}` : ''}</small>
+                            </div>
+                        ` : ''}
                     </div>
                 </td>
                 <td>
@@ -2572,6 +2831,56 @@ const openCarBuyRequestDetail = (request) => {
 
     const createdDate = formatConsultationDate(request.createdAt);
     const updatedDate = formatConsultationDate(request.updatedAt);
+    const phoneHref = getPhoneHref(request.phone);
+    const emailText = request.email || request.userEmail || '';
+    const emailHref = getMailHref(emailText);
+    const offers = request.offers || [];
+    const offerItemsHtml = offers.length
+        ? offers.map((offer) => {
+            const sellerPhoneHref = getPhoneHref(offer.sellerPhone);
+            const sellerEmailHref = getMailHref(offer.sellerEmail);
+            const offerStatus = String(offer.status || 'new').trim().toLowerCase();
+            const offerStatusOptions = Object.entries(carBuyRequestOfferStatusConfig).map(([value, config]) => `
+                <option value="${escapeHtml(value)}" ${value === offerStatus ? 'selected' : ''}>${escapeHtml(config.label)}</option>
+            `).join('');
+
+            return `
+                <article class="car-buy-request-offer-card">
+                    <div class="car-buy-request-offer-card__head">
+                        <div>
+                            <span>${escapeHtml(offer.code || `DX-${offer.id}`)}</span>
+                            <h4>${escapeHtml([offer.carBrand, offer.carModel, offer.carYear].filter(Boolean).join(' ') || 'Xe phù hợp')}</h4>
+                            <p>${escapeHtml([offer.carVersion, offer.expectedPrice, offer.mileage].filter(Boolean).join(' · ') || 'Chưa cập nhật giá/số km')}</p>
+                        </div>
+                        <span class="readonly-badge car-buy-request-offer-status-badge ${getCarBuyRequestOfferStatusClass(offerStatus)}">${escapeHtml(getCarBuyRequestOfferStatusLabel(offerStatus))}</span>
+                    </div>
+                    <div class="car-buy-request-offer-card__grid">
+                        <p><span>Người có xe</span><strong>${escapeHtml(offer.sellerName || 'Chưa có tên')}</strong></p>
+                        <p><span>Số điện thoại</span><strong>${sellerPhoneHref ? `<a class="admin-inline-link" href="tel:${escapeHtml(sellerPhoneHref)}">${escapeHtml(offer.sellerPhone)}</a>` : escapeHtml(offer.sellerPhone || 'Chưa có SĐT')}</strong></p>
+                        <p><span>Email</span><strong>${sellerEmailHref ? `<a class="admin-inline-link" href="mailto:${escapeHtml(sellerEmailHref)}">${escapeHtml(offer.sellerEmail)}</a>` : escapeHtml(offer.sellerEmail || 'Chưa có email')}</strong></p>
+                        <p><span>Cách liên hệ</span><strong>${escapeHtml(getCarBuyRequestOfferContactPreferenceLabel(offer.contactPreference))}</strong></p>
+                        <p class="car-buy-request-offer-card__wide"><span>Tình trạng xe</span><strong>${escapeHtml(offer.conditionNote || 'Chưa có mô tả tình trạng.')}</strong></p>
+                    </div>
+                    <div class="car-buy-request-offer-card__process">
+                        <label>
+                            <span>Trạng thái đề xuất</span>
+                            <select data-car-buy-request-offer-status="${escapeHtml(offer.id)}">
+                                ${offerStatusOptions}
+                            </select>
+                        </label>
+                        <label>
+                            <span>Ghi chú xử lý</span>
+                            <textarea data-car-buy-request-offer-note="${escapeHtml(offer.id)}" rows="2" maxlength="500" placeholder="Ghi chú nội bộ khi xử lý đề xuất...">${escapeHtml(offer.statusNote || '')}</textarea>
+                        </label>
+                        <button type="button" class="toolbar-btn toolbar-btn--primary" data-update-car-buy-request-offer="${escapeHtml(offer.id)}">
+                            <i class="bx bx-save"></i>
+                            <span>Cập nhật đề xuất</span>
+                        </button>
+                    </div>
+                </article>
+            `;
+        }).join('')
+        : '<p class="car-buy-request-offer-empty">Chưa có người bán nào gửi xe phù hợp cho tin mua này.</p>';
 
     if (customerDetailEyebrow) {
         customerDetailEyebrow.textContent = 'Tin mua xe';
@@ -2635,6 +2944,16 @@ const openCarBuyRequestDetail = (request) => {
                 <strong>${escapeHtml(request.statusNote || 'Chưa có ghi chú xử lý.')}</strong>
             </div>
         </div>
+        <section class="car-buy-request-offers-panel">
+            <div class="car-buy-request-offers-panel__header">
+                <span>Xử lý nhu cầu ghép xe</span>
+                <h4>Đề xuất xe phù hợp từ người bán</h4>
+                <p>Nhân viên kiểm tra thông tin xe, liên hệ người bán và cập nhật trạng thái để theo dõi quá trình kết nối.</p>
+            </div>
+            <div class="car-buy-request-offer-list">
+                ${offerItemsHtml}
+            </div>
+        </section>
     `;
 
     customerDetailPanel.hidden = false;
@@ -3830,6 +4149,67 @@ carBuyRequestTableBody?.addEventListener('click', async (event) => {
 
     if (request) {
         openCarBuyRequestDetail(request);
+    }
+});
+
+customerDetailBody?.addEventListener('click', async (event) => {
+    const updateOfferButton = event.target.closest('[data-update-car-buy-request-offer]');
+
+    if (!updateOfferButton) {
+        return;
+    }
+
+    const offerId = updateOfferButton.dataset.updateCarBuyRequestOffer;
+    const { request, offer } = getCarBuyRequestOffer(offerId);
+
+    if (!request || !offer) {
+        showToast('Không tìm thấy đề xuất xe cần xử lý.', 'error');
+        return;
+    }
+
+    const statusInput = [...customerDetailBody.querySelectorAll('[data-car-buy-request-offer-status]')]
+        .find((input) => String(input.dataset.carBuyRequestOfferStatus) === String(offerId));
+    const noteInput = [...customerDetailBody.querySelectorAll('[data-car-buy-request-offer-note]')]
+        .find((input) => String(input.dataset.carBuyRequestOfferNote) === String(offerId));
+    const status = String(statusInput?.value || '').trim().toLowerCase();
+    const statusNote = String(noteInput?.value || '').trim();
+
+    if (!carBuyRequestOfferStatusConfig[status]) {
+        showToast('Trạng thái đề xuất xe không hợp lệ.', 'error');
+        statusInput?.focus();
+        return;
+    }
+
+    if (status === 'rejected' && statusNote.length < 3) {
+        showToast('Vui lòng nhập lý do khi từ chối đề xuất xe.', 'error');
+        noteInput?.focus();
+        return;
+    }
+
+    updateOfferButton.disabled = true;
+    updateOfferButton.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i><span>Đang lưu...</span>';
+
+    try {
+        const { response, data } = await requestJson(`/api/admin/car-buy-request-offers/${offer.id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+                status,
+                statusNote
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể cập nhật đề xuất xe.');
+        }
+
+        await loadCarBuyRequests();
+        const refreshedRequest = getCarBuyRequest(request.id);
+        openCarBuyRequestDetail(refreshedRequest);
+        showToast(data.message || 'Cập nhật đề xuất xe thành công.', 'success', 'Đã cập nhật');
+    } catch (error) {
+        updateOfferButton.disabled = false;
+        updateOfferButton.innerHTML = '<i class="bx bx-save"></i><span>Cập nhật đề xuất</span>';
+        showToast(error.message || 'Không thể cập nhật đề xuất xe.', 'error');
     }
 });
 

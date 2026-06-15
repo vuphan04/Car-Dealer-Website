@@ -72,18 +72,26 @@
                         <p>Quản lý kho xe với giao diện dạng bảng sáng, thao tác thêm, sửa và xóa ngay trên một màn hình.</p>
                     </div>
 
-                    <div class="admin-overview__stats">
-                        <article class="overview-stat">
+                    <div class="admin-overview__stats inventory-stats">
+                        <article class="overview-stat inventory-stat">
                             <span>Tổng xe</span>
                             <strong id="stat-total-cars">0</strong>
+                            <small id="stat-total-cars-detail">Tất cả xe trong kho</small>
                         </article>
-                        <article class="overview-stat">
-                            <span>Giá trung bình</span>
-                            <strong id="stat-average-price">0 VNĐ</strong>
+                        <article class="overview-stat inventory-stat inventory-stat--available">
+                            <span>Xe còn hàng</span>
+                            <strong id="stat-available-cars">0</strong>
+                            <small id="stat-available-cars-detail">Sẵn sàng tư vấn và lái thử</small>
                         </article>
-                        <article class="overview-stat">
-                            <span>Xe mới</span>
-                            <strong id="stat-new-cars">0</strong>
+                        <article class="overview-stat inventory-stat inventory-stat--value">
+                            <span>Tổng giá trị kho</span>
+                            <strong id="stat-inventory-value">0 VNĐ</strong>
+                            <small id="stat-inventory-value-detail">Chỉ tính xe còn hàng</small>
+                        </article>
+                        <article class="overview-stat inventory-stat inventory-stat--warning">
+                            <span>Cần bổ sung thông tin</span>
+                            <strong id="stat-incomplete-cars">0</strong>
+                            <small id="stat-incomplete-cars-detail">Thiếu ảnh, mô tả hoặc thông số</small>
                         </article>
                     </div>
                 </section>
@@ -93,6 +101,7 @@
                         <div>
                             <p class="eyebrow">Danh sách xe</p>
                             <h2>Kho xe</h2>
+                            <p class="inventory-result-summary" id="car-result-summary">Đang tải dữ liệu xe...</p>
                         </div>
 
                         <div class="inventory-shell__actions">
@@ -113,20 +122,21 @@
 
                     <section class="inventory-table-card">
                         <div class="inventory-table-wrap">
-                            <table class="inventory-table">
+                            <table class="inventory-table inventory-table--cars">
                                 <thead>
                                     <tr>
                                         <th>Ảnh</th>
-                                        <th>Tên xe</th>
-                                        <th>Phân khúc</th>
-                                        <th>Hộp số</th>
-                                        <th>Giá</th>
+                                        <th>Thông tin xe</th>
+                                        <th>Giá & trạng thái</th>
+                                        <th>Thông số chính</th>
+                                        <th>Dữ liệu</th>
+                                        <th>Cập nhật</th>
                                         <th>Thao tác</th>
                                     </tr>
                                 </thead>
                                 <tbody id="car-table-body">
                                     <tr>
-                                        <td colspan="6" class="table-empty">Đang tải dữ liệu xe...</td>
+                                        <td colspan="7" class="table-empty">Đang tải dữ liệu xe...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -350,6 +360,10 @@
                         <article class="overview-stat car-buy-request-stat-item">
                             <span>Tổng tin</span>
                             <strong id="car-buy-request-stat-total">0</strong>
+                        </article>
+                        <article class="overview-stat car-buy-request-stat-item car-buy-request-stat-item--offers">
+                            <span>Đề xuất xe</span>
+                            <strong id="car-buy-request-stat-offers">0</strong>
                         </article>
                     </div>
 

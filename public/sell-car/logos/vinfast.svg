@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 90" role="img" aria-labelledby="title">
+  <title id="title">VinFast logo</title>
+  <rect width="180" height="90" fill="white"/>
+  <path d="M58 14L86 62L90 62L122 14H105L88 42L73 14Z" fill="#1d4ed8"/>
+  <path d="M77 14L90 36L103 14H91L87 22L83 14Z" fill="#f15a29"/>
+  <text x="90" y="79" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="900" fill="#111827">VinFast</text>
+</svg>

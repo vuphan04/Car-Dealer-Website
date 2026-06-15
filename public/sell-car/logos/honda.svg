@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 90" role="img" aria-labelledby="title">
+  <title id="title">Honda logo</title>
+  <rect width="180" height="90" fill="white"/>
+  <rect x="61" y="10" width="58" height="50" rx="9" fill="none" stroke="#0a4ea3" stroke-width="7"/>
+  <path d="M75 18V51M105 18V51M75 36H105" fill="none" stroke="#0a4ea3" stroke-width="7" stroke-linecap="round"/>
+  <text x="90" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="19" font-weight="900" fill="#0a4ea3">HONDA</text>
+</svg>
