@@ -7,29 +7,12 @@
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/global/site.css">
     <link rel="stylesheet" href="/test-drive/style.css">
+    <link rel="stylesheet" href="/global/header.css">
     <link rel="stylesheet" href="/global/responsive-nav.css">
+    <link rel="stylesheet" href="/global/footer.css">
 </head>
 <body>
-    <header class="header">
-        <div class="nav container" data-responsive-nav>
-            <a href="/" class="logo">Ok<span>Xe</span></a>
-            <button class="menu-toggle" type="button" aria-label="Mở menu điều hướng" aria-expanded="false" aria-controls="test-drive-navigation" data-responsive-nav-toggle>
-                <i class="bx bx-menu" aria-hidden="true"></i>
-            </button>
-            <div class="nav-panel test-drive-nav" id="test-drive-navigation" data-responsive-nav-panel>
-                <div class="nav-links">
-                    <a href="/" class="nav-link">Trang Chủ</a>
-                    <a href="/mua-xe" class="nav-link">Tìm mua ô tô</a>
-                    <a href="/dang-tin-ban-xe" class="nav-link">Đăng bán xe</a>
-                    <a href="/tin-mua-o-to" class="nav-link">Tin mua ô tô</a>
-                    <a href="/dang-tin-mua-o-to" class="nav-link">Đăng tin mua ô tô</a>
-                    <a href="/khuyen-mai" class="nav-link">Khuyến mại</a>
-                    <a href="/tu-van-ban-hang" class="nav-link">Đội ngũ tư vấn bán hàng</a>
-                    <a href="/#footer" class="nav-link">Liên Hệ</a>
-                </div>
-            </div>
-        </div>
-    </header>
+    <div data-site-header></div>
 
     <main class="test-drive-page">
         <section class="test-drive-hero" aria-labelledby="test-drive-page-title">
@@ -115,6 +98,8 @@
             </form>
         </section>
     </main>
+
+    <div data-site-footer></div>
 
     <div class="test-drive-policy-modal" id="test-drive-policy-modal" aria-hidden="true">
         <button type="button" class="test-drive-policy-modal__overlay" data-close-test-drive-policy aria-label="Đóng quy định và chính sách"></button>
@@ -209,6 +194,7 @@
     </div>
 
     <script src="/test-drive/script.js"></script>
+    <script src="/global/app.js"></script>
     <script src="/global/responsive-nav.js"></script>
 </body>
 </html>

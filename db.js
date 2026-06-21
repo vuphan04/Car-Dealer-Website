@@ -1784,6 +1784,21 @@ const sanitizeCarBuyRequestOffer = (offerRow) => {
   };
 };
 
+const sanitizeCarBuyRequestOfferForOwner = (offer = {}) => ({
+  id: offer.id,
+  code: offer.code || '',
+  requestId: offer.requestId,
+  carBrand: offer.carBrand || '',
+  carModel: offer.carModel || '',
+  carYear: offer.carYear || '',
+  carVersion: offer.carVersion || '',
+  expectedPrice: offer.expectedPrice || '',
+  mileage: offer.mileage || '',
+  status: normalizeCarBuyRequestOfferStatus(offer.status),
+  createdAt: offer.createdAt || '',
+  updatedAt: offer.updatedAt || '',
+});
+
 const isCarAvailableForTestDrive = (car) =>
   String(car?.actionText || '').trim().toLocaleLowerCase('vi-VN') === 'còn xe';
 
@@ -2295,6 +2310,21 @@ const attachCarBuyRequestOffers = (request) => {
   };
 };
 
+const attachCarBuyRequestOfferNotifications = (request) => {
+  if (!request) {
+    return null;
+  }
+
+  const offers = listCarBuyRequestOffersByRequestId(request.id);
+
+  return {
+    ...request,
+    offerCount: offers.length,
+    newOfferCount: offers.filter((offer) => offer.status === 'new').length,
+    offerNotifications: offers.map(sanitizeCarBuyRequestOfferForOwner),
+  };
+};
+
 const getCarBuyRequestOfferById = (offerId) =>
   sanitizeCarBuyRequestOffer(findCarBuyRequestOfferByIdStatement.get(offerId));
 
@@ -2311,7 +2341,7 @@ const listCarBuyRequests = () =>
 const listCarBuyRequestsByUser = (userId) =>
   listCarBuyRequestsByUserStatement.all(userId)
     .map(sanitizeCarBuyRequest)
-    .map(attachCarBuyRequestOfferSummary);
+    .map(attachCarBuyRequestOfferNotifications);
 
 const listFavoriteCarsByUser = (userId) =>
   listFavoriteCarsByUserStatement.all(userId).map(sanitizeCar);

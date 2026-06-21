@@ -887,6 +887,33 @@ const carBuyRequestNotificationLabels = {
         title: 'Tin mua ô tô bị từ chối',
         icon: 'bxs-x-circle',
         footer: 'Tin chưa được hiển thị công khai. Bạn có thể đăng lại với nội dung phù hợp hơn.'
+  }
+};
+
+const carBuyRequestOfferNotificationLabels = {
+    new: {
+        meta: 'Xe phù hợp mới',
+        title: 'Có người vừa đề xuất xe cho tin mua của bạn',
+        icon: 'bxs-car',
+        footer: 'OkXe đang kiểm tra thông tin xe và sẽ hỗ trợ kết nối nếu phù hợp.'
+    },
+    contacted: {
+        meta: 'Đang xác minh',
+        title: 'OkXe đã liên hệ người có xe phù hợp',
+        icon: 'bx-phone-call',
+        footer: 'Đội ngũ OkXe đang xác minh thông tin xe trước khi kết nối với bạn.'
+    },
+    matched: {
+        meta: 'Sẵn sàng kết nối',
+        title: 'Xe phù hợp đã sẵn sàng kết nối',
+        icon: 'bx-link-alt',
+        footer: 'OkXe sẽ liên hệ bạn để xác nhận nhu cầu và sắp xếp trao đổi.'
+    },
+    rejected: {
+        meta: 'Đã kiểm tra',
+        title: 'Một đề xuất xe chưa phù hợp',
+        icon: 'bxs-x-circle',
+        footer: 'OkXe đã kiểm tra và xác định đề xuất này chưa phù hợp với nhu cầu của bạn.'
     }
 };
 
@@ -947,6 +974,17 @@ const getCarBuyRequestNotificationKey = (request = {}) =>
         ].join(':')
     );
 
+const getCarBuyRequestOfferNotificationKey = (request = {}, offer = {}) =>
+    getNotificationKey(
+        'car-buy-request-offer',
+        [
+            request.id,
+            offer.id,
+            offer.status || 'new',
+            offer.updatedAt || offer.createdAt || ''
+        ].join(':')
+    );
+
 const isNotificationDismissed = (type, id) =>
     dismissedNotificationIds.has(getNotificationKey(type, id))
     || (type === 'promotion' && dismissedNotificationIds.has(String(id || '')));
@@ -982,11 +1020,35 @@ const getNotificationCarBuyRequests = () =>
             return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
         });
 
+const getNotificationCarBuyRequestOffers = () =>
+    carBuyRequestsState
+        .flatMap((request) => {
+            const offers = Array.isArray(request.offerNotifications)
+                ? request.offerNotifications
+                : [];
+
+            return offers.map((offer) => ({
+                request,
+                offer,
+                updatedAt: offer.updatedAt || offer.createdAt || request.updatedAt || request.createdAt || ''
+            }));
+        })
+        .filter(({ request, offer }) =>
+            !dismissedNotificationIds.has(getCarBuyRequestOfferNotificationKey(request, offer))
+        )
+        .sort((first, second) => {
+            const firstTime = new Date(first.updatedAt || 0).getTime();
+            const secondTime = new Date(second.updatedAt || 0).getTime();
+
+            return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
+        });
+
 const updateNotificationBadge = () => {
     const notificationCount =
         getNotificationPromotions().length
         + getNotificationTestDriveAppointments().length
-        + getNotificationCarBuyRequests().length;
+        + getNotificationCarBuyRequests().length
+        + getNotificationCarBuyRequestOffers().length;
 
     notificationBadges.forEach((badge) => {
         badge.textContent = notificationCount > 9 ? '9+' : String(notificationCount);
@@ -1003,8 +1065,10 @@ const renderPromotionNotifications = (promotions = promotionsState) => {
     const notificationPromotions = getNotificationPromotions(promotions);
     const notificationAppointments = getNotificationTestDriveAppointments();
     const notificationCarBuyRequests = getNotificationCarBuyRequests();
+    const notificationCarBuyRequestOffers = getNotificationCarBuyRequestOffers();
     const notifications = [
         ...notificationAppointments.map((appointment) => ({ type: 'test-drive', item: appointment })),
+        ...notificationCarBuyRequestOffers.map((offerNotification) => ({ type: 'car-buy-request-offer', item: offerNotification })),
         ...notificationCarBuyRequests.map((request) => ({ type: 'car-buy-request', item: request })),
         ...notificationPromotions.map((promotion) => ({ type: 'promotion', item: promotion }))
     ].sort((first, second) => {
@@ -1081,6 +1145,53 @@ const renderPromotionNotifications = (promotions = promotionsState) => {
                         <div class="notification-item__footer">
                             <small>${escapeHtml(footerText)}</small>
                             ${appointmentAction}
+                        </div>
+                    </div>
+                </article>
+            `;
+        }
+
+        if (type === 'car-buy-request-offer') {
+            const { request, offer } = item;
+            const status = String(offer.status || 'new').trim().toLowerCase();
+            const notificationConfig = carBuyRequestOfferNotificationLabels[status]
+                || carBuyRequestOfferNotificationLabels.new;
+            const notificationKey = getCarBuyRequestOfferNotificationKey(request, offer);
+            const createdText = formatPromotionDate(
+                String(offer.updatedAt || offer.createdAt || '').slice(0, 10),
+                'Vừa đề xuất'
+            );
+            const carTitle = [offer.carBrand, offer.carModel, offer.carYear]
+                .filter(Boolean)
+                .join(' ') || 'Xe phù hợp';
+            const carDetails = [offer.carVersion, offer.expectedPrice, offer.mileage]
+                .filter(Boolean)
+                .join(' · ');
+            const requestTitle = request.title || 'Tin mua ô tô của bạn';
+            const requestCode = request.code || `MX-${String(request.id || '').padStart(6, '0')}`;
+            const detailText = `${carTitle}${carDetails ? ` · ${carDetails}` : ''}. Đề xuất dành cho ${requestCode} - ${requestTitle}.`;
+
+            return `
+                <article class="notification-item">
+                    <button type="button" class="notification-item__delete" data-delete-notification="${escapeHtml(notificationKey)}" aria-label="Xóa thông báo xe phù hợp">
+                        <i class="bx bx-x" aria-hidden="true"></i>
+                    </button>
+                    <span class="notification-item__icon">
+                        <i class="bx ${escapeHtml(notificationConfig.icon)}" aria-hidden="true"></i>
+                    </span>
+                    <div class="notification-item__body">
+                        <div class="notification-item__meta">
+                            <span>${escapeHtml(notificationConfig.meta)}</span>
+                            <small>${escapeHtml(createdText)}</small>
+                        </div>
+                        <h3>${escapeHtml(notificationConfig.title)}</h3>
+                        <p>${escapeHtml(detailText)}</p>
+                        <div class="notification-item__footer">
+                            <small>${escapeHtml(notificationConfig.footer)}</small>
+                            <a href="/tin-mua-o-to" data-close-notifications-link>
+                                <span>Xem tin mua xe</span>
+                                <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+                            </a>
                         </div>
                     </div>
                 </article>
@@ -3190,4 +3301,29 @@ loadDismissedNotificationIds();
 syncCars();
 syncTeamMembers();
 syncPromotions();
-syncCurrentUser();
+
+const openRequestedHomePanel = () => {
+    const url = new URL(window.location.href);
+    const authAction = url.searchParams.get('auth');
+    const accountAction = url.searchParams.get('account');
+
+    if (authAction === 'login') {
+        openLoginModal();
+    } else if (authAction === 'signup') {
+        openSignupModal();
+    } else if (accountAction === 'profile') {
+        openProfileModal();
+    } else if (accountAction === 'favorites') {
+        openFavoriteCarsModal();
+    } else if (accountAction === 'notifications') {
+        openNotificationsModal();
+    } else {
+        return;
+    }
+
+    url.searchParams.delete('auth');
+    url.searchParams.delete('account');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+};
+
+syncCurrentUser().then(openRequestedHomePanel);

@@ -19,6 +19,28 @@ const consultationContactDateInput = document.querySelector('#consultation-conta
 const consultationContactTimeInput = document.querySelector('#consultation-contact-time');
 const consultationPreferredContactTimeInput = document.querySelector('#consultation-preferred-contact-time');
 const consultationCloseButtons = document.querySelectorAll('[data-close-consultation]');
+const rollingCostModal = document.querySelector('#rolling-cost-modal');
+const rollingCostForm = document.querySelector('#rolling-cost-form');
+const rollingCostSummary = document.querySelector('#rolling-cost-summary');
+const rollingCostCarName = document.querySelector('#rolling-cost-car-name');
+const rollingCostFormulaNote = document.querySelector('#rolling-cost-formula-note');
+const rollingCostTaxBaseLabel = document.querySelector('#rolling-cost-tax-base-label');
+const rollingCostTaxBaseHelp = document.querySelector('#rolling-cost-tax-base-help');
+const rollingCostRateHelp = document.querySelector('#rolling-cost-rate-help');
+const rollingCostResetButton = document.querySelector('#rolling-cost-reset');
+const rollingCostUsedFields = document.querySelectorAll('[data-used-rolling-cost-field]');
+const rollingCostCloseButtons = document.querySelectorAll('[data-close-rolling-cost]');
+const rollingCostResultElements = {
+    purchase: document.querySelector('#rolling-cost-purchase-result'),
+    registration: document.querySelector('#rolling-cost-registration-result'),
+    plate: document.querySelector('#rolling-cost-plate-result'),
+    inspection: document.querySelector('#rolling-cost-inspection-result'),
+    road: document.querySelector('#rolling-cost-road-result'),
+    insurance: document.querySelector('#rolling-cost-insurance-result'),
+    other: document.querySelector('#rolling-cost-other-result'),
+    fees: document.querySelector('#rolling-cost-fees-result'),
+    total: document.querySelector('#rolling-cost-total-result')
+};
 let currentUser = null;
 let favoriteCarIds = new Set();
 let currentCar = null;
@@ -29,6 +51,24 @@ const GALLERY_AUTOPLAY_DELAY = 5000;
 const MAX_COMPARE_CARS = 3;
 const DEFAULT_DEALERSHIP_HOTLINE = '0854955761';
 const SOLD_CAR_CONSULTATION_NOTE = 'Khách quan tâm xe đã hết hàng, cần tư vấn xe tương tự.';
+const CURRENT_CALCULATION_YEAR = new Date().getFullYear();
+const ROLLING_COST_DEFAULTS = {
+    areas: {
+        hanoi: { registrationRate: 12, newPlateFee: 20000000 },
+        hochiminh: { registrationRate: 10, newPlateFee: 20000000 },
+        zone2: { registrationRate: 10, newPlateFee: 1000000 },
+        zone3: { registrationRate: 10, newPlateFee: 200000 }
+    },
+    usedRegistrationRate: 2,
+    usedPlateFee: 150000,
+    newInspectionCertificateFee: 40000,
+    usedInspectionCertificateFee: 290000,
+    annualRoadFee: 1560000,
+    insurance: {
+        under6: 480700,
+        '6to11': 873400
+    }
+};
 let dealershipHotline = DEFAULT_DEALERSHIP_HOTLINE;
 const consultationRequestTypeLabels = {
     consultation: 'Nhận tư vấn & báo giá',
@@ -43,6 +83,11 @@ const consultationDateFormatter = new Intl.DateTimeFormat('vi-VN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
+});
+const rollingCostCurrencyFormatter = new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0
 });
 
 const escapeHtml = (value) =>
@@ -751,6 +796,247 @@ const closeConsultationModal = () => {
     document.body.classList.remove('consultation-modal-open');
 };
 
+const toNonNegativeNumber = (value) => {
+    const numberValue = Number(value);
+
+    return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : 0;
+};
+
+const formatRollingCostCurrency = (value) =>
+    rollingCostCurrencyFormatter.format(Math.round(toNonNegativeNumber(value)));
+
+const getRollingCostVehicleType = () =>
+    String(rollingCostForm?.elements.vehicleType?.value || 'new');
+
+const getUsedCarRemainingRate = (firstUseYear) => {
+    const normalizedYear = Math.min(
+        CURRENT_CALCULATION_YEAR,
+        Math.max(1980, Number(firstUseYear) || CURRENT_CALCULATION_YEAR)
+    );
+    const yearsInUse = Math.max(0, CURRENT_CALCULATION_YEAR - normalizedYear);
+
+    if (yearsInUse <= 1) {
+        return 0.9;
+    }
+
+    if (yearsInUse <= 3) {
+        return 0.7;
+    }
+
+    if (yearsInUse <= 6) {
+        return 0.5;
+    }
+
+    if (yearsInUse <= 10) {
+        return 0.3;
+    }
+
+    return 0.2;
+};
+
+const getRollingCostAreaDefaults = () => {
+    const area = String(rollingCostForm?.elements.registrationArea?.value || 'hanoi');
+
+    return ROLLING_COST_DEFAULTS.areas[area] || ROLLING_COST_DEFAULTS.areas.hanoi;
+};
+
+const getCarRollingCostType = (car = currentCar) =>
+    String(car?.condition || '').trim().toLocaleLowerCase('vi-VN') === 'xe mới'
+        ? 'new'
+        : 'used';
+
+const getCarSeatGroup = (car = currentCar) => {
+    const seatCount = Number(String(car?.seats || '').match(/\d+/)?.[0] || 0);
+
+    return seatCount >= 6 ? '6to11' : 'under6';
+};
+
+const syncRollingCostModeUi = () => {
+    if (!rollingCostForm) {
+        return;
+    }
+
+    const isUsed = getRollingCostVehicleType() === 'used';
+
+    rollingCostUsedFields.forEach((field) => {
+        field.hidden = !isUsed;
+    });
+
+    if (rollingCostTaxBaseLabel) {
+        rollingCostTaxBaseLabel.textContent = isUsed
+            ? 'Giá xe mới theo bảng giá trước bạ'
+            : 'Giá tính lệ phí trước bạ';
+    }
+
+    if (rollingCostTaxBaseHelp) {
+        rollingCostTaxBaseHelp.textContent = isUsed
+            ? 'Không phải giá mua xe cũ; dùng giá xe mới cùng loại trong bảng giá trước bạ.'
+            : 'Theo bảng giá của cơ quan thuế, có thể khác giá bán thực tế.';
+    }
+
+    if (rollingCostRateHelp) {
+        rollingCostRateHelp.textContent = isUsed
+            ? 'Xe đã qua sử dụng áp dụng mức 2% trên giá trị còn lại.'
+            : 'Mặc định theo khu vực, bạn có thể điều chỉnh.';
+    }
+};
+
+const setRollingCostModeDefaults = ({ resetTaxBase = false } = {}) => {
+    if (!rollingCostForm) {
+        return;
+    }
+
+    const isUsed = getRollingCostVehicleType() === 'used';
+    const areaDefaults = getRollingCostAreaDefaults();
+    const purchasePrice = toNonNegativeNumber(rollingCostForm.elements.purchasePrice.value);
+
+    rollingCostForm.elements.registrationRate.value = isUsed
+        ? ROLLING_COST_DEFAULTS.usedRegistrationRate
+        : areaDefaults.registrationRate;
+    rollingCostForm.elements.plateFee.value = isUsed
+        ? ROLLING_COST_DEFAULTS.usedPlateFee
+        : areaDefaults.newPlateFee;
+    rollingCostForm.elements.inspectionFee.value = isUsed
+        ? ROLLING_COST_DEFAULTS.usedInspectionCertificateFee
+        : ROLLING_COST_DEFAULTS.newInspectionCertificateFee;
+
+    if (resetTaxBase || !toNonNegativeNumber(rollingCostForm.elements.taxBasePrice.value)) {
+        rollingCostForm.elements.taxBasePrice.value = Math.round(purchasePrice);
+    }
+
+    syncRollingCostModeUi();
+};
+
+const calculateRollingCost = () => {
+    if (!rollingCostForm) {
+        return null;
+    }
+
+    const isUsed = getRollingCostVehicleType() === 'used';
+    const purchasePrice = toNonNegativeNumber(rollingCostForm.elements.purchasePrice.value);
+    const taxBasePrice = toNonNegativeNumber(rollingCostForm.elements.taxBasePrice.value);
+    const registrationRate = Math.min(30, toNonNegativeNumber(rollingCostForm.elements.registrationRate.value));
+    const remainingRate = isUsed
+        ? getUsedCarRemainingRate(rollingCostForm.elements.firstUseYear.value)
+        : 1;
+    const registrationFee = taxBasePrice * remainingRate * registrationRate / 100;
+    const plateFee = toNonNegativeNumber(rollingCostForm.elements.plateFee.value);
+    const inspectionFee = toNonNegativeNumber(rollingCostForm.elements.inspectionFee.value);
+    const roadFee = toNonNegativeNumber(rollingCostForm.elements.roadFee.value);
+    const insuranceFee = toNonNegativeNumber(rollingCostForm.elements.insuranceFee.value);
+    const otherFee = toNonNegativeNumber(rollingCostForm.elements.otherFee.value);
+    const totalFees = registrationFee + plateFee + inspectionFee + roadFee + insuranceFee + otherFee;
+
+    return {
+        isUsed,
+        purchasePrice,
+        taxBasePrice,
+        registrationRate,
+        remainingRate,
+        registrationFee,
+        plateFee,
+        inspectionFee,
+        roadFee,
+        insuranceFee,
+        otherFee,
+        totalFees,
+        total: purchasePrice + totalFees
+    };
+};
+
+const renderRollingCostEstimate = () => {
+    const estimate = calculateRollingCost();
+
+    if (!estimate) {
+        return;
+    }
+
+    Object.entries({
+        purchase: estimate.purchasePrice,
+        registration: estimate.registrationFee,
+        plate: estimate.plateFee,
+        inspection: estimate.inspectionFee,
+        road: estimate.roadFee,
+        insurance: estimate.insuranceFee,
+        other: estimate.otherFee,
+        fees: estimate.totalFees,
+        total: estimate.total
+    }).forEach(([key, value]) => {
+        if (rollingCostResultElements[key]) {
+            rollingCostResultElements[key].textContent = formatRollingCostCurrency(value);
+        }
+    });
+
+    if (rollingCostFormulaNote) {
+        rollingCostFormulaNote.textContent = estimate.isUsed
+            ? `Trước bạ = ${formatRollingCostCurrency(estimate.taxBasePrice)} × ${Math.round(estimate.remainingRate * 100)}% giá trị còn lại × ${estimate.registrationRate}%.`
+            : `Trước bạ = ${formatRollingCostCurrency(estimate.taxBasePrice)} × ${estimate.registrationRate}%.`;
+    }
+};
+
+const resetRollingCostForm = () => {
+    if (!rollingCostForm || !currentCar) {
+        return;
+    }
+
+    const vehicleType = getCarRollingCostType(currentCar);
+    const priceValue = toNonNegativeNumber(currentCar.priceValue);
+    const carYear = Math.min(
+        CURRENT_CALCULATION_YEAR,
+        Math.max(1980, Number(currentCar.year) || CURRENT_CALCULATION_YEAR)
+    );
+
+    rollingCostForm.reset();
+    const vehicleTypeInput = rollingCostForm.querySelector(`input[name="vehicleType"][value="${vehicleType}"]`);
+
+    if (vehicleTypeInput) {
+        vehicleTypeInput.checked = true;
+    }
+
+    rollingCostForm.elements.registrationArea.value = 'hanoi';
+    rollingCostForm.elements.seatGroup.value = getCarSeatGroup(currentCar);
+    rollingCostForm.elements.purchasePrice.value = Math.round(priceValue);
+    rollingCostForm.elements.taxBasePrice.value = Math.round(priceValue);
+    rollingCostForm.elements.firstUseYear.value = carYear;
+    rollingCostForm.elements.roadFee.value = ROLLING_COST_DEFAULTS.annualRoadFee;
+    rollingCostForm.elements.insuranceFee.value =
+        ROLLING_COST_DEFAULTS.insurance[rollingCostForm.elements.seatGroup.value]
+        || ROLLING_COST_DEFAULTS.insurance.under6;
+    rollingCostForm.elements.otherFee.value = 0;
+    setRollingCostModeDefaults({ resetTaxBase: true });
+    renderRollingCostEstimate();
+};
+
+const openRollingCostModal = () => {
+    if (!rollingCostModal || !rollingCostForm || !currentCar) {
+        return;
+    }
+
+    if (rollingCostSummary) {
+        rollingCostSummary.textContent = `${getCarDisplayName(currentCar)} - ${currentCar.price || 'Giá đang cập nhật'}`;
+    }
+
+    if (rollingCostCarName) {
+        rollingCostCarName.textContent = getCarDisplayName(currentCar);
+    }
+
+    resetRollingCostForm();
+    rollingCostModal.classList.add('is-open');
+    rollingCostModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('rolling-cost-modal-open');
+    rollingCostForm.elements.purchasePrice?.focus();
+};
+
+const closeRollingCostModal = () => {
+    if (!rollingCostModal) {
+        return;
+    }
+
+    rollingCostModal.classList.remove('is-open');
+    rollingCostModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('rolling-cost-modal-open');
+};
+
 const renderCarDetail = (car, cars) => {
     if (!detailRoot) {
         return;
@@ -852,7 +1138,7 @@ const renderCarDetail = (car, cars) => {
                             <strong>So sánh</strong>
                         </span>
                     </button>
-                    <button type="button" class="detail-contact-button detail-contact-button--accent" data-open-consultation="rolling_cost">
+                    <button type="button" class="detail-contact-button detail-contact-button--accent" data-open-rolling-cost>
                         <span class="detail-contact-button__icon">
                             <i class="bx bx-calculator" aria-hidden="true"></i>
                         </span>
@@ -1031,6 +1317,12 @@ const bindConsultationEvents = () => {
     });
 };
 
+const bindRollingCostEvents = () => {
+    document.querySelectorAll('[data-open-rolling-cost]').forEach((button) => {
+        button.addEventListener('click', openRollingCostModal);
+    });
+};
+
 compareSearchInput?.addEventListener('input', renderComparePicker);
 comparePicker?.addEventListener('click', (event) => {
     const addButton = event.target.closest('[data-add-compare-car]');
@@ -1076,6 +1368,34 @@ compareCloseButtons.forEach((button) => {
 consultationCloseButtons.forEach((button) => {
     button.addEventListener('click', closeConsultationModal);
 });
+rollingCostCloseButtons.forEach((button) => {
+    button.addEventListener('click', closeRollingCostModal);
+});
+rollingCostForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    renderRollingCostEstimate();
+});
+rollingCostForm?.addEventListener('input', (event) => {
+    if (event.target.name === 'vehicleType') {
+        setRollingCostModeDefaults();
+    }
+
+    renderRollingCostEstimate();
+});
+rollingCostForm?.addEventListener('change', (event) => {
+    if (event.target.name === 'registrationArea') {
+        setRollingCostModeDefaults();
+    }
+
+    if (event.target.name === 'seatGroup') {
+        rollingCostForm.elements.insuranceFee.value =
+            ROLLING_COST_DEFAULTS.insurance[event.target.value]
+            || ROLLING_COST_DEFAULTS.insurance.under6;
+    }
+
+    renderRollingCostEstimate();
+});
+rollingCostResetButton?.addEventListener('click', resetRollingCostForm);
 consultationForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
 
@@ -1188,6 +1508,11 @@ document.addEventListener('keydown', (event) => {
         return;
     }
 
+    if (rollingCostModal?.classList.contains('is-open')) {
+        closeRollingCostModal();
+        return;
+    }
+
     if (compareModal?.classList.contains('is-open')) {
         closeCompareModal();
     }
@@ -1246,6 +1571,7 @@ const loadCarDetail = async () => {
         bindFavoriteEvents();
         bindCompareEvents();
         bindConsultationEvents();
+        bindRollingCostEvents();
     } catch (error) {
         renderError(error.message || 'Không thể tải thông tin xe lúc này.');
     }

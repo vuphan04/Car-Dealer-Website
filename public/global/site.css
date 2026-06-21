@@ -1646,6 +1646,23 @@ section {
     transition: transform 0.24s ease;
 }
 
+.notifications-modal__dialog,
+.notifications-modal__dialog button,
+.notifications-modal__dialog a {
+    font-family: var(--font-ui);
+}
+
+.notifications-modal__eyebrow,
+.notifications-modal__header h2 {
+    letter-spacing: 0;
+}
+
+.notifications-modal__header h2 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    line-height: 1.25;
+}
+
 .all-cars-modal.is-open .all-cars-modal__dialog,
 .search-results-modal.is-open .search-results-modal__dialog,
 .favorite-cars-modal.is-open .favorite-cars-modal__dialog,
@@ -1842,8 +1859,9 @@ section {
     position: relative;
     display: grid;
     grid-template-columns: 78px minmax(0, 1fr);
+    align-items: start;
     gap: 0.95rem;
-    padding: 0.9rem 3rem 0.9rem 0.9rem;
+    padding: 1rem 3.25rem 1rem 1rem;
     border-radius: 20px;
     background: #ffffff;
     box-shadow: 0 14px 32px rgba(8, 21, 74, 0.08);
@@ -1909,10 +1927,17 @@ section {
 .notification-item__body {
     min-width: 0;
     display: grid;
-    gap: 0.45rem;
+    align-content: start;
+    gap: 0.5rem;
 }
 
-.notification-item__meta,
+.notification-item__meta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.75rem;
+}
+
 .notification-item__footer {
     display: flex;
     align-items: center;
@@ -1922,6 +1947,7 @@ section {
 }
 
 .notification-item__meta span {
+    justify-self: start;
     min-height: 28px;
     display: inline-flex;
     align-items: center;
@@ -1931,6 +1957,8 @@ section {
     background: #fff6f1;
     font-size: 0.76rem;
     font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0;
     text-transform: uppercase;
 }
 
@@ -1939,21 +1967,34 @@ section {
     color: var(--muted-color);
     font-size: 0.8rem;
     font-weight: 700;
+    line-height: 1.5;
+}
+
+.notification-item__meta small {
+    white-space: nowrap;
 }
 
 .notification-item h3 {
-    margin: 0;
+    margin: 0 0 0 0.7rem;
     color: var(--text-color);
     font-size: 1rem;
     line-height: 1.35;
-    font-weight: 900;
+    font-weight: 800;
+    letter-spacing: 0;
 }
 
 .notification-item p {
-    margin: 0;
+    margin: 0 0 0 0.7rem;
     color: var(--muted-color);
     font-size: 0.9rem;
     line-height: 1.55;
+    font-weight: 500;
+    letter-spacing: 0;
+}
+
+.notification-item__footer {
+    width: calc(100% - 0.7rem);
+    margin-left: 0.7rem;
 }
 
 .notification-item__footer a,
@@ -2354,12 +2395,31 @@ section {
     }
 
     .notification-item {
-        grid-template-columns: 1fr;
+        grid-template-columns: 56px minmax(0, 1fr);
+        gap: 0.75rem;
+        padding: 0.85rem 2.8rem 0.85rem 0.85rem;
     }
 
     .notification-item__icon {
-        width: 100%;
-        height: 150px;
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+    }
+
+    .notification-item__meta {
+        grid-template-columns: 1fr;
+        gap: 0.35rem;
+    }
+
+    .notification-item__meta small {
+        justify-self: start;
+        margin-left: 0.7rem;
+        text-align: left;
+    }
+
+    .notification-item__footer {
+        align-items: flex-start;
+        flex-direction: column;
     }
 
     .favorite-car-item {

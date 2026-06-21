@@ -7,7 +7,6 @@
 }
 
 [data-responsive-nav-toggle] {
-    display: none !important;
     width: 44px;
     height: 44px;
     flex: 0 0 auto;
@@ -19,6 +18,10 @@
     background: #fff0e8;
     box-shadow: 0 10px 24px rgba(8, 21, 74, 0.08);
     cursor: pointer;
+}
+
+[data-responsive-nav-toggle]:not(.okxe-site-header__toggle) {
+    display: none !important;
 }
 
 [data-responsive-nav-toggle] .bx {

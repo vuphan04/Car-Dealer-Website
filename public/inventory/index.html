@@ -7,27 +7,12 @@
     <link href="https://cdn.boxicons.com/3.0.8/css/boxicons.min.css" rel="stylesheet">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/inventory/style.css">
+    <link rel="stylesheet" href="/global/header.css">
     <link rel="stylesheet" href="/global/responsive-nav.css">
+    <link rel="stylesheet" href="/global/footer.css">
 </head>
 <body>
-    <header class="inventory-header">
-        <nav class="inventory-nav" data-responsive-nav>
-            <a href="/" class="inventory-logo">Ok<span>Xe</span></a>
-            <button class="inventory-menu-toggle" type="button" aria-label="Mở menu điều hướng" aria-expanded="false" aria-controls="inventory-navigation" data-responsive-nav-toggle>
-                <i class="bx bx-menu" aria-hidden="true"></i>
-            </button>
-            <div class="inventory-nav__links" id="inventory-navigation" data-responsive-nav-panel>
-                <a href="/">Trang Chủ</a>
-                <a href="/mua-xe" aria-current="page">Tìm mua ô tô</a>
-                <a href="/dang-tin-ban-xe">Đăng bán xe</a>
-                <a href="/tin-mua-o-to">Tin mua ô tô</a>
-                <a href="/dang-tin-mua-o-to">Đăng tin mua ô tô</a>
-                <a href="/khuyen-mai">Khuyến mại</a>
-                <a href="/tu-van-ban-hang">Tư vấn bán hàng</a>
-                <a href="/#footer">Liên hệ</a>
-            </div>
-        </nav>
-    </header>
+    <div data-site-header></div>
 
     <main>
         <section class="inventory-hero" aria-labelledby="inventory-title">
@@ -212,20 +197,10 @@
         </div>
     </div>
 
-    <footer class="inventory-footer">
-        <div>
-            <a href="/" class="inventory-logo">Ok<span>Xe</span></a>
-            <p>Giao dịch nhanh gọn, giá cạnh tranh, tư vấn rõ ràng cho từng nhu cầu mua xe.</p>
-        </div>
-        <div class="inventory-footer__links">
-            <a href="/mua-xe">Tìm mua ô tô</a>
-            <a href="/tin-mua-o-to">Tin mua ô tô</a>
-            <a href="/tu-van-ban-hang">Tư vấn bán hàng</a>
-            <a href="/#footer">Liên hệ</a>
-        </div>
-    </footer>
+    <div data-site-footer></div>
 
     <script src="/inventory/script.js"></script>
+    <script src="/global/app.js"></script>
     <script src="/global/responsive-nav.js"></script>
 </body>
 </html>
