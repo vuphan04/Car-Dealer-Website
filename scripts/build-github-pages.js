@@ -687,6 +687,7 @@ const build = () => {
   copyDir(path.join(rootDir, 'storage', 'uploads'), path.join(outputDir, 'uploads'));
   createRouteAliases(demoData);
   processTextFiles(outputDir);
+  fs.writeFileSync(path.join(outputDir, '.nojekyll'), '');
   fs.writeFileSync(path.join(outputDir, 'github-pages-demo.js'), createDemoApiScript(demoData));
 
   console.log(`GitHub Pages demo built at ${path.relative(rootDir, outputDir)}`);
