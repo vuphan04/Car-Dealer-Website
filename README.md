@@ -349,7 +349,24 @@ node scripts/generate-usecase-diagrams.js
 
 Generates use-case diagrams in `docs/usecase-diagrams`.
 
+```bash
+npm run build:pages
+```
+
+Builds a static GitHub Pages demo in `dist/pages`. This demo serves the public HTML/CSS/JavaScript UI and uses an in-browser mock API, so it is suitable for front-end previews only. The full Express/SQLite backend still needs `npm start`.
+
 ## GitHub Notes
+
+### GitHub Pages front-end demo
+
+This repository includes `.github/workflows/static.yml` for GitHub Pages. To publish the demo:
+
+1. Push the repository to GitHub on the `main` branch.
+2. Open the repository on GitHub, then go to `Settings` -> `Pages`.
+3. Set `Source` to `GitHub Actions`.
+4. Open the `Actions` tab and run `Deploy static content to Pages`, or push a new commit to `main`.
+
+The workflow builds `dist/pages` and deploys only that folder. Route aliases such as `/mua-xe`, `/khuyen-mai`, `/tin-mua-o-to`, `/dang-tin-ban-xe`, `/dang-ky-lai-thu`, `/tu-van-ban-hang`, `/blog`, and `/cars/:id` are prepared for a static demo. API calls are mocked in the browser; submitted forms and admin mutations show demo success messages but do not write to SQLite.
 
 Recommended files to commit:
 
