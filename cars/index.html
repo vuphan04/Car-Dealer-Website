@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- OKXE_SEO_META -->
+    <title>Chi tiết xe - OkXe</title>
+    <meta name="description" content="Xem chi tiết xe cũ tại OkXe với hình ảnh, thông số, giá bán, so sánh và liên hệ tư vấn nhanh.">
+    <link rel="canonical" href="/Car-Dealer-Website/cars">
+    <meta name="robots" content="index, follow">
+    <meta property="og:locale" content="vi_VN">
+    <meta property="og:type" content="product">
+    <meta property="og:title" content="Chi tiết xe - OkXe">
+    <meta property="og:description" content="Xem chi tiết xe cũ tại OkXe với hình ảnh, thông số, giá bán, so sánh và liên hệ tư vấn nhanh.">
+    <meta property="og:url" content="/Car-Dealer-Website/cars">
+    <meta property="og:image" content="/Car-Dealer-Website/images/rental-1.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Chi tiết xe - OkXe">
+    <meta name="twitter:description" content="Xem chi tiết xe cũ tại OkXe với hình ảnh, thông số, giá bán, so sánh và liên hệ tư vấn nhanh.">
+    <meta name="twitter:image" content="/Car-Dealer-Website/images/rental-1.png">
+    <script type="application/ld+json" id="car-seo-json">{}</script>
+    <!-- /OKXE_SEO_META -->
+    <link rel="stylesheet" href="/Car-Dealer-Website/car-detail/style.css">
+    <link rel="stylesheet" href="/Car-Dealer-Website/global/header.css">
+    <link rel="stylesheet" href="/Car-Dealer-Website/global/responsive-nav.css">
+    <link rel="stylesheet" href="/Car-Dealer-Website/global/footer.css">
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <script src="/Car-Dealer-Website/github-pages-demo.js"></script>
+</head>
+<body>
+    <div data-site-header></div>
+
+    <main class="detail-page">
+        <section class="detail-shell" id="car-detail-root">
+            <div class="detail-loading">
+                <i class="bx bx-loader-alt bx-spin"></i>
+                <span>Đang tải thông tin xe...</span>
+            </div>
+        </section>
+    </main>
+
+    <div data-site-footer></div>
+
+    <div class="consultation-modal" id="consultation-modal" aria-hidden="true">
+        <div class="consultation-modal__overlay" data-close-consultation></div>
+        <div class="consultation-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="consultation-modal-title">
+            <div class="consultation-modal__header">
+                <div>
+                    <span>Liên hệ tư vấn</span>
+                    <h2 id="consultation-modal-title">Nhận tư vấn xe</h2>
+                    <p id="consultation-modal-summary">OkXe sẽ tiếp nhận thông tin và liên hệ lại với bạn.</p>
+                </div>
+                <button type="button" class="consultation-modal__close" data-close-consultation aria-label="Đóng form tư vấn">
+                    <i class="bx bx-x" aria-hidden="true"></i>
+                </button>
+            </div>
+
+            <form class="consultation-form" id="consultation-form">
+                <input type="hidden" name="carId" id="consultation-car-id">
+                <div class="consultation-form__grid">
+                    <label>
+                        <span>Họ và tên</span>
+                        <input type="text" name="fullName" maxlength="120" placeholder="Nhập họ tên của bạn" required>
+                    </label>
+                    <label>
+                        <span>Số điện thoại</span>
+                        <input type="tel" name="phone" maxlength="30" placeholder="Ví dụ: 0912345678" required>
+                    </label>
+                    <label>
+                        <span>Email</span>
+                        <input type="email" name="email" maxlength="160" placeholder="email@example.com">
+                    </label>
+                    <label>
+                        <span>Nhu cầu</span>
+                        <select name="requestType" id="consultation-request-type" required>
+                            <option value="consultation">Tư vấn & báo giá</option>
+                            <option value="quote">Yêu cầu báo giá</option>
+                            <option value="financing">Tư vấn trả góp</option>
+                            <option value="rolling_cost">Chi phí lăn bánh</option>
+                            <option value="viewing">Đặt lịch xem xe</option>
+                            <option value="similar_car">Tư vấn xe tương tự</option>
+                        </select>
+                    </label>
+                    <div class="consultation-form__field consultation-form__field--wide">
+                        <span>Thời gian muốn được gọi lại</span>
+                        <div class="consultation-time-picker">
+                            <label class="consultation-time-field">
+                                <span>Chọn ngày</span>
+                                <input type="date" id="consultation-contact-date" name="preferredContactDate">
+                            </label>
+                            <label class="consultation-time-field">
+                                <span>Chọn giờ</span>
+                                <input type="time" id="consultation-contact-time" name="preferredContactHour" min="08:00" max="20:00" step="900">
+                            </label>
+                        </div>
+                        <input type="hidden" name="preferredContactTime" id="consultation-preferred-contact-time">
+                    </div>
+                    <label class="consultation-form__field--wide">
+                        <span>Ghi chú thêm</span>
+                        <textarea name="note" rows="4" maxlength="700" placeholder="Nhập ngân sách, nhu cầu sử dụng hoặc câu hỏi cần tư vấn"></textarea>
+                    </label>
+                </div>
+                <div class="consultation-form__actions">
+                    <button type="submit" class="consultation-submit" id="consultation-submit-button">
+                        <i class="bx bx-send" aria-hidden="true"></i>
+                        <span>Gửi yêu cầu tư vấn</span>
+                    </button>
+                    <a class="consultation-quick-link" id="consultation-call-link" href="tel:0854955761">
+                        <i class="bx bx-phone-call" aria-hidden="true"></i>
+                        <span>Gọi ngay</span>
+                    </a>
+                    <a class="consultation-quick-link" id="consultation-test-drive-link" href="/Car-Dealer-Website/dang-ky-lai-thu">
+                        <i class="bx bx-steering-wheel" aria-hidden="true"></i>
+                        <span>Đăng ký lái thử</span>
+                    </a>
+                </div>
+                <p class="consultation-feedback" id="consultation-feedback" aria-live="polite"></p>
+            </form>
+        </div>
+    </div>
+
+    <div class="rolling-cost-modal" id="rolling-cost-modal" aria-hidden="true">
+        <div class="rolling-cost-modal__overlay" data-close-rolling-cost></div>
+        <div class="rolling-cost-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="rolling-cost-title">
+            <header class="rolling-cost-modal__header">
+                <div>
+                    <span>Ước tính chi phí</span>
+                    <h2 id="rolling-cost-title">Chi phí lăn bánh tạm tính</h2>
+                    <p id="rolling-cost-summary">Điều chỉnh thông tin để xem chi phí dự kiến cho xe.</p>
+                </div>
+                <button type="button" class="rolling-cost-modal__close" data-close-rolling-cost aria-label="Đóng công cụ tính chi phí lăn bánh">
+                    <i class="bx bx-x" aria-hidden="true"></i>
+                </button>
+            </header>
+
+            <div class="rolling-cost-layout">
+                <form class="rolling-cost-form" id="rolling-cost-form" novalidate>
+                    <fieldset class="rolling-cost-mode">
+                        <legend>Tình trạng đăng ký</legend>
+                        <label>
+                            <input type="radio" name="vehicleType" value="new" checked>
+                            <span>Xe mới</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="vehicleType" value="used">
+                            <span>Xe đã qua sử dụng</span>
+                        </label>
+                    </fieldset>
+
+                    <div class="rolling-cost-form__grid">
+                        <label>
+                            <span>Khu vực đăng ký</span>
+                            <select name="registrationArea">
+                                <option value="hanoi">Hà Nội</option>
+                                <option value="hochiminh">TP. Hồ Chí Minh</option>
+                                <option value="zone2">Khu vực II</option>
+                                <option value="zone3">Khu vực III</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Số chỗ ngồi</span>
+                            <select name="seatGroup">
+                                <option value="under6">Dưới 6 chỗ</option>
+                                <option value="6to11">Từ 6 đến 11 chỗ</option>
+                            </select>
+                        </label>
+                        <label>
+                            <span>Giá mua xe</span>
+                            <input type="number" name="purchasePrice" min="0" step="1000000" required>
+                            <small>Giá xe đang giao dịch, chưa gồm chi phí lăn bánh.</small>
+                        </label>
+                        <label>
+                            <span id="rolling-cost-tax-base-label">Giá tính lệ phí trước bạ</span>
+                            <input type="number" name="taxBasePrice" min="0" step="1000000" required>
+                            <small id="rolling-cost-tax-base-help">Có thể khác giá bán theo bảng giá của cơ quan thuế.</small>
+                        </label>
+                        <label data-used-rolling-cost-field hidden>
+                            <span>Năm bắt đầu sử dụng</span>
+                            <input type="number" name="firstUseYear" min="1980" max="2100" step="1">
+                            <small>Dùng để xác định tỷ lệ giá trị còn lại của xe cũ.</small>
+                        </label>
+                        <label>
+                            <span>Tỷ lệ trước bạ (%)</span>
+                            <input type="number" name="registrationRate" min="0" max="30" step="0.1" required>
+                            <small id="rolling-cost-rate-help">Mặc định theo khu vực, bạn có thể điều chỉnh.</small>
+                        </label>
+                        <label>
+                            <span>Đăng ký, biển số</span>
+                            <input type="number" name="plateFee" min="0" step="10000" required>
+                        </label>
+                        <label>
+                            <span>Kiểm định và giấy chứng nhận</span>
+                            <input type="number" name="inspectionFee" min="0" step="10000" required>
+                        </label>
+                        <label>
+                            <span>Phí sử dụng đường bộ 12 tháng</span>
+                            <input type="number" name="roadFee" min="0" step="10000" required>
+                        </label>
+                        <label>
+                            <span>Bảo hiểm TNDS bắt buộc</span>
+                            <input type="number" name="insuranceFee" min="0" step="1000" required>
+                        </label>
+                        <label class="rolling-cost-form__wide">
+                            <span>Chi phí khác dự kiến</span>
+                            <input type="number" name="otherFee" min="0" step="10000" value="0">
+                            <small>Ví dụ dịch vụ sang tên hoặc hồ sơ. Nhập 0 nếu không tính.</small>
+                        </label>
+                    </div>
+
+                    <div class="rolling-cost-form__actions">
+                        <button type="submit" class="rolling-cost-calculate">
+                            <i class="bx bx-calculator" aria-hidden="true"></i>
+                            <span>Tính lại chi phí</span>
+                        </button>
+                        <button type="button" class="rolling-cost-reset" id="rolling-cost-reset">
+                            <i class="bx bx-reset" aria-hidden="true"></i>
+                            <span>Khôi phục mặc định</span>
+                        </button>
+                    </div>
+                </form>
+
+                <aside class="rolling-cost-result" aria-live="polite">
+                    <div class="rolling-cost-result__heading">
+                        <span>Tạm tính cho</span>
+                        <h3 id="rolling-cost-car-name">Xe đang xem</h3>
+                        <p id="rolling-cost-formula-note">Lệ phí trước bạ được tính theo giá tính trước bạ.</p>
+                    </div>
+                    <dl class="rolling-cost-breakdown">
+                        <div>
+                            <dt>Giá mua xe</dt>
+                            <dd id="rolling-cost-purchase-result">0 ₫</dd>
+                        </div>
+                        <div>
+                            <dt>Lệ phí trước bạ</dt>
+                            <dd id="rolling-cost-registration-result">0 ₫</dd>
+                        </div>
+                        <div>
+                            <dt>Đăng ký, biển số</dt>
+                            <dd id="rolling-cost-plate-result">0 ₫</dd>
+                        </div>
+                        <div>
+                            <dt>Kiểm định và giấy chứng nhận</dt>
+                            <dd id="rolling-cost-inspection-result">0 ₫</dd>
+                        </div>
+                        <div>
+                            <dt>Phí đường bộ</dt>
+                            <dd id="rolling-cost-road-result">0 ₫</dd>
+                        </div>
+                        <div>
+                            <dt>Bảo hiểm bắt buộc</dt>
+                            <dd id="rolling-cost-insurance-result">0 ₫</dd>
+                        </div>
+                        <div>
+                            <dt>Chi phí khác</dt>
+                            <dd id="rolling-cost-other-result">0 ₫</dd>
+                        </div>
+                    </dl>
+                    <div class="rolling-cost-total rolling-cost-total--fees">
+                        <span>Tổng phí dự kiến</span>
+                        <strong id="rolling-cost-fees-result">0 ₫</strong>
+                    </div>
+                    <div class="rolling-cost-total">
+                        <span>Giá lăn bánh tạm tính</span>
+                        <strong id="rolling-cost-total-result">0 ₫</strong>
+                    </div>
+                    <p class="rolling-cost-disclaimer">Kết quả chỉ để tham khảo. Giá tính trước bạ, phí biển số và thời hạn còn hiệu lực của đăng kiểm/bảo hiểm có thể làm số thực tế thay đổi.</p>
+                    <details class="rolling-cost-sources">
+                        <summary>Căn cứ và cách tính</summary>
+                        <ul>
+                            <li><a href="https://vanban.chinhphu.vn/?pageid=27160&amp;docid=205090" target="_blank" rel="noopener">Nghị định 10/2022/NĐ-CP về lệ phí trước bạ</a></li>
+                            <li><a href="https://vanban.chinhphu.vn/?pageid=27160&amp;docid=205437" target="_blank" rel="noopener">Thông tư 13/2022/TT-BTC hướng dẫn lệ phí trước bạ</a></li>
+                            <li><a href="https://vanban.chinhphu.vn/?pageid=27160&amp;docid=209255" target="_blank" rel="noopener">Nghị định 90/2023/NĐ-CP về phí đường bộ</a></li>
+                            <li><a href="https://vanban.chinhphu.vn/?pageid=27160&amp;docid=208599" target="_blank" rel="noopener">Nghị định 67/2023/NĐ-CP về bảo hiểm bắt buộc</a></li>
+                            <li><a href="https://vanban.chinhphu.vn/?pageid=27160&amp;docid=214421" target="_blank" rel="noopener">Thông tư 71/2025/TT-BTC về phí, lệ phí</a></li>
+                        </ul>
+                    </details>
+                </aside>
+            </div>
+        </div>
+    </div>
+
+    <div class="compare-modal" id="compare-modal" aria-hidden="true">
+        <div class="compare-modal__overlay" data-close-compare></div>
+        <div class="compare-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="compare-modal-title">
+            <div class="compare-modal__header">
+                <div>
+                    <span>So sánh xe</span>
+                    <h2 id="compare-modal-title">Thông số xe đang chọn</h2>
+                    <p>Tối đa 3 xe trong mỗi lần so sánh.</p>
+                </div>
+                <button type="button" class="compare-modal__close" data-close-compare aria-label="Đóng so sánh xe">
+                    <i class="bx bx-x" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="compare-modal__tools">
+                <label class="compare-search">
+                    <i class="bx bx-search" aria-hidden="true"></i>
+                    <input type="search" id="compare-search-input" placeholder="Tìm xe để thêm vào so sánh">
+                </label>
+                <p id="compare-count">Đã chọn 0/3 xe</p>
+            </div>
+            <div class="compare-modal__body">
+                <aside class="compare-picker" id="compare-picker" aria-label="Danh sách xe có thể thêm"></aside>
+                <section class="compare-table-wrap" id="compare-table-wrap" aria-label="Bảng so sánh thông số xe"></section>
+            </div>
+        </div>
+    </div>
+
+    <script src="/Car-Dealer-Website/car-detail/script.js"></script>
+    <script src="/Car-Dealer-Website/global/app.js"></script>
+    <script src="/Car-Dealer-Website/global/responsive-nav.js"></script>
+</body>
+</html>

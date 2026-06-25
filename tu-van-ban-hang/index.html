@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tư vấn bán hàng - OkXe</title>
+    <meta name="description" content="Danh sách tư vấn bán hàng của OkXe, hỗ trợ khách hàng chọn xe cũ phù hợp và liên hệ nhanh qua điện thoại hoặc email.">
+    <link href="https://cdn.boxicons.com/3.0.8/css/boxicons.min.css" rel="stylesheet">
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/Car-Dealer-Website/sales-team/style.css">
+    <link rel="stylesheet" href="/Car-Dealer-Website/global/header.css">
+    <link rel="stylesheet" href="/Car-Dealer-Website/global/responsive-nav.css">
+    <link rel="stylesheet" href="/Car-Dealer-Website/global/footer.css">
+    <script src="/Car-Dealer-Website/github-pages-demo.js"></script>
+</head>
+<body>
+    <div data-site-header></div>
+
+    <main>
+        <section class="sales-hero" aria-labelledby="sales-title">
+            <div class="sales-hero__content">
+                <span>Đội ngũ OkXe</span>
+                <h1 id="sales-title">Tư vấn bán hàng chuyên nghiệp</h1>
+                <p>Chọn đúng người tư vấn để được hỗ trợ rõ nhu cầu, ngân sách, thủ tục và lịch xem xe nhanh gọn.</p>
+            </div>
+        </section>
+
+        <section class="sales-toolbar" aria-label="Tìm tư vấn bán hàng">
+            <label class="sales-search">
+                <i class="bx bx-search" aria-hidden="true"></i>
+                <input type="search" id="sales-search-input" placeholder="Tìm theo tên, chức danh, số điện thoại">
+            </label>
+            <div class="sales-stats" id="sales-stats">
+                <span>Đang tải danh sách...</span>
+            </div>
+        </section>
+
+        <section class="sales-grid" id="sales-grid" aria-label="Danh sách tư vấn bán hàng">
+            <article class="sales-empty">
+                <i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i>
+                <strong>Đang tải đội ngũ tư vấn</strong>
+                <p>Vui lòng chờ trong giây lát.</p>
+            </article>
+        </section>
+    </main>
+
+    <div data-site-footer></div>
+
+    <script src="/Car-Dealer-Website/sales-team/script.js"></script>
+    <script src="/Car-Dealer-Website/global/app.js"></script>
+    <script src="/Car-Dealer-Website/global/responsive-nav.js"></script>
+</body>
+</html>
