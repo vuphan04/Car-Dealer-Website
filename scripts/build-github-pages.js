@@ -298,6 +298,10 @@ const rewriteDataPaths = (value) => {
     );
   }
 
+  if (typeof value === 'string' && normalizeAppAssetReference(value).startsWith('/uploads/')) {
+    return '';
+  }
+
   if (typeof value === 'string' && value.startsWith('/') && !value.startsWith('/api/')) {
     return prefixAppPath(value);
   }
@@ -321,7 +325,7 @@ const appAssetExists = (assetPath) => {
   }
 
   if (topLevelDir === 'uploads') {
-    return fs.existsSync(path.join(rootDir, 'storage', 'uploads', ...pathParts));
+    return false;
   }
 
   return fs.existsSync(path.join(rootDir, 'public', topLevelDir || '', ...pathParts));
@@ -684,7 +688,6 @@ const build = () => {
   ensureCleanDir(outputDir);
   copyDir(path.join(rootDir, 'public'), outputDir);
   copyDir(path.join(rootDir, 'images'), path.join(outputDir, 'images'));
-  copyDir(path.join(rootDir, 'storage', 'uploads'), path.join(outputDir, 'uploads'));
   createRouteAliases(demoData);
   processTextFiles(outputDir);
   fs.writeFileSync(path.join(outputDir, '.nojekyll'), '');
