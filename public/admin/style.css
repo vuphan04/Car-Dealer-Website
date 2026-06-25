@@ -1371,6 +1371,38 @@ textarea {
     font-weight: 800;
 }
 
+.inventory-source-badge {
+    width: fit-content;
+    max-width: 100%;
+    min-height: 28px;
+    border: 1px solid rgba(241, 90, 41, 0.18);
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.18rem 0.58rem;
+    color: #f15a29;
+    background: #fff3ed;
+    font-size: 0.72rem;
+    font-weight: 900;
+}
+
+.inventory-source-badge i {
+    font-size: 1rem;
+}
+
+.inventory-source-badge span,
+.inventory-source-badge small {
+    color: inherit;
+    font-size: inherit;
+    line-height: 1.2;
+    font-weight: 900;
+}
+
+.inventory-source-badge small {
+    color: #8a5c4a;
+}
+
 .car-name span,
 .car-name small,
 .price-note {
@@ -1386,6 +1418,10 @@ textarea {
 
 .car-description-preview {
     color: #53607f;
+}
+
+.car-source-preview {
+    color: #8a5c4a;
 }
 
 .pill {
@@ -1530,6 +1566,12 @@ textarea {
 .data-chip.is-incomplete {
     color: #b8650d;
     background: #fff5e8;
+}
+
+.data-chip--source,
+.data-chip--source-code {
+    color: #d64c1f;
+    background: #fff3ed;
 }
 
 .car-date-stack strong,
@@ -2613,6 +2655,28 @@ textarea {
     font-family: inherit;
     font-size: 0.96rem;
     line-height: 1.55;
+}
+
+.car-sell-request-image-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+    gap: 0.75rem;
+}
+
+.car-sell-request-image {
+    aspect-ratio: 4 / 3;
+    border: 1px solid rgba(22, 33, 75, 0.08);
+    border-radius: 16px;
+    display: block;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 10px 22px rgba(22, 33, 75, 0.06);
+}
+
+.car-sell-request-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 @media (max-width: 1120px) {

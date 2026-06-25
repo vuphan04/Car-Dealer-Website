@@ -9,6 +9,10 @@ const getSharedHeaderActivePath = () => {
         return '/tin-mua-o-to';
     }
 
+    if (path.startsWith('/blog/')) {
+        return '/blog';
+    }
+
     return path;
 };
 
@@ -28,7 +32,7 @@ const renderSharedSiteHeader = () => {
         { href: '/khuyen-mai', label: 'Khuyến mại', activePath: '/khuyen-mai' },
         { href: '/tu-van-ban-hang', label: 'Đội ngũ tư vấn bán hàng', activePath: '/tu-van-ban-hang' },
         { href: '/#faq', label: 'Faq' },
-        { href: '/#blog', label: 'Blog' },
+        { href: '/blog', label: 'Tin tức về xe', activePath: '/blog' },
         { href: '/#footer', label: 'Liên Hệ' }
     ];
 
@@ -185,6 +189,7 @@ const renderSharedSiteFooter = () => {
                         <a href="/mua-xe">Tìm mua ô tô</a>
                         <a href="/tin-mua-o-to">Tin mua ô tô</a>
                         <a href="/khuyen-mai">Khuyến mại</a>
+                        <a href="/blog">Blog ô tô</a>
                         <a href="/#faq">Hỏi đáp</a>
                     </nav>
 

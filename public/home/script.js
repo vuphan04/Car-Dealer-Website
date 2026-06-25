@@ -6,6 +6,7 @@ const teamMemberModal = document.querySelector('#team-member-modal');
 const teamMemberModalContent = document.querySelector('#team-member-modal-content');
 const teamMemberCloseButtons = document.querySelectorAll('[data-close-team-member]');
 const promotionCarousel = document.querySelector('#promotion-carousel');
+const homeBlogCarousel = document.querySelector('#home-blog-carousel');
 const testDriveButton = document.querySelector('.test-drive__button');
 
 const closeMobileMenu = () => {
@@ -99,6 +100,7 @@ let teamMembersState = [];
 let promotionsState = [];
 let testDriveAppointmentsState = [];
 let carBuyRequestsState = [];
+let userNotificationsState = [];
 let teamMemberCloseTimer = 0;
 let dismissedNotificationIds = new Set();
 const dismissedNotificationsStorageKey = 'okxe:dismissedPromotionNotifications';
@@ -917,6 +919,33 @@ const carBuyRequestOfferNotificationLabels = {
     }
 };
 
+const userNotificationLabels = {
+    pending: {
+        meta: 'Đăng bán xe',
+        icon: 'bx-message-square-edit',
+        actionText: 'Xem biểu mẫu',
+        actionUrl: '/dang-tin-ban-xe'
+    },
+    approved: {
+        meta: 'Đăng bán xe',
+        icon: 'bxs-check-circle',
+        actionText: 'Xem kho xe',
+        actionUrl: '/mua-xe'
+    },
+    rejected: {
+        meta: 'Đăng bán xe',
+        icon: 'bxs-x-circle',
+        actionText: 'Đăng lại xe',
+        actionUrl: '/dang-tin-ban-xe'
+    },
+    default: {
+        meta: 'Thông báo',
+        icon: 'bxs-bell',
+        actionText: 'Xem chi tiết',
+        actionUrl: '/'
+    }
+};
+
 const getTestDriveNotificationState = (appointment = {}) => {
     const status = String(appointment.status || '').trim().toLowerCase();
     const hasStatusNote = String(appointment.statusNote || '').trim().length > 0;
@@ -985,6 +1014,16 @@ const getCarBuyRequestOfferNotificationKey = (request = {}, offer = {}) =>
         ].join(':')
     );
 
+const getUserNotificationKey = (notification = {}) =>
+    getNotificationKey(
+        'user-notification',
+        [
+            notification.id,
+            notification.status || '',
+            notification.createdAt || ''
+        ].join(':')
+    );
+
 const isNotificationDismissed = (type, id) =>
     dismissedNotificationIds.has(getNotificationKey(type, id))
     || (type === 'promotion' && dismissedNotificationIds.has(String(id || '')));
@@ -1043,12 +1082,23 @@ const getNotificationCarBuyRequestOffers = () =>
             return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
         });
 
+const getNotificationUserNotifications = () =>
+    [...userNotificationsState]
+        .filter((notification) => !dismissedNotificationIds.has(getUserNotificationKey(notification)))
+        .sort((first, second) => {
+            const firstTime = new Date(first.createdAt || 0).getTime();
+            const secondTime = new Date(second.createdAt || 0).getTime();
+
+            return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
+        });
+
 const updateNotificationBadge = () => {
     const notificationCount =
         getNotificationPromotions().length
         + getNotificationTestDriveAppointments().length
         + getNotificationCarBuyRequests().length
-        + getNotificationCarBuyRequestOffers().length;
+        + getNotificationCarBuyRequestOffers().length
+        + getNotificationUserNotifications().length;
 
     notificationBadges.forEach((badge) => {
         badge.textContent = notificationCount > 9 ? '9+' : String(notificationCount);
@@ -1066,7 +1116,9 @@ const renderPromotionNotifications = (promotions = promotionsState) => {
     const notificationAppointments = getNotificationTestDriveAppointments();
     const notificationCarBuyRequests = getNotificationCarBuyRequests();
     const notificationCarBuyRequestOffers = getNotificationCarBuyRequestOffers();
+    const notificationUserNotifications = getNotificationUserNotifications();
     const notifications = [
+        ...notificationUserNotifications.map((notification) => ({ type: 'user-notification', item: notification })),
         ...notificationAppointments.map((appointment) => ({ type: 'test-drive', item: appointment })),
         ...notificationCarBuyRequestOffers.map((offerNotification) => ({ type: 'car-buy-request-offer', item: offerNotification })),
         ...notificationCarBuyRequests.map((request) => ({ type: 'car-buy-request', item: request })),
@@ -1248,6 +1300,45 @@ const renderPromotionNotifications = (promotions = promotionsState) => {
             `;
         }
 
+        if (type === 'user-notification') {
+            const notification = item;
+            const status = String(notification.status || 'default').trim().toLowerCase();
+            const notificationConfig = userNotificationLabels[status] || userNotificationLabels.default;
+            const createdText = formatPromotionDate(
+                String(notification.createdAt || '').slice(0, 10),
+                'Vừa cập nhật'
+            );
+            const notificationKey = getUserNotificationKey(notification);
+            const title = notification.title || 'Thông báo từ OkXe';
+            const message = notification.message || 'OkXe vừa cập nhật trạng thái yêu cầu của bạn.';
+
+            return `
+                <article class="notification-item">
+                    <button type="button" class="notification-item__delete" data-delete-notification="${escapeHtml(notificationKey)}" aria-label="Xóa thông báo ${escapeHtml(title)}">
+                        <i class="bx bx-x" aria-hidden="true"></i>
+                    </button>
+                    <span class="notification-item__icon">
+                        <i class="bx ${escapeHtml(notificationConfig.icon)}" aria-hidden="true"></i>
+                    </span>
+                    <div class="notification-item__body">
+                        <div class="notification-item__meta">
+                            <span>${escapeHtml(notificationConfig.meta)}</span>
+                            <small>${escapeHtml(createdText)}</small>
+                        </div>
+                        <h3>${escapeHtml(title)}</h3>
+                        <p>${escapeHtml(message)}</p>
+                        <div class="notification-item__footer">
+                            <small>${escapeHtml(status === 'rejected' ? 'Bạn cần đăng lại bài nếu muốn OkXe kiểm tra lại.' : 'OkXe sẽ tiếp tục cập nhật khi có thay đổi.')}</small>
+                            <a href="${escapeHtml(notificationConfig.actionUrl)}" data-close-notifications-link>
+                                <span>${escapeHtml(notificationConfig.actionText)}</span>
+                                <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+                            </a>
+                        </div>
+                    </div>
+                </article>
+            `;
+        }
+
         const promotion = item;
         const imageUrl = String(promotion.imageUrl || '').trim();
         const periodText = getPromotionPeriod(promotion);
@@ -1361,6 +1452,7 @@ const openNotificationsModal = async () => {
     await syncPromotions();
     await syncTestDriveAppointments();
     await syncCarBuyRequests();
+    await syncUserNotifications();
     renderPromotionNotifications();
 };
 
@@ -2021,6 +2113,96 @@ promotionCarousel?.addEventListener('keydown', (event) => {
     openPromotionDetailModal(promotion);
 });
 
+const formatBlogDate = (value) => {
+    const date = new Date(`${value}T00:00:00`);
+
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    return new Intl.DateTimeFormat('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    }).format(date);
+};
+
+const renderHomeBlog = () => {
+    if (!homeBlogCarousel) {
+        return;
+    }
+
+    const posts = Array.isArray(window.OKXE_BLOG_POSTS)
+        ? window.OKXE_BLOG_POSTS.slice(0, 6)
+        : [];
+
+    if (!posts.length) {
+        homeBlogCarousel.innerHTML = '<p class="home-blog__empty">Chưa có bài viết nào được hiển thị.</p>';
+        return;
+    }
+
+    const cards = posts.map((post) => `
+        <article class="home-blog-card">
+            <a href="/blog/${encodeURIComponent(post.slug)}" class="home-blog-card__media" aria-label="Đọc bài ${escapeHtml(post.title)}">
+                <img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.imageAlt || post.title)}">
+            </a>
+            <div class="home-blog-card__body">
+                <div class="home-blog-card__meta">
+                    <span>${escapeHtml(post.category)}</span>
+                    <small>${escapeHtml(formatBlogDate(post.publishedAt))}</small>
+                </div>
+                <h3><a href="/blog/${encodeURIComponent(post.slug)}">${escapeHtml(post.title)}</a></h3>
+                <p>${escapeHtml(post.excerpt)}</p>
+                <a href="/blog/${encodeURIComponent(post.slug)}" class="home-blog-card__read">
+                    <span>Đọc bài viết</span>
+                    <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+                </a>
+            </div>
+        </article>
+    `).join('');
+
+    homeBlogCarousel.innerHTML = `
+        <div class="home-blog__shell">
+            <button type="button" class="home-blog__button home-blog__button--prev" data-home-blog-direction="-1" aria-label="Xem bài viết trước">
+                <i class="bx bx-chevron-left" aria-hidden="true"></i>
+            </button>
+            <div class="home-blog__viewport">${cards}</div>
+            <button type="button" class="home-blog__button home-blog__button--next" data-home-blog-direction="1" aria-label="Xem bài viết tiếp theo">
+                <i class="bx bx-chevron-right" aria-hidden="true"></i>
+            </button>
+        </div>
+    `;
+
+    const viewport = homeBlogCarousel.querySelector('.home-blog__viewport');
+    const updateButtons = () => {
+        const maxScroll = viewport.scrollWidth - viewport.clientWidth;
+        const previous = homeBlogCarousel.querySelector('[data-home-blog-direction="-1"]');
+        const next = homeBlogCarousel.querySelector('[data-home-blog-direction="1"]');
+        previous.disabled = viewport.scrollLeft <= 1;
+        next.disabled = viewport.scrollLeft >= maxScroll - 1 || maxScroll <= 1;
+    };
+
+    viewport.addEventListener('scroll', updateButtons, { passive: true });
+    window.addEventListener('resize', updateButtons);
+    window.requestAnimationFrame(updateButtons);
+};
+
+homeBlogCarousel?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-home-blog-direction]');
+
+    if (!button) {
+        return;
+    }
+
+    const viewport = homeBlogCarousel.querySelector('.home-blog__viewport');
+    viewport?.scrollBy({
+        left: Number(button.dataset.homeBlogDirection || 1) * viewport.clientWidth,
+        behavior: 'smooth'
+    });
+});
+
+renderHomeBlog();
+
 const syncCars = async () => {
     if (!rentalContainer) {
         return;
@@ -2673,6 +2855,28 @@ const syncCarBuyRequests = async () => {
     renderPromotionNotifications();
 };
 
+const syncUserNotifications = async () => {
+    if (!currentUser) {
+        userNotificationsState = [];
+        renderPromotionNotifications();
+        return;
+    }
+
+    try {
+        const { response, data } = await requestJson('/api/notifications/my');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải thông báo của bạn.');
+        }
+
+        userNotificationsState = Array.isArray(data.notifications) ? data.notifications : [];
+    } catch (error) {
+        userNotificationsState = [];
+    }
+
+    renderPromotionNotifications();
+};
+
 const syncCurrentUser = async () => {
     try {
         const { response, data } = await requestJson('/api/auth/me');
@@ -2682,6 +2886,7 @@ const syncCurrentUser = async () => {
             await syncFavoriteCars();
             await syncTestDriveAppointments();
             await syncCarBuyRequests();
+            await syncUserNotifications();
             return;
         }
 
@@ -2689,11 +2894,13 @@ const syncCurrentUser = async () => {
         await syncFavoriteCars();
         await syncTestDriveAppointments();
         await syncCarBuyRequests();
+        await syncUserNotifications();
     } catch (error) {
         updateAuthUi(null);
         await syncFavoriteCars();
         await syncTestDriveAppointments();
         await syncCarBuyRequests();
+        await syncUserNotifications();
     }
 };
 

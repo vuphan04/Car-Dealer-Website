@@ -30,6 +30,7 @@ const approvedTestDriveAppointmentStatus = 'approved';
 const consultationRequestStatuses = new Set(['new', 'contacted', 'appointment', 'closed', 'failed']);
 const carBuyRequestStatuses = new Set(['pending', 'approved', 'rejected']);
 const carBuyRequestOfferStatuses = new Set(['new', 'contacted', 'matched', 'rejected']);
+const carSellRequestStatuses = new Set(['pending', 'approved']);
 
 const normalizeConfiguredEmail = (email) =>
   String(email || '').trim().toLowerCase();
@@ -85,6 +86,14 @@ const normalizeCarBuyRequestOfferStatus = (status) => {
   return carBuyRequestOfferStatuses.has(normalizedStatus)
     ? normalizedStatus
     : 'new';
+};
+
+const normalizeCarSellRequestStatus = (status) => {
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+
+  return carSellRequestStatuses.has(normalizedStatus)
+    ? normalizedStatus
+    : 'pending';
 };
 
 const getConfiguredRoleForEmail = (email) => {
@@ -337,6 +346,54 @@ const initializeSchema = (database) => {
     FOREIGN KEY (car_buy_request_id) REFERENCES car_buy_requests(id) ON DELETE CASCADE
   );
 
+  CREATE TABLE IF NOT EXISTS car_sell_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    full_name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL DEFAULT '',
+    brand TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT '',
+    name TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    type TEXT NOT NULL DEFAULT '',
+    price_text TEXT NOT NULL DEFAULT '',
+    price_value INTEGER NOT NULL DEFAULT 0,
+    image TEXT NOT NULL DEFAULT '',
+    images_json TEXT NOT NULL DEFAULT '[]',
+    year INTEGER NOT NULL DEFAULT 0,
+    fuel TEXT NOT NULL DEFAULT '',
+    mileage_text TEXT NOT NULL DEFAULT '',
+    mileage_value INTEGER NOT NULL DEFAULT 0,
+    seats TEXT NOT NULL DEFAULT '',
+    gearbox TEXT NOT NULL DEFAULT '',
+    drivetrain TEXT NOT NULL DEFAULT '',
+    origin TEXT NOT NULL DEFAULT '',
+    condition TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT '',
+    action_text TEXT NOT NULL DEFAULT 'Còn xe',
+    status TEXT NOT NULL DEFAULT 'pending',
+    status_note TEXT NOT NULL DEFAULT '',
+    approved_car_id INTEGER,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (approved_car_id) REFERENCES cars(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS user_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL DEFAULT '',
+    entity_type TEXT NOT NULL DEFAULT '',
+    entity_id INTEGER,
+    status TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
   CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id
   ON user_sessions (user_id);
 
@@ -390,6 +447,15 @@ const initializeSchema = (database) => {
 
   CREATE INDEX IF NOT EXISTS idx_car_buy_request_offers_status
   ON car_buy_request_offers (status, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_car_sell_requests_status
+  ON car_sell_requests (status, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_car_sell_requests_user_id
+  ON car_sell_requests (user_id, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_user_notifications_user_id
+  ON user_notifications (user_id, created_at);
 
 `);
 
@@ -945,6 +1011,22 @@ const listCarsStatement = db.prepare(`
   ORDER BY datetime(created_at) DESC, id DESC
 `);
 
+const listAdminCarsStatement = db.prepare(`
+  SELECT cars.*,
+         car_sell_requests.id AS sell_request_id,
+         car_sell_requests.full_name AS sell_request_full_name,
+         car_sell_requests.phone AS sell_request_phone,
+         car_sell_requests.email AS sell_request_email,
+         car_sell_requests.status_note AS sell_request_status_note,
+         car_sell_requests.created_at AS sell_request_created_at,
+         car_sell_requests.updated_at AS sell_request_updated_at
+  FROM cars
+  LEFT JOIN car_sell_requests
+    ON car_sell_requests.approved_car_id = cars.id
+   AND car_sell_requests.status = 'approved'
+  ORDER BY datetime(cars.created_at) DESC, cars.id DESC
+`);
+
 const listAvailableTestDriveCarsStatement = db.prepare(`
   SELECT *
   FROM cars
@@ -1307,6 +1389,81 @@ const updateCarBuyRequestOfferStatusStatement = db.prepare(`
   WHERE id = ?
 `);
 
+const insertCarSellRequestStatement = db.prepare(`
+  INSERT INTO car_sell_requests (
+    user_id, full_name, phone, email, brand, category, name, description, type,
+    price_text, price_value, image, images_json, year, fuel, mileage_text,
+    mileage_value, seats, gearbox, drivetrain, origin, condition, color, action_text
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+const findCarSellRequestByIdStatement = db.prepare(`
+  SELECT car_sell_requests.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM car_sell_requests
+  LEFT JOIN users ON users.id = car_sell_requests.user_id
+  WHERE car_sell_requests.id = ?
+`);
+
+const listCarSellRequestsStatement = db.prepare(`
+  SELECT car_sell_requests.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM car_sell_requests
+  LEFT JOIN users ON users.id = car_sell_requests.user_id
+  ORDER BY
+    CASE car_sell_requests.status
+      WHEN 'pending' THEN 0
+      WHEN 'approved' THEN 1
+      ELSE 2
+    END,
+    datetime(car_sell_requests.created_at) DESC,
+    car_sell_requests.id DESC
+`);
+
+const listCarSellRequestsByUserStatement = db.prepare(`
+  SELECT car_sell_requests.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM car_sell_requests
+  LEFT JOIN users ON users.id = car_sell_requests.user_id
+  WHERE car_sell_requests.user_id = ?
+  ORDER BY datetime(car_sell_requests.created_at) DESC,
+           car_sell_requests.id DESC
+`);
+
+const updateCarSellRequestApprovedStatement = db.prepare(`
+  UPDATE car_sell_requests
+  SET status = 'approved',
+      status_note = ?,
+      approved_car_id = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const deleteCarSellRequestStatement = db.prepare(`
+  DELETE FROM car_sell_requests
+  WHERE id = ?
+`);
+
+const insertUserNotificationStatement = db.prepare(`
+  INSERT INTO user_notifications (
+    user_id, type, title, message, entity_type, entity_id, status
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+`);
+
+const listUserNotificationsStatement = db.prepare(`
+  SELECT *
+  FROM user_notifications
+  WHERE user_id = ?
+  ORDER BY datetime(created_at) DESC,
+           id DESC
+  LIMIT 80
+`);
+
 const seedCars = [
   {
     brand: 'Rolls-Royce',
@@ -1579,6 +1736,36 @@ const sanitizeCar = (carRow) => {
   };
 };
 
+const sanitizeAdminCar = (carRow) => {
+  const car = sanitizeCar(carRow);
+
+  if (!car) {
+    return null;
+  }
+
+  if (carRow.sell_request_id) {
+    car.inventorySource = {
+      type: 'customer_sell_request',
+      label: 'Khách gửi bán',
+      requestId: carRow.sell_request_id,
+      requestCode: `BX-${String(carRow.sell_request_id).padStart(6, '0')}`,
+      sellerName: carRow.sell_request_full_name || '',
+      sellerPhone: carRow.sell_request_phone || '',
+      sellerEmail: carRow.sell_request_email || '',
+      statusNote: carRow.sell_request_status_note || '',
+      requestedAt: carRow.sell_request_created_at || '',
+      approvedAt: carRow.sell_request_updated_at || '',
+    };
+  } else {
+    car.inventorySource = {
+      type: 'manual',
+      label: 'Nhập kho thủ công',
+    };
+  }
+
+  return car;
+};
+
 const normalizeCarPayload = (car = {}) => {
   const images = normalizeCarImages(car.images, car.image);
 
@@ -1798,6 +1985,79 @@ const sanitizeCarBuyRequestOfferForOwner = (offer = {}) => ({
   createdAt: offer.createdAt || '',
   updatedAt: offer.updatedAt || '',
 });
+
+const normalizeCarSellRequestPayload = (request = {}) => ({
+  userId: request.userId ? Number(request.userId) : null,
+  fullName: normalizeFullName(request.fullName || request.full_name),
+  phone: String(request.phone || '').trim(),
+  email: normalizeEmail(request.email),
+  car: normalizeCarPayload({
+    ...request,
+    actionText: request.actionText || request.action_text || 'Còn xe',
+  }),
+});
+
+const sanitizeCarSellRequest = (requestRow) => {
+  if (!requestRow) {
+    return null;
+  }
+
+  const images = parseCarImages(requestRow.images_json, requestRow.image);
+
+  return {
+    id: requestRow.id,
+    code: `BX-${String(requestRow.id).padStart(6, '0')}`,
+    userId: requestRow.user_id,
+    userEmail: requestRow.user_email || '',
+    userAvatarUrl: requestRow.user_avatar_url || '',
+    fullName: requestRow.full_name || '',
+    phone: requestRow.phone || '',
+    email: requestRow.email || '',
+    brand: requestRow.brand || '',
+    category: requestRow.category || '',
+    name: requestRow.name || '',
+    description: requestRow.description || '',
+    type: requestRow.type || '',
+    price: requestRow.price_text || '',
+    priceValue: Number(requestRow.price_value || 0),
+    image: images[0] || requestRow.image || '',
+    images,
+    year: Number(requestRow.year || 0),
+    fuel: requestRow.fuel || '',
+    mileage: requestRow.mileage_text || '',
+    mileageValue: Number(requestRow.mileage_value || 0),
+    seats: requestRow.seats || '',
+    gearbox: requestRow.gearbox || '',
+    drivetrain: requestRow.drivetrain || '',
+    origin: requestRow.origin || '',
+    condition: requestRow.condition || '',
+    color: requestRow.color || '',
+    actionText: requestRow.action_text || 'Còn xe',
+    status: normalizeCarSellRequestStatus(requestRow.status),
+    statusNote: requestRow.status_note || '',
+    approvedCarId: requestRow.approved_car_id,
+    createdAt: requestRow.created_at || '',
+    updatedAt: requestRow.updated_at || '',
+  };
+};
+
+const sanitizeUserNotification = (notificationRow) => {
+  if (!notificationRow) {
+    return null;
+  }
+
+  return {
+    id: notificationRow.id,
+    userId: notificationRow.user_id,
+    type: notificationRow.type || '',
+    title: notificationRow.title || '',
+    message: notificationRow.message || '',
+    entityType: notificationRow.entity_type || '',
+    entityId: notificationRow.entity_id,
+    status: notificationRow.status || '',
+    createdAt: notificationRow.created_at || '',
+  };
+};
 
 const isCarAvailableForTestDrive = (car) =>
   String(car?.actionText || '').trim().toLocaleLowerCase('vi-VN') === 'còn xe';
@@ -2259,6 +2519,8 @@ const resetPasswordWithOtp = (email, otp, newPassword) => {
 
 const listCars = () => listCarsStatement.all().map(sanitizeCar);
 
+const listAdminCars = () => listAdminCarsStatement.all().map(sanitizeAdminCar);
+
 const getCarById = (carId) => sanitizeCar(findCarByIdStatement.get(carId));
 
 const listAvailableTestDriveCars = () =>
@@ -2664,6 +2926,212 @@ const updateCarBuyRequestOfferStatus = (offerId, {
   return getCarBuyRequestOfferById(offerId);
 };
 
+const createUserNotification = ({
+  userId,
+  type,
+  title,
+  message = '',
+  entityType = '',
+  entityId = null,
+  status = '',
+}) => {
+  const normalizedUserId = Number(userId || 0);
+
+  if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
+    return null;
+  }
+
+  const result = insertUserNotificationStatement.run(
+    normalizedUserId,
+    String(type || '').trim(),
+    String(title || '').trim().slice(0, 180),
+    String(message || '').trim().slice(0, 700),
+    String(entityType || '').trim().slice(0, 80),
+    Number.isInteger(Number(entityId)) && Number(entityId) > 0 ? Number(entityId) : null,
+    String(status || '').trim().slice(0, 40)
+  );
+
+  return sanitizeUserNotification({
+    id: result.lastInsertRowid,
+    user_id: normalizedUserId,
+    type,
+    title,
+    message,
+    entity_type: entityType,
+    entity_id: entityId,
+    status,
+    created_at: new Date().toISOString(),
+  });
+};
+
+const getCarSellRequestById = (requestId) =>
+  sanitizeCarSellRequest(findCarSellRequestByIdStatement.get(requestId));
+
+const listCarSellRequests = () =>
+  listCarSellRequestsStatement.all().map(sanitizeCarSellRequest);
+
+const listCarSellRequestsByUser = (userId) =>
+  listCarSellRequestsByUserStatement.all(userId).map(sanitizeCarSellRequest);
+
+const listUserNotificationsByUser = (userId) =>
+  listUserNotificationsStatement.all(userId).map(sanitizeUserNotification);
+
+const createCarSellRequest = (request) => {
+  const normalizedRequest = normalizeCarSellRequestPayload(request);
+  const normalizedUserId = Number(normalizedRequest.userId || 0);
+  const { car } = normalizedRequest;
+
+  db.exec('BEGIN IMMEDIATE');
+
+  try {
+    const result = insertCarSellRequestStatement.run(
+      Number.isInteger(normalizedUserId) && normalizedUserId > 0 ? normalizedUserId : null,
+      normalizedRequest.fullName,
+      normalizedRequest.phone,
+      normalizedRequest.email,
+      car.brand,
+      car.category,
+      car.name,
+      car.description,
+      car.type,
+      car.priceText,
+      car.priceValue,
+      car.image,
+      JSON.stringify(car.images),
+      car.year,
+      car.fuel,
+      car.mileageText,
+      car.mileageValue,
+      car.seats,
+      car.gearbox,
+      car.drivetrain,
+      car.origin,
+      car.condition,
+      car.color,
+      car.actionText
+    );
+    const createdRequest = getCarSellRequestById(result.lastInsertRowid);
+
+    if (createdRequest?.userId) {
+      createUserNotification({
+        userId: createdRequest.userId,
+        type: 'car-sell-request',
+        title: 'Đã nhận thông tin xe cần bán',
+        message: `OkXe đã nhận thông tin ${createdRequest.brand} ${createdRequest.name}. Nhân viên sẽ kiểm tra trước khi duyệt nhập kho.`,
+        entityType: 'car_sell_request',
+        entityId: createdRequest.id,
+        status: 'pending',
+      });
+    }
+
+    db.exec('COMMIT');
+    return createdRequest;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+};
+
+const approveCarSellRequest = (requestId, { statusNote = '' } = {}) => {
+  const existingRequest = getCarSellRequestById(requestId);
+
+  if (!existingRequest) {
+    return null;
+  }
+
+  if (existingRequest.status === 'approved' && existingRequest.approvedCarId) {
+    return {
+      request: existingRequest,
+      car: sanitizeCar(findCarByIdStatement.get(existingRequest.approvedCarId)),
+    };
+  }
+
+  db.exec('BEGIN IMMEDIATE');
+
+  try {
+    const createdCar = upsertCar({
+      brand: existingRequest.brand,
+      category: existingRequest.category,
+      name: existingRequest.name,
+      description: existingRequest.description,
+      type: existingRequest.type,
+      priceText: existingRequest.price,
+      priceValue: existingRequest.priceValue,
+      image: existingRequest.image,
+      images: existingRequest.images,
+      year: existingRequest.year,
+      fuel: existingRequest.fuel,
+      mileageText: existingRequest.mileage,
+      mileageValue: existingRequest.mileageValue,
+      seats: existingRequest.seats,
+      gearbox: existingRequest.gearbox,
+      drivetrain: existingRequest.drivetrain,
+      origin: existingRequest.origin,
+      condition: existingRequest.condition,
+      color: existingRequest.color,
+      actionText: 'Còn xe',
+    });
+    const finalNote = String(statusNote || '').trim()
+      || `Tin đăng bán xe đã được duyệt và nhập vào kho xe OkXe với mã xe #${createdCar.id}.`;
+
+    updateCarSellRequestApprovedStatement.run(finalNote, createdCar.id, requestId);
+
+    if (existingRequest.userId) {
+      createUserNotification({
+        userId: existingRequest.userId,
+        type: 'car-sell-request',
+        title: 'Tin đăng bán xe đã được duyệt',
+        message: finalNote,
+        entityType: 'car_sell_request',
+        entityId: requestId,
+        status: 'approved',
+      });
+    }
+
+    db.exec('COMMIT');
+    return {
+      request: getCarSellRequestById(requestId),
+      car: createdCar,
+    };
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+};
+
+const rejectCarSellRequest = (requestId, { statusNote = '' } = {}) => {
+  const existingRequest = getCarSellRequestById(requestId);
+
+  if (!existingRequest) {
+    return null;
+  }
+
+  const finalNote = String(statusNote || '').trim();
+
+  db.exec('BEGIN IMMEDIATE');
+
+  try {
+    if (existingRequest.userId) {
+      createUserNotification({
+        userId: existingRequest.userId,
+        type: 'car-sell-request',
+        title: 'Tin đăng bán xe chưa được duyệt',
+        message: `${finalNote || 'Thông tin xe chưa phù hợp để nhập kho.'} Bài đăng đã được xóa, vui lòng đăng lại khi đã bổ sung thông tin.`,
+        entityType: 'car_sell_request',
+        entityId: existingRequest.id,
+        status: 'rejected',
+      });
+    }
+
+    deleteCarSellRequestStatement.run(requestId);
+    db.exec('COMMIT');
+    return existingRequest;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+};
+
 const deleteCarBuyRequest = (requestId) => {
   const existingRequest = getCarBuyRequestById(requestId);
 
@@ -2803,6 +3271,7 @@ module.exports = {
   authenticateUser,
   createCar,
   createCarBuyRequest,
+  createCarSellRequest,
   createCarBuyRequestOffer,
   createConsultationRequest,
   createPasswordResetOtp,
@@ -2821,6 +3290,7 @@ module.exports = {
   getCarById,
   getCarBuyRequestById,
   getCarBuyRequestOfferById,
+  getCarSellRequestById,
   getConsultationRequestById,
   getPromotionById,
   getTestDriveAppointmentById,
@@ -2830,9 +3300,13 @@ module.exports = {
   isFavoriteCarByUser,
   listHomepagePromotions,
   listAvailableTestDriveCars,
+  listAdminCars,
   listCarBuyRequestOffersByRequestId,
   listCarBuyRequests,
   listCarBuyRequestsByUser,
+  listCarSellRequests,
+  listCarSellRequestsByUser,
+  listUserNotificationsByUser,
   listUsers,
   listHomepageTeamMembers,
   listPublicTeamMembers,
@@ -2853,6 +3327,8 @@ module.exports = {
   updateUserSelfProfile,
   updateUserRole,
   updateCar,
+  approveCarSellRequest,
+  rejectCarSellRequest,
   updateCarBuyRequestStatus,
   updateCarBuyRequestOfferStatus,
 };

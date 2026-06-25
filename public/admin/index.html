@@ -31,6 +31,10 @@
                     <i class="bx bxs-message-square-edit" aria-hidden="true"></i>
                     <span>Quản lý tin mua xe</span>
                 </a>
+                <a href="#" class="admin-sidebar__link" data-admin-nav="car-sell-requests">
+                    <i class="bx bxs-car" aria-hidden="true"></i>
+                    <span>Quản lý đăng bán xe</span>
+                </a>
                 <a href="#" class="admin-sidebar__link" data-admin-nav="customers">
                     <i class="bx bxs-user-account" aria-hidden="true"></i>
                     <span>Khách hàng</span>
@@ -129,7 +133,7 @@
                                         <th>Thông tin xe</th>
                                         <th>Giá & trạng thái</th>
                                         <th>Thông số chính</th>
-                                        <th>Dữ liệu</th>
+                                        <th>Dữ liệu & nguồn</th>
                                         <th>Cập nhật</th>
                                         <th>Thao tác</th>
                                     </tr>
@@ -413,6 +417,80 @@
                             </table>
                         </div>
                         <p class="admin-feedback" id="car-buy-request-feedback" aria-live="polite"></p>
+                    </section>
+                </section>
+            </section>
+
+            <section class="admin-view" data-admin-view="car-sell-requests" hidden>
+                <section class="employee-shell car-sell-request-admin-shell">
+                    <div class="employee-shell__header">
+                        <div>
+                            <p class="eyebrow">Đăng bán xe</p>
+                            <h1>Quản lý thông tin đăng bán xe</h1>
+                            <p>Xem thông tin xe khách gửi, gọi lại khi cần và duyệt xe phù hợp để nhập thẳng vào kho cửa hàng.</p>
+                        </div>
+                    </div>
+
+                    <div class="admin-overview__stats car-buy-request-stats" aria-label="Thống kê thông tin đăng bán xe">
+                        <article class="overview-stat car-buy-request-stat-item car-buy-request-stat-item--pending">
+                            <span>Chờ duyệt</span>
+                            <strong id="car-sell-request-stat-pending">0</strong>
+                        </article>
+                        <article class="overview-stat car-buy-request-stat-item car-buy-request-stat-item--approved">
+                            <span>Đã nhập kho</span>
+                            <strong id="car-sell-request-stat-approved">0</strong>
+                        </article>
+                        <article class="overview-stat car-buy-request-stat-item">
+                            <span>Tổng bài</span>
+                            <strong id="car-sell-request-stat-total">0</strong>
+                        </article>
+                    </div>
+
+                    <section class="employee-card">
+                        <div class="employee-card__header">
+                            <div>
+                                <p class="eyebrow">Danh sách đăng bán</p>
+                                <h2>Xe khách hàng gửi cho OkXe</h2>
+                            </div>
+                            <div class="inventory-shell__actions">
+                                <label class="inventory-search employee-search consultation-status-filter">
+                                    <i class="bx bx-filter-alt"></i>
+                                    <select id="car-sell-request-status-filter" aria-label="Lọc trạng thái đăng bán xe">
+                                        <option value="">Tất cả trạng thái</option>
+                                        <option value="pending">Chờ duyệt</option>
+                                        <option value="approved">Đã nhập kho</option>
+                                    </select>
+                                </label>
+                                <label class="inventory-search employee-search">
+                                    <i class="bx bx-search"></i>
+                                    <input type="search" id="car-sell-request-search" placeholder="Tìm khách, SĐT, hãng, tên xe">
+                                </label>
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="car-sell-request-refresh-button">
+                                    <i class="bx bx-refresh"></i>
+                                    <span>Tải lại</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="inventory-table-wrap">
+                            <table class="inventory-table car-buy-request-table">
+                                <thead>
+                                    <tr>
+                                        <th>Khách hàng</th>
+                                        <th>Xe cần bán</th>
+                                        <th>Thông số</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="car-sell-request-table-body">
+                                    <tr>
+                                        <td colspan="5" class="table-empty">Đang tải thông tin đăng bán xe...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="admin-feedback" id="car-sell-request-feedback" aria-live="polite"></p>
                     </section>
                 </section>
             </section>
@@ -1054,6 +1132,45 @@
                     </button>
                 </div>
                 <p class="admin-feedback" id="car-buy-request-status-feedback" aria-live="polite"></p>
+            </div>
+        </div>
+    </section>
+
+    <section class="modal-backdrop" id="car-sell-request-status-panel" hidden aria-hidden="true">
+        <div class="customer-detail-modal test-drive-status-modal consultation-status-update-panel" role="dialog" aria-modal="true" aria-labelledby="car-sell-request-status-title">
+            <div class="customer-detail__header">
+                <div>
+                    <p class="eyebrow">Đăng bán xe</p>
+                    <h3 id="car-sell-request-status-title">Xử lý thông tin đăng bán xe</h3>
+                </div>
+                <button type="button" class="icon-btn icon-btn--neutral" data-close-car-sell-request-status aria-label="Đóng xử lý đăng bán xe">
+                    <i class="bx bx-x"></i>
+                </button>
+            </div>
+            <div class="test-drive-status-body">
+                <p id="car-sell-request-status-summary">Chọn cách xử lý thông tin xe khách gửi.</p>
+                <label class="test-drive-status-note consultation-status-select-field">
+                    <span>Trạng thái xử lý</span>
+                    <select id="car-sell-request-status-select">
+                        <option value="approved">Duyệt nhập kho</option>
+                        <option value="rejected">Từ chối và xóa bài</option>
+                    </select>
+                </label>
+                <label class="test-drive-status-note">
+                    <span>Ghi chú / lý do gửi khách hàng</span>
+                    <textarea id="car-sell-request-status-note" rows="5" maxlength="500" placeholder="Nhập ghi chú khi duyệt hoặc lý do khi từ chối..."></textarea>
+                </label>
+                <div class="employee-form__actions">
+                    <button type="button" class="toolbar-btn toolbar-btn--primary" id="car-sell-request-status-save-button">
+                        <i class="bx bx-save"></i>
+                        <span>Cập nhật xử lý</span>
+                    </button>
+                    <button type="button" class="toolbar-btn toolbar-btn--soft" data-close-car-sell-request-status>
+                        <i class="bx bx-x"></i>
+                        <span>Hủy thao tác</span>
+                    </button>
+                </div>
+                <p class="admin-feedback" id="car-sell-request-status-feedback" aria-live="polite"></p>
             </div>
         </div>
     </section>

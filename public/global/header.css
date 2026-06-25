@@ -24,13 +24,13 @@
 }
 
 .okxe-site-header__nav {
-    width: min(1480px, calc(100vw - 48px));
+    width: min(1760px, calc(100vw - 48px));
     min-height: 86px;
     margin: 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 20px;
+    gap: 18px;
 }
 
 .okxe-site-header__logo {
@@ -62,7 +62,7 @@
     cursor: pointer;
 }
 
-@media (min-width: 1421px) {
+@media (min-width: 1681px) {
     .okxe-site-header .okxe-site-header__toggle {
         display: none !important;
     }
@@ -74,16 +74,17 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 20px;
+    gap: 16px;
 }
 
 .okxe-site-header__links {
     min-width: 0;
+    flex: 1 1 auto;
     margin-left: auto;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: clamp(14px, 1.45vw, 28px);
+    justify-content: flex-start;
+    gap: clamp(10px, 1vw, 18px);
 }
 
 .okxe-site-header__links a {
@@ -172,6 +173,14 @@
 
 .okxe-site-header__account-trigger strong {
     color: #f15a29;
+}
+
+.okxe-site-header__account-trigger span {
+    min-width: 0;
+    max-width: 230px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .okxe-site-header__account-trigger .bx {
@@ -300,7 +309,7 @@
     outline: 0;
 }
 
-@media (max-width: 1420px) {
+@media (max-width: 1680px) {
     .okxe-site-header__panel {
         position: absolute;
         top: calc(100% + 10px);

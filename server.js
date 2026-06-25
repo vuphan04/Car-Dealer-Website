@@ -7,8 +7,10 @@ const { randomUUID } = require('node:crypto');
 const {
   addFavoriteCarForUser,
   authenticateUser,
+  approveCarSellRequest,
   createCar,
   createCarBuyRequest,
+  createCarSellRequest,
   createCarBuyRequestOffer,
   createConsultationRequest,
   createPasswordResetOtp,
@@ -28,12 +30,16 @@ const {
   getCarById,
   getCarBuyRequestById,
   getTestDriveAppointmentById,
+  getCarSellRequestById,
   getUserById,
   getUserBySession,
   isFavoriteCarByUser,
   listAvailableTestDriveCars,
+  listAdminCars,
   listCarBuyRequests,
   listCarBuyRequestsByUser,
+  listCarSellRequests,
+  listCarSellRequestsByUser,
   listConsultationRequests,
   listCars,
   listFavoriteCarsByUser,
@@ -45,9 +51,11 @@ const {
   listPublicCarBuyRequests,
   listTestDriveAppointments,
   listTestDriveAppointmentsByUser,
+  listUserNotificationsByUser,
   listUsers,
   removeFavoriteCarForUser,
   resetPasswordWithOtp,
+  rejectCarSellRequest,
   updateCar,
   updateCarBuyRequestStatus,
   updateCarBuyRequestOfferStatus,
@@ -92,6 +100,7 @@ const publicPages = {
   buyRequestForm: 'buy-request-form',
   sellCarForm: 'sell-car',
   salesTeam: 'sales-team',
+  blog: 'blog',
 };
 const legacyImageAliases = new Map([
   ['Gemini_Generated_Image_y6mz6my6mz6my6mz.png', 'homepage-carousel-car.png'],
@@ -422,6 +431,14 @@ const carBuyRequestOfferRateLimit = createRateLimiter({
   keyPrefix: 'car-buy-request-offer',
   getKey: (req) => req.body?.sellerPhone || req.body?.phone,
   message: 'Bạn gửi đề xuất xe quá nhanh. Vui lòng thử lại sau ít phút.',
+});
+
+const carSellRequestRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyPrefix: 'car-sell-request',
+  getKey: (req) => req.body?.phone,
+  message: 'Bạn gửi thông tin bán xe quá nhanh. Vui lòng thử lại sau ít phút.',
 });
 
 const sanitizeUploadBaseName = (name, fallbackBaseName = 'car-image') => {
@@ -885,6 +902,12 @@ const carBuyRequestOfferStatusLabels = {
   rejected: 'Từ chối',
 };
 
+const carSellRequestStatusLabels = {
+  pending: 'Chờ duyệt',
+  approved: 'Đã duyệt',
+  rejected: 'Từ chối',
+};
+
 const carBuyRequestOfferContactPreferences = {
   okxe_first: 'OkXe liên hệ trước',
   direct_allowed: 'Cho khách mua liên hệ trực tiếp',
@@ -1126,6 +1149,60 @@ const validateCarBuyRequestOfferStatusPayload = (payload = {}) => {
   }
 
   return { statusUpdate: { status, statusNote } };
+};
+
+const validateCarSellRequestPayload = (payload = {}) => {
+  const normalizedContact = {
+    fullName: normalizeShortText(payload.fullName, 120),
+    phone: normalizeShortText(payload.phone, 30),
+    email: normalizeShortText(payload.email, 160).toLowerCase(),
+  };
+  const phoneDigits = normalizePhoneDigits(normalizedContact.phone);
+  const hasValidPhoneFormat = /^\+?[0-9\s.-]{8,20}$/.test(normalizedContact.phone);
+
+  if (normalizedContact.fullName.length < 2) {
+    return { error: 'Vui lòng nhập họ và tên người bán.' };
+  }
+
+  if (
+    !normalizedContact.phone
+    || !hasValidPhoneFormat
+    || phoneDigits.length < 8
+    || phoneDigits.length > 15
+  ) {
+    return { error: 'Số điện thoại người bán không hợp lệ.' };
+  }
+
+  if (normalizedContact.email && !isValidEmail(normalizedContact.email)) {
+    return { error: 'Email người bán không hợp lệ.' };
+  }
+
+  const { car, error } = validateCarPayload({
+    ...payload,
+    actionText: 'Còn xe',
+  });
+
+  if (error) {
+    return { error };
+  }
+
+  return {
+    request: {
+      ...normalizedContact,
+      ...car,
+      actionText: 'Còn xe',
+    },
+  };
+};
+
+const validateCarSellRequestRejectPayload = (payload = {}) => {
+  const statusNote = normalizeShortText(payload.statusNote || payload.reason || payload.note, 500);
+
+  if (statusNote.length < 3) {
+    return { error: 'Vui lòng nhập lý do khi từ chối thông tin đăng bán xe.' };
+  }
+
+  return { statusUpdate: { statusNote } };
 };
 
 const testDriveStatusLabels = {
@@ -1374,6 +1451,31 @@ app.post('/api/uploads/car-images', requireAdmin, uploadJsonParser, (req, res) =
   }
 });
 
+app.post('/api/uploads/customer-car-images', requireUser, uploadJsonParser, (req, res) => {
+  const files = Array.isArray(req.body?.files) ? req.body.files : [];
+
+  if (!files.length) {
+    res.status(400).json({ message: 'Vui lòng chọn ít nhất một ảnh xe.' });
+    return;
+  }
+
+  if (files.length > maxCarImages) {
+    res.status(400).json({ message: `Mỗi lần chỉ được tải lên tối đa ${maxCarImages} ảnh.` });
+    return;
+  }
+
+  try {
+    const images = saveUploadedCarImages(files);
+
+    res.status(201).json({
+      message: 'Tải ảnh xe thành công.',
+      images,
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message || 'Không thể tải ảnh xe.' });
+  }
+});
+
 app.post('/api/uploads/avatar', requireAdmin, profileJsonParser, (req, res) => {
   const file = req.body?.file;
 
@@ -1516,6 +1618,16 @@ app.get(['/tu-van-ban-hang', '/tu-van-ban-hang/', '/tu-van-ban-hang.html'], (req
   sendPublicPage(res, publicPages.salesTeam);
 });
 
+app.get(['/blog', '/blog/', '/blog.html'], (req, res) => {
+  sendPublicPage(res, publicPages.blog);
+});
+
+app.use('/blog', express.static(path.join(publicPath, 'blog'), { index: false }));
+
+app.get('/blog/:slug', (req, res) => {
+  res.sendFile(path.join(publicPath, 'blog', 'article.html'));
+});
+
 app.get(['/dang-ky-lai-thu', '/dang-ky-lai-thu/', '/dang-ky-lai-thu.html'], (req, res) => {
   sendPublicPage(res, publicPages.testDrive);
 });
@@ -1547,6 +1659,10 @@ app.get('/api/cars', (req, res) => {
   res.json({ cars: listCars() });
 });
 
+app.get('/api/admin/cars', requireAdmin, (req, res) => {
+  res.json({ cars: listAdminCars() });
+});
+
 app.get('/api/team-members', (req, res) => {
   res.json({ teamMembers: listHomepageTeamMembers() });
 });
@@ -1575,6 +1691,42 @@ app.get('/api/car-buy-requests/my', requireUser, (req, res) => {
     requests: listCarBuyRequestsByUser(req.user.id),
     budgetRanges: carBuyRequestBudgetLabels,
   });
+});
+
+app.get('/api/notifications/my', requireUser, (req, res) => {
+  res.json({
+    notifications: listUserNotificationsByUser(req.user.id),
+  });
+});
+
+app.get('/api/car-sell-requests/my', requireUser, (req, res) => {
+  res.json({
+    requests: listCarSellRequestsByUser(req.user.id),
+  });
+});
+
+app.post('/api/car-sell-requests', requireUser, carSellRequestRateLimit, (req, res) => {
+  const { request, error } = validateCarSellRequestPayload(req.body || {});
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const createdRequest = createCarSellRequest({
+      userId: req.user.id,
+      ...request,
+    });
+
+    res.status(201).json({
+      message: 'OkXe đã nhận thông tin xe cần bán. Bài đăng đang chờ nhân viên kiểm tra và duyệt nhập kho.',
+      request: createdRequest,
+    });
+  } catch (dbError) {
+    console.error('Create car sell request error:', dbError);
+    res.status(500).json({ message: 'Không thể gửi thông tin bán xe lúc này.' });
+  }
 });
 
 app.post('/api/car-buy-requests', carBuyRequestRateLimit, (req, res) => {
@@ -1993,6 +2145,72 @@ app.get('/api/admin/car-buy-requests', requireAdmin, (req, res) => {
     requests: listCarBuyRequests(),
     budgetRanges: carBuyRequestBudgetLabels,
   });
+});
+
+app.get('/api/admin/car-sell-requests', requireAdmin, (req, res) => {
+  res.json({
+    requests: listCarSellRequests(),
+  });
+});
+
+app.patch('/api/admin/car-sell-requests/:id/approve', requireAdmin, (req, res) => {
+  const requestId = Number(req.params.id);
+  const statusNote = normalizeShortText(req.body?.statusNote || req.body?.note, 500);
+
+  if (!Number.isFinite(requestId)) {
+    res.status(400).json({ message: 'Mã thông tin đăng bán xe không hợp lệ.' });
+    return;
+  }
+
+  try {
+    const result = approveCarSellRequest(requestId, { statusNote });
+
+    if (!result) {
+      res.status(404).json({ message: 'Không tìm thấy thông tin đăng bán xe.' });
+      return;
+    }
+
+    res.json({
+      message: 'Đã duyệt thông tin đăng bán xe và nhập xe vào kho cửa hàng.',
+      request: result.request,
+      car: result.car,
+    });
+  } catch (dbError) {
+    console.error('Approve car sell request error:', dbError);
+    res.status(500).json({ message: 'Không thể duyệt thông tin đăng bán xe lúc này.' });
+  }
+});
+
+app.patch('/api/admin/car-sell-requests/:id/reject', requireAdmin, (req, res) => {
+  const requestId = Number(req.params.id);
+  const { statusUpdate, error } = validateCarSellRequestRejectPayload(req.body || {});
+
+  if (!Number.isFinite(requestId)) {
+    res.status(400).json({ message: 'Mã thông tin đăng bán xe không hợp lệ.' });
+    return;
+  }
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const request = rejectCarSellRequest(requestId, statusUpdate);
+
+    if (!request) {
+      res.status(404).json({ message: 'Không tìm thấy thông tin đăng bán xe.' });
+      return;
+    }
+
+    res.json({
+      message: 'Đã từ chối và xóa bài đăng bán xe. Khách hàng sẽ nhận được lý do để đăng lại.',
+      request,
+    });
+  } catch (dbError) {
+    console.error('Reject car sell request error:', dbError);
+    res.status(500).json({ message: 'Không thể từ chối thông tin đăng bán xe lúc này.' });
+  }
 });
 
 app.patch('/api/admin/car-buy-requests/:id/status', requireAdmin, (req, res) => {

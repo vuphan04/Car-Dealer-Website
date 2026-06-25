@@ -5,6 +5,19 @@ const yearSelect = document.querySelector('#sell-car-year');
 const versionSelect = document.querySelector('#sell-car-version');
 const feedback = document.querySelector('#sell-car-feedback');
 const submitButton = document.querySelector('#sell-car-submit');
+const resetButton = document.querySelector('#sell-car-reset');
+const sellCarModal = document.querySelector('#sell-car-modal');
+const sellCarDialog = document.querySelector('.sell-car-modal__dialog');
+const sellCarSuccessModal = document.querySelector('#sell-car-success-modal');
+const sellCarSuccessDialog = document.querySelector('.sell-car-success-modal__dialog');
+const sellCarSuccessMessage = document.querySelector('#sell-car-success-message');
+const closeSellSuccessButtons = document.querySelectorAll('[data-close-sell-success]');
+const openSellFormAgainButtons = document.querySelectorAll('[data-open-sell-form-again]');
+const chooseSellCarImagesButton = document.querySelector('#sell-car-choose-images-button');
+const sellCarImagesInput = document.querySelector('#sell-car-images-input');
+const sellCarImagePreviewList = document.querySelector('#sell-car-image-preview-list');
+const openSellFormButtons = document.querySelectorAll('[data-open-sell-form]');
+const closeSellFormButtons = document.querySelectorAll('[data-close-sell-form]');
 const revealSections = document.querySelectorAll('.sell-guide-section, .sell-compare-section, .sell-faq-section');
 const faqItems = document.querySelectorAll('.sell-faq-item');
 const guideStepButtons = document.querySelectorAll('[data-guide-step]');
@@ -16,6 +29,9 @@ const guidePanelList = document.querySelector('#sell-guide-panel-list');
 const guideVisualTitle = document.querySelector('#sell-guide-visual-title');
 const guideVisualText = document.querySelector('#sell-guide-visual-text');
 const guideImage = document.querySelector('#sell-guide-image');
+const maxSellCarImages = 8;
+const maxUploadedImageSize = 5 * 1024 * 1024;
+let selectedSellCarImages = [];
 
 const brandModels = {
     Toyota: ['Vios', 'Corolla Cross', 'Camry', 'Fortuner', 'Innova', 'Raize'],
@@ -158,6 +174,34 @@ const setFeedback = (message, type = 'success') => {
     }
 };
 
+const requestJson = async (url, options = {}) => {
+    const requestOptions = {
+        method: options.method || 'GET',
+        credentials: 'include',
+        headers: {
+            Accept: 'application/json',
+            ...(options.headers || {})
+        }
+    };
+
+    if (options.body) {
+        requestOptions.body = options.body;
+        requestOptions.headers['Content-Type'] = 'application/json';
+    }
+
+    let response;
+
+    try {
+        response = await fetch(url, requestOptions);
+    } catch (error) {
+        throw new Error('Không thể kết nối tới server. Hãy mở website qua localhost và chạy backend trước.');
+    }
+
+    const data = await response.json().catch(() => ({}));
+
+    return { response, data };
+};
+
 const setOptions = (select, options, placeholder) => {
     if (!select) {
         return;
@@ -167,6 +211,266 @@ const setOptions = (select, options, placeholder) => {
         `<option value="">${escapeHtml(placeholder)}</option>`,
         ...options.map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option)}</option>`)
     ].join('');
+};
+
+let lastFocusedElement = null;
+let lastFocusedBeforeSuccess = null;
+
+const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.addEventListener('load', () => resolve(reader.result));
+    reader.addEventListener('error', () => reject(new Error(`Không thể đọc file ${file.name}.`)));
+    reader.readAsDataURL(file);
+});
+
+const validateImageFile = (file) => {
+    if (!file?.type?.startsWith('image/')) {
+        throw new Error('Chỉ được chọn file ảnh.');
+    }
+
+    if (file.size > maxUploadedImageSize) {
+        throw new Error(`Ảnh "${file.name}" vượt quá 5MB.`);
+    }
+};
+
+const renderSellCarImagePreviews = () => {
+    if (!sellCarImagePreviewList) {
+        return;
+    }
+
+    if (!selectedSellCarImages.length) {
+        sellCarImagePreviewList.innerHTML = '<p class="sell-car-image-preview-empty">Chưa có ảnh xe nào được chọn.</p>';
+        return;
+    }
+
+    sellCarImagePreviewList.innerHTML = selectedSellCarImages.map((image, index) => `
+        <article class="sell-car-image-preview-item">
+            <img src="${escapeHtml(image)}" alt="Ảnh xe cần bán ${index + 1}">
+            ${index === 0 ? '<span class="sell-car-image-preview-item__badge">Ảnh chính</span>' : ''}
+            <button type="button" class="sell-car-image-preview-item__remove" data-remove-sell-car-image="${index}" aria-label="Xóa ảnh ${index + 1}">
+                <i class="bx bx-x" aria-hidden="true"></i>
+            </button>
+        </article>
+    `).join('');
+};
+
+const setSellCarImages = (images = []) => {
+    selectedSellCarImages = images
+        .map((image) => String(image || '').trim())
+        .filter(Boolean)
+        .filter((image, index, imageList) => imageList.indexOf(image) === index)
+        .slice(0, maxSellCarImages);
+
+    renderSellCarImagePreviews();
+};
+
+const uploadSellCarImages = async (files) => {
+    const uploadedFiles = [];
+
+    for (const file of files) {
+        validateImageFile(file);
+        uploadedFiles.push({
+            name: file.name,
+            type: file.type,
+            dataUrl: await readFileAsDataUrl(file)
+        });
+    }
+
+    const { response, data } = await requestJson('/api/uploads/customer-car-images', {
+        method: 'POST',
+        body: JSON.stringify({ files: uploadedFiles })
+    });
+
+    if (!response.ok) {
+        throw new Error(data.message || 'Không thể tải ảnh xe lúc này.');
+    }
+
+    return Array.isArray(data.images) ? data.images : [];
+};
+
+const setSubmitLoading = (isLoading) => {
+    if (!submitButton) {
+        return;
+    }
+
+    submitButton.disabled = isLoading;
+    submitButton.innerHTML = isLoading
+        ? '<i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i><span>Đang gửi...</span>'
+        : '<i class="bx bx-send" aria-hidden="true"></i><span>Gửi thông tin xe cho OkXe</span>';
+};
+
+const prefillSellerContact = async () => {
+    if (!sellCarForm) {
+        return;
+    }
+
+    try {
+        const { response, data } = await requestJson('/api/auth/me');
+
+        if (!response.ok || !data.user) {
+            return;
+        }
+
+        const { user } = data;
+        if (!sellCarForm.elements.fullName.value) {
+            sellCarForm.elements.fullName.value = user.fullName || '';
+        }
+        if (!sellCarForm.elements.phone.value) {
+            sellCarForm.elements.phone.value = user.phone || '';
+        }
+        if (!sellCarForm.elements.email.value) {
+            sellCarForm.elements.email.value = user.email || '';
+        }
+    } catch (error) {
+        // Không chặn khách tự nhập thông tin nếu không lấy được phiên đăng nhập.
+    }
+};
+
+const buildSellCarPayload = () => {
+    const formData = new FormData(sellCarForm);
+
+    return {
+        fullName: formData.get('fullName'),
+        phone: formData.get('phone'),
+        email: formData.get('email'),
+        brand: formData.get('brand'),
+        category: formData.get('category'),
+        name: formData.get('name'),
+        description: formData.get('description'),
+        type: formData.get('type'),
+        priceText: formData.get('priceText'),
+        priceValue: Number(formData.get('priceValue') || 0),
+        image: selectedSellCarImages[0] || '',
+        images: selectedSellCarImages,
+        year: Number(formData.get('year') || 0),
+        fuel: formData.get('fuel'),
+        mileageText: formData.get('mileageText'),
+        mileageValue: Number(formData.get('mileageValue') || 0),
+        seats: formData.get('seats'),
+        gearbox: formData.get('gearbox'),
+        drivetrain: formData.get('drivetrain'),
+        origin: formData.get('origin'),
+        condition: formData.get('condition'),
+        color: formData.get('color')
+    };
+};
+
+const openSellCarModal = () => {
+    if (!sellCarModal) {
+        return;
+    }
+
+    lastFocusedElement = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    sellCarModal.classList.add('is-open');
+    sellCarModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('sell-car-modal-open');
+
+    window.requestAnimationFrame(() => {
+        sellCarDialog?.focus();
+    });
+
+    prefillSellerContact();
+};
+
+const closeSellCarModal = () => {
+    if (!sellCarModal) {
+        return;
+    }
+
+    sellCarModal.classList.remove('is-open');
+    sellCarModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('sell-car-modal-open');
+    lastFocusedElement?.focus?.();
+};
+
+const openSellCarSuccessModal = (message = '') => {
+    if (!sellCarSuccessModal) {
+        return;
+    }
+
+    lastFocusedBeforeSuccess = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    if (sellCarSuccessMessage && message) {
+        sellCarSuccessMessage.textContent = message;
+    }
+
+    sellCarSuccessModal.classList.add('is-open');
+    sellCarSuccessModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('sell-car-modal-open');
+
+    window.requestAnimationFrame(() => {
+        sellCarSuccessDialog?.focus();
+    });
+};
+
+const closeSellCarSuccessModal = () => {
+    if (!sellCarSuccessModal) {
+        return;
+    }
+
+    sellCarSuccessModal.classList.remove('is-open');
+    sellCarSuccessModal.setAttribute('aria-hidden', 'true');
+
+    if (!sellCarModal?.classList.contains('is-open')) {
+        document.body.classList.remove('sell-car-modal-open');
+    }
+
+    lastFocusedBeforeSuccess?.focus?.();
+};
+
+const initSellCarModal = () => {
+    if (!sellCarModal) {
+        return;
+    }
+
+    openSellFormButtons.forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            openSellCarModal();
+        });
+    });
+
+    closeSellFormButtons.forEach((button) => {
+        button.addEventListener('click', closeSellCarModal);
+    });
+
+    closeSellSuccessButtons.forEach((button) => {
+        button.addEventListener('click', closeSellCarSuccessModal);
+    });
+
+    openSellFormAgainButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+            closeSellCarSuccessModal();
+            openSellCarModal();
+        });
+    });
+
+    sellCarSuccessModal?.addEventListener('click', (event) => {
+        if (event.target === sellCarSuccessModal) {
+            closeSellCarSuccessModal();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && sellCarSuccessModal?.classList.contains('is-open')) {
+            closeSellCarSuccessModal();
+            return;
+        }
+
+        if (event.key === 'Escape' && sellCarModal.classList.contains('is-open')) {
+            closeSellCarModal();
+        }
+    });
+
+    if (window.location.hash === '#sell-car-form') {
+        openSellCarModal();
+    }
 };
 
 const renderBrandOptions = () => {
@@ -467,21 +771,89 @@ const initFaqAnimation = () => {
     });
 };
 
-brandSelect?.addEventListener('change', () => {
+sellCarForm?.addEventListener('input', () => {
     setFeedback('');
-    updateModelOptions();
 });
 
-modelSelect?.addEventListener('change', () => {
+sellCarForm?.addEventListener('change', () => {
     setFeedback('');
-    updateVersionOptions();
 });
 
-[yearSelect, versionSelect].forEach((select) => {
-    select?.addEventListener('change', () => setFeedback(''));
+chooseSellCarImagesButton?.addEventListener('click', () => {
+    sellCarImagesInput?.click();
 });
 
-sellCarForm?.addEventListener('submit', (event) => {
+sellCarImagesInput?.addEventListener('change', async () => {
+    const files = Array.from(sellCarImagesInput.files || []);
+
+    if (!files.length) {
+        return;
+    }
+
+    const availableSlots = maxSellCarImages - selectedSellCarImages.length;
+
+    if (availableSlots <= 0) {
+        setFeedback(`Mỗi xe chỉ được tải tối đa ${maxSellCarImages} ảnh.`, 'error');
+        sellCarImagesInput.value = '';
+        return;
+    }
+
+    const uploadFiles = files.slice(0, availableSlots);
+
+    if (files.length > availableSlots) {
+        setFeedback(`Chỉ tải thêm ${availableSlots} ảnh để không vượt quá ${maxSellCarImages} ảnh mỗi xe.`, 'error');
+    } else {
+        setFeedback('');
+    }
+
+    const defaultButtonHtml = chooseSellCarImagesButton?.innerHTML || '';
+
+    if (chooseSellCarImagesButton) {
+        chooseSellCarImagesButton.disabled = true;
+        chooseSellCarImagesButton.innerHTML = '<i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i><span>Đang tải...</span>';
+    }
+
+    try {
+        const uploadedImages = await uploadSellCarImages(uploadFiles);
+        setSellCarImages([...selectedSellCarImages, ...uploadedImages]);
+        setFeedback('Ảnh xe đã được tải lên.');
+    } catch (error) {
+        setFeedback(error.message || 'Không thể tải ảnh xe lúc này.', 'error');
+    } finally {
+        if (chooseSellCarImagesButton) {
+            chooseSellCarImagesButton.disabled = false;
+            chooseSellCarImagesButton.innerHTML = defaultButtonHtml;
+        }
+        sellCarImagesInput.value = '';
+    }
+});
+
+sellCarImagePreviewList?.addEventListener('click', (event) => {
+    const removeButton = event.target.closest('[data-remove-sell-car-image]');
+
+    if (!removeButton) {
+        return;
+    }
+
+    const imageIndex = Number(removeButton.dataset.removeSellCarImage);
+
+    if (!Number.isInteger(imageIndex)) {
+        return;
+    }
+
+    setSellCarImages(selectedSellCarImages.filter((image, index) => index !== imageIndex));
+    setFeedback('');
+});
+
+sellCarForm?.addEventListener('reset', () => {
+    window.setTimeout(() => {
+        setSellCarImages([]);
+        setFeedback('');
+        prefillSellerContact();
+    }, 0);
+});
+
+sellCarForm?.addEventListener('submit', async (event) => {
     event.preventDefault();
     setFeedback('');
 
@@ -491,24 +863,45 @@ sellCarForm?.addEventListener('submit', (event) => {
         return;
     }
 
-    if (submitButton) {
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i><span>Đang kiểm tra...</span>';
+    if (!selectedSellCarImages.length) {
+        setFeedback('Vui lòng chọn ít nhất một ảnh xe thực tế.', 'error');
+        chooseSellCarImagesButton?.focus();
+        return;
     }
 
-    window.setTimeout(() => {
-        setFeedback('OkXe đã nhận thông tin xe tạm thời. Đội ngũ tư vấn sẽ liên hệ để kiểm định và báo giá thu mua.');
+    setSubmitLoading(true);
 
-        if (submitButton) {
-            submitButton.disabled = false;
-            submitButton.innerHTML = '<i class="bx bx-car" aria-hidden="true"></i><span>Gửi thông tin xe cho OkXe</span>';
+    try {
+        const { response, data } = await requestJson('/api/car-sell-requests', {
+            method: 'POST',
+            body: JSON.stringify(buildSellCarPayload())
+        });
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể gửi thông tin xe cần bán lúc này.');
         }
-    }, 500);
+
+        sellCarForm.reset();
+        setSellCarImages([]);
+        const successMessage = data.message || 'OkXe đã nhận thông tin xe cần bán. Nhân viên sẽ kiểm tra và phản hồi trong thông báo của bạn.';
+        setFeedback(successMessage);
+        closeSellCarModal();
+        openSellCarSuccessModal(successMessage);
+        prefillSellerContact();
+    } catch (error) {
+        setFeedback(error.message || 'Không thể gửi thông tin xe cần bán lúc này.', 'error');
+    } finally {
+        setSubmitLoading(false);
+    }
 });
 
-renderBrandOptions();
-renderYearOptions();
-resetModelOptions();
+resetButton?.addEventListener('click', () => {
+    setFeedback('');
+});
+
+setSellCarImages([]);
+prefillSellerContact();
+initSellCarModal();
 initGuideTabs();
 initRevealSections();
 initFaqAnimation();

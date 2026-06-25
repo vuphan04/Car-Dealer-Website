@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog ô tô - Tin xe và kinh nghiệm mua xe | OkXe</title>
+    <meta name="description" content="Blog OkXe chia sẻ tin tức ô tô, kinh nghiệm mua xe cũ, tư vấn chọn xe, chi phí sử dụng và kiến thức chăm sóc xe dễ hiểu.">
+    <meta name="robots" content="index, follow">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Blog ô tô OkXe - Tin xe và kinh nghiệm hữu ích">
+    <meta property="og:description" content="Đọc tin tức ô tô, hướng dẫn mua xe cũ và kiến thức sử dụng xe từ OkXe.">
+    <meta property="og:url" content="/blog">
+    <meta property="og:image" content="/images/blog-1.jpg">
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/blog/style.css">
+    <link rel="stylesheet" href="/global/header.css">
+    <link rel="stylesheet" href="/global/responsive-nav.css">
+    <link rel="stylesheet" href="/global/footer.css">
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            "name": "Blog ô tô OkXe",
+            "description": "Tin tức ô tô, kinh nghiệm mua xe cũ và kiến thức sử dụng xe.",
+            "inLanguage": "vi-VN"
+        }
+    </script>
+</head>
+<body>
+    <div data-site-header></div>
+
+    <main class="blog-page">
+        <section class="blog-intro" aria-labelledby="blog-page-title">
+            <div class="blog-intro__inner">
+                <div>
+                    <span class="blog-eyebrow">OkXe Blog</span>
+                    <h1 id="blog-page-title">Tin xe và kinh nghiệm hữu ích</h1>
+                    <p>Thông tin rõ ràng giúp bạn chọn, mua và sử dụng ô tô tự tin hơn.</p>
+                </div>
+                <label class="blog-search" for="blog-search-input">
+                    <i class="bx bx-search" aria-hidden="true"></i>
+                    <input type="search" id="blog-search-input" placeholder="Tìm bài viết, chủ đề..." autocomplete="off">
+                </label>
+            </div>
+        </section>
+
+        <section class="blog-featured" id="blog-featured" aria-label="Bài viết nổi bật"></section>
+
+        <section class="blog-library" aria-labelledby="blog-library-title">
+            <div class="blog-library__heading">
+                <div>
+                    <span class="blog-eyebrow">Thư viện bài viết</span>
+                    <h2 id="blog-library-title">Mới nhất từ OkXe</h2>
+                </div>
+                <p id="blog-result-count" aria-live="polite"></p>
+            </div>
+
+            <div class="blog-category-filter" id="blog-category-filter" role="group" aria-label="Lọc bài viết theo chủ đề"></div>
+            <div class="blog-post-grid" id="blog-post-grid"></div>
+        </section>
+    </main>
+
+    <div data-site-footer></div>
+
+    <script src="/blog/data.js"></script>
+    <script src="/blog/script.js"></script>
+    <script src="/global/app.js"></script>
+    <script src="/global/responsive-nav.js"></script>
+</body>
+</html>
