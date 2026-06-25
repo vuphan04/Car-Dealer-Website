@@ -153,7 +153,7 @@ const basePath = deriveBasePath();
 const basePrefix = basePath === '/' ? '' : basePath.replace(/\/$/, '');
 
 const appPathPattern =
-  /(^|["'`(=:\s])\/(global|images|uploads|mua-xe|dang-tin-ban-xe|tin-mua-o-to|khuyen-mai|tu-van-ban-hang|blog|dang-ky-lai-thu|dang-tin-mua-o-to|cars|admin-login|admin)(?=[/#?'"`)\s]|$)/g;
+  /(^|["'`(=:\s])\/(global|images|uploads|home|inventory|promotions|buy-requests|buy-request-form|sell-car|sales-team|test-drive|car-detail|mua-xe|dang-tin-ban-xe|tin-mua-o-to|khuyen-mai|tu-van-ban-hang|blog|dang-ky-lai-thu|dang-tin-mua-o-to|cars|admin-login|admin)(?=[/#?'"`)\s]|$)/g;
 
 const prefixAppPath = (value) => {
   const normalizedValue = String(value || '');
