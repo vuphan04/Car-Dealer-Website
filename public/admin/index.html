@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OkXe Quản trị</title>
+    <link rel="stylesheet" href="/global/typography.css">
     <link rel="stylesheet" href="/admin/style.css">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
 </head>
@@ -42,6 +43,10 @@
                 <a href="#" class="admin-sidebar__link" data-admin-nav="promotions">
                     <i class="bx bxs-purchase-tag" aria-hidden="true"></i>
                     <span>Thông tin khuyến mại</span>
+                </a>
+                <a href="#" class="admin-sidebar__link" data-admin-nav="blog-posts">
+                    <i class="bx bxs-news" aria-hidden="true"></i>
+                    <span>Quản lý blog</span>
                 </a>
                 <a href="#" class="admin-sidebar__link" data-admin-nav="staff" data-requires-admin hidden>
                     <i class="bx bxs-user-detail" aria-hidden="true"></i>
@@ -617,6 +622,177 @@
                                 <tbody id="promotion-table-body">
                                     <tr>
                                         <td colspan="5" class="table-empty">Đang tải danh sách khuyến mại...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                </section>
+            </section>
+
+            <section class="admin-view" data-admin-view="blog-posts" hidden>
+                <section class="employee-shell blog-admin-shell">
+                    <div class="employee-shell__header blog-admin-header">
+                        <div>
+                            <p class="eyebrow">Blog</p>
+                            <h1>Quản lý bài viết blog</h1>
+                            <p>Viết bài tin tức, bật trạng thái xuất bản và chọn bài nổi bật để hiển thị trong carousel trang Blog.</p>
+                        </div>
+                        <div class="blog-admin-stats" aria-label="Thống kê blog">
+                            <article>
+                                <span>Tổng bài</span>
+                                <strong id="blog-stat-total">0</strong>
+                            </article>
+                            <article>
+                                <span>Đã xuất bản</span>
+                                <strong id="blog-stat-published">0</strong>
+                            </article>
+                            <article>
+                                <span>Nổi bật</span>
+                                <strong id="blog-stat-featured">0</strong>
+                            </article>
+                            <article>
+                                <span>Hiển thị Home</span>
+                                <strong id="blog-stat-home">0</strong>
+                            </article>
+                            <article>
+                                <span>Bản nháp</span>
+                                <strong id="blog-stat-draft">0</strong>
+                            </article>
+                        </div>
+                    </div>
+
+                    <section class="employee-card blog-admin-card">
+                        <div class="employee-card__header">
+                            <div>
+                                <p class="eyebrow">Bài viết</p>
+                                <h2 id="blog-post-form-title">Bài blog mới</h2>
+                            </div>
+                        </div>
+
+                        <form class="employee-form blog-post-form" id="blog-post-form">
+                            <input type="hidden" name="id" id="blog-post-id">
+                            <label class="employee-form__field--wide">
+                                <span>Tiêu đề bài viết</span>
+                                <input type="text" name="title" maxlength="180" placeholder="Ví dụ: Kinh nghiệm kiểm tra xe cũ trước khi mua" required>
+                            </label>
+                            <label>
+                                <span>Slug đường dẫn</span>
+                                <input type="text" name="slug" maxlength="140" placeholder="tu-dong-tao-tu-tieu-de">
+                            </label>
+                            <label>
+                                <span>Chủ đề</span>
+                                <input type="text" name="category" maxlength="80" placeholder="Kinh nghiệm mua xe" required>
+                            </label>
+                            <label class="employee-form__field--wide blog-image-field">
+                                <span>Ảnh đại diện</span>
+                                <div class="promotion-image-picker blog-image-picker">
+                                    <span class="promotion-image-picker__preview blog-image-picker__preview" id="blog-post-image-preview">
+                                        <i class="bx bxs-image"></i>
+                                    </span>
+                                    <div class="promotion-image-picker__body">
+                                        <button type="button" class="toolbar-btn toolbar-btn--soft promotion-image-picker__button" id="choose-blog-post-image-button">
+                                            <i class="bx bx-upload"></i>
+                                            <span>Chọn ảnh</span>
+                                        </button>
+                                        <small id="blog-post-image-file-name">Chưa chọn ảnh</small>
+                                    </div>
+                                </div>
+                                <input type="file" id="blog-post-image-input" accept="image/*" hidden>
+                                <input type="hidden" name="imageUrl">
+                            </label>
+                            <label class="employee-form__field--wide">
+                                <span>Mô tả ảnh</span>
+                                <input type="text" name="imageAlt" maxlength="180" placeholder="Mô tả ngắn cho ảnh bài viết">
+                            </label>
+                            <label class="employee-form__field--wide">
+                                <span>Mô tả ngắn</span>
+                                <textarea name="excerpt" rows="3" maxlength="260" placeholder="Tóm tắt nội dung hiển thị trên card blog" required></textarea>
+                            </label>
+                            <label class="employee-form__field--wide">
+                                <span>Nội dung bài viết</span>
+                                <div class="blog-content-toolbar">
+                                    <button type="button" class="toolbar-btn toolbar-btn--soft" id="insert-blog-content-image-button">
+                                        <i class="bx bx-image-add"></i>
+                                        <span>Chèn ảnh vào nội dung</span>
+                                    </button>
+                                    <small>Ảnh sẽ được chèn vào vị trí con trỏ trong nội dung.</small>
+                                </div>
+                                <textarea name="content" rows="10" maxlength="8000" placeholder="Nhập nội dung bài viết. Có thể xuống dòng để chia đoạn đọc." required></textarea>
+                                <input type="file" id="blog-content-image-input" accept="image/*" hidden>
+                            </label>
+                            <label>
+                                <span>Ngày đăng</span>
+                                <input type="date" name="publishedAt">
+                            </label>
+                            <label>
+                                <span>Thời gian đọc</span>
+                                <input type="number" name="readTime" min="1" max="60" step="1" placeholder="5">
+                            </label>
+                            <label>
+                                <span>Thứ tự hiển thị</span>
+                                <input type="number" name="displayOrder" min="0" step="1" placeholder="0">
+                            </label>
+                            <label class="employee-form__switch">
+                                <input type="checkbox" name="isPublished" value="1">
+                                <span>Xuất bản công khai</span>
+                                <small>Bài chỉ hiển thị ở frontend khi đã xuất bản.</small>
+                            </label>
+                            <label class="employee-form__switch">
+                                <input type="checkbox" name="featured" value="1">
+                                <span>Bài đăng nổi bật</span>
+                                <small>Bài nổi bật sẽ xuất hiện trong carousel nổi bật trên trang Blog.</small>
+                            </label>
+                            <label class="employee-form__switch">
+                                <input type="checkbox" name="showOnHome" value="1">
+                                <span>Hiển thị ở Home</span>
+                                <small>Bài đã xuất bản và bật mục này sẽ xuất hiện trong carousel blog ở trang chủ.</small>
+                            </label>
+                            <div class="employee-form__actions">
+                                <button type="submit" class="toolbar-btn toolbar-btn--primary" id="blog-post-submit-button">
+                                    <i class="bx bx-save"></i>
+                                    <span>Lưu bài blog</span>
+                                </button>
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="blog-post-reset-button">
+                                    <i class="bx bx-eraser"></i>
+                                    <span>Làm mới</span>
+                                </button>
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="blog-post-refresh-button">
+                                    <i class="bx bx-refresh"></i>
+                                    <span>Tải lại</span>
+                                </button>
+                            </div>
+                            <p class="admin-feedback" id="blog-post-feedback" aria-live="polite"></p>
+                        </form>
+                    </section>
+
+                    <section class="employee-card blog-admin-card">
+                        <div class="employee-card__header">
+                            <div>
+                                <p class="eyebrow">Danh sách</p>
+                                <h2>Bài viết blog</h2>
+                            </div>
+                            <label class="inventory-search employee-search">
+                                <i class="bx bx-search"></i>
+                                <input type="search" id="blog-post-search" placeholder="Tìm theo tiêu đề, chủ đề hoặc người đăng">
+                            </label>
+                        </div>
+
+                        <div class="inventory-table-wrap">
+                            <table class="inventory-table blog-post-table">
+                                <thead>
+                                    <tr>
+                                        <th>Bài viết</th>
+                                        <th>Người đăng</th>
+                                        <th>Trạng thái</th>
+                                        <th>Home</th>
+                                        <th>Nổi bật</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="blog-post-table-body">
+                                    <tr>
+                                        <td colspan="6" class="table-empty">Đang tải danh sách bài viết blog...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1220,8 +1396,53 @@
         </div>
     </section>
 
+    <section class="modal-backdrop promotion-crop-panel" id="blog-post-crop-panel" hidden aria-hidden="true">
+        <div class="promotion-crop-modal" role="dialog" aria-modal="true" aria-labelledby="blog-post-crop-title">
+            <div class="promotion-crop-modal__header">
+                <div>
+                    <p class="eyebrow">Ảnh blog</p>
+                    <h3 id="blog-post-crop-title">Căn ảnh đại diện bài viết</h3>
+                </div>
+                <button type="button" class="icon-btn icon-btn--neutral" data-close-blog-post-crop aria-label="Đóng cắt ảnh blog">
+                    <i class="bx bx-x"></i>
+                </button>
+            </div>
+            <div class="promotion-crop-modal__body">
+                <div class="promotion-crop-preview blog-crop-preview">
+                    <canvas id="blog-post-crop-canvas" width="1200" height="675" aria-label="Vùng xem trước ảnh đại diện blog"></canvas>
+                </div>
+                <div class="promotion-crop-controls">
+                    <label>
+                        <span>Phóng ảnh</span>
+                        <input type="range" id="blog-post-crop-zoom" min="1" max="3" step="0.01" value="1">
+                    </label>
+                    <label>
+                        <span>Dịch ngang</span>
+                        <input type="range" id="blog-post-crop-x" min="0" max="100" step="1" value="50">
+                    </label>
+                    <label>
+                        <span>Dịch dọc</span>
+                        <input type="range" id="blog-post-crop-y" min="0" max="100" step="1" value="50">
+                    </label>
+                    <small id="blog-post-crop-file-name">Ảnh bài viết sẽ được lưu theo tỷ lệ 16:9 để hiển thị đẹp trên trang blog.</small>
+                </div>
+            </div>
+            <div class="employee-form__actions promotion-crop-modal__actions">
+                <button type="button" class="toolbar-btn toolbar-btn--primary" id="blog-post-crop-apply-button">
+                    <i class="bx bx-crop"></i>
+                    <span>Cắt và tải ảnh</span>
+                </button>
+                <button type="button" class="toolbar-btn toolbar-btn--soft" data-close-blog-post-crop>
+                    <i class="bx bx-x"></i>
+                    <span>Hủy</span>
+                </button>
+            </div>
+            <p class="admin-feedback" id="blog-post-crop-feedback" aria-live="polite"></p>
+        </div>
+    </section>
+
     <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
-    <script src="/admin/script.js"></script>
+    <script src="/admin/script.js?v=blog-home-20260627"></script>
 </body>
 </html>

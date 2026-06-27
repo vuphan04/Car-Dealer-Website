@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const {
   createHmac,
   randomBytes,
@@ -31,6 +32,7 @@ const consultationRequestStatuses = new Set(['new', 'contacted', 'appointment', 
 const carBuyRequestStatuses = new Set(['pending', 'approved', 'rejected']);
 const carBuyRequestOfferStatuses = new Set(['new', 'contacted', 'matched', 'rejected']);
 const carSellRequestStatuses = new Set(['pending', 'approved']);
+const blogPostStatuses = new Set(['draft', 'published']);
 
 const normalizeConfiguredEmail = (email) =>
   String(email || '').trim().toLowerCase();
@@ -94,6 +96,14 @@ const normalizeCarSellRequestStatus = (status) => {
   return carSellRequestStatuses.has(normalizedStatus)
     ? normalizedStatus
     : 'pending';
+};
+
+const normalizeBlogPostStatus = (status) => {
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+
+  return blogPostStatuses.has(normalizedStatus)
+    ? normalizedStatus
+    : 'draft';
 };
 
 const getConfiguredRoleForEmail = (email) => {
@@ -258,6 +268,28 @@ const initializeSchema = (database) => {
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
+  CREATE TABLE IF NOT EXISTS blog_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT NOT NULL UNIQUE,
+    category TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL,
+    excerpt TEXT NOT NULL DEFAULT '',
+    content TEXT NOT NULL DEFAULT '',
+    image_url TEXT NOT NULL DEFAULT '',
+    image_alt TEXT NOT NULL DEFAULT '',
+    author_id INTEGER,
+    author_name TEXT NOT NULL DEFAULT '',
+    published_at TEXT NOT NULL DEFAULT '',
+    read_time INTEGER NOT NULL DEFAULT 5,
+    status TEXT NOT NULL DEFAULT 'draft',
+    featured INTEGER NOT NULL DEFAULT 0,
+    show_on_home INTEGER NOT NULL DEFAULT 0,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
   CREATE TABLE IF NOT EXISTS user_favorite_cars (
     user_id INTEGER NOT NULL,
     car_id INTEGER NOT NULL,
@@ -412,8 +444,11 @@ const initializeSchema = (database) => {
   CREATE INDEX IF NOT EXISTS idx_cars_price_value
   ON cars (price_value);
 
-  CREATE INDEX IF NOT EXISTS idx_promotions_home
-  ON promotions (show_on_home, display_order, created_at);
+  CREATE INDEX IF NOT EXISTS idx_blog_posts_public
+  ON blog_posts (status, featured, display_order, published_at);
+
+  CREATE INDEX IF NOT EXISTS idx_blog_posts_slug
+  ON blog_posts (slug);
 
   CREATE INDEX IF NOT EXISTS idx_user_favorite_cars_user_id
   ON user_favorite_cars (user_id);
@@ -511,6 +546,39 @@ const initializeSchema = (database) => {
       AND COALESCE(show_on_home, 0) != 0
   `);
   syncConfiguredEmployeeRoles(database);
+
+  const promotionColumns = database.prepare('PRAGMA table_info(promotions)').all();
+  const promotionColumnNames = new Set(promotionColumns.map((column) => column.name));
+  const promotionHomeColumns = [
+    ['show_on_home', 'ALTER TABLE promotions ADD COLUMN show_on_home INTEGER NOT NULL DEFAULT 0'],
+    ['display_order', 'ALTER TABLE promotions ADD COLUMN display_order INTEGER NOT NULL DEFAULT 0'],
+  ];
+
+  promotionHomeColumns.forEach(([columnName, alterStatement]) => {
+    if (!promotionColumnNames.has(columnName)) {
+      database.exec(alterStatement);
+    }
+  });
+
+  const blogPostColumns = database.prepare('PRAGMA table_info(blog_posts)').all();
+  const blogPostColumnNames = new Set(blogPostColumns.map((column) => column.name));
+
+  if (!blogPostColumnNames.has('show_on_home')) {
+    database.exec('ALTER TABLE blog_posts ADD COLUMN show_on_home INTEGER NOT NULL DEFAULT 0');
+    database.exec(`
+      UPDATE blog_posts
+      SET show_on_home = 1
+      WHERE status = 'published'
+    `);
+  }
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_promotions_home
+    ON promotions (show_on_home, display_order, created_at);
+
+    CREATE INDEX IF NOT EXISTS idx_blog_posts_home
+    ON blog_posts (show_on_home, status, featured, display_order, published_at);
+  `);
 
   const carColumns = database.prepare('PRAGMA table_info(cars)').all();
   const hasBrandColumn = carColumns.some(
@@ -1095,6 +1163,112 @@ const listPublicPromotionsStatement = db.prepare(`
   ORDER BY display_order ASC, datetime(created_at) DESC, id DESC
 `);
 
+const countBlogPostsStatement = db.prepare(`
+  SELECT COUNT(*) AS total
+  FROM blog_posts
+`);
+
+const blogPostStatsStatement = db.prepare(`
+  SELECT
+    COUNT(*) AS total,
+    SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END) AS published,
+    SUM(CASE WHEN status != 'published' THEN 1 ELSE 0 END) AS draft,
+    SUM(CASE WHEN featured = 1 THEN 1 ELSE 0 END) AS featured,
+    SUM(CASE WHEN show_on_home = 1 THEN 1 ELSE 0 END) AS home_visible
+  FROM blog_posts
+`);
+
+const insertBlogPostStatement = db.prepare(`
+  INSERT INTO blog_posts (
+    slug, category, title, excerpt, content, image_url, image_alt,
+    author_id, author_name, published_at, read_time, status, featured, show_on_home, display_order
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+const updateBlogPostStatement = db.prepare(`
+  UPDATE blog_posts
+  SET slug = ?,
+      category = ?,
+      title = ?,
+      excerpt = ?,
+      content = ?,
+      image_url = ?,
+      image_alt = ?,
+      published_at = ?,
+      read_time = ?,
+      status = ?,
+      featured = ?,
+      show_on_home = ?,
+      display_order = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const deleteBlogPostStatement = db.prepare(`
+  DELETE FROM blog_posts
+  WHERE id = ?
+`);
+
+const findBlogPostByIdStatement = db.prepare(`
+  SELECT blog_posts.*,
+         users.full_name AS user_full_name
+  FROM blog_posts
+  LEFT JOIN users ON users.id = blog_posts.author_id
+  WHERE blog_posts.id = ?
+`);
+
+const findPublicBlogPostBySlugStatement = db.prepare(`
+  SELECT blog_posts.*,
+         users.full_name AS user_full_name
+  FROM blog_posts
+  LEFT JOIN users ON users.id = blog_posts.author_id
+  WHERE blog_posts.slug = ?
+    AND blog_posts.status = 'published'
+    AND (blog_posts.published_at = '' OR date(blog_posts.published_at) <= date('now', 'localtime'))
+`);
+
+const listAdminBlogPostsStatement = db.prepare(`
+  SELECT blog_posts.*,
+         users.full_name AS user_full_name
+  FROM blog_posts
+  LEFT JOIN users ON users.id = blog_posts.author_id
+  ORDER BY blog_posts.featured DESC,
+           blog_posts.display_order ASC,
+           date(blog_posts.published_at) DESC,
+           datetime(blog_posts.created_at) DESC,
+           blog_posts.id DESC
+`);
+
+const listPublicBlogPostsStatement = db.prepare(`
+  SELECT blog_posts.*,
+         users.full_name AS user_full_name
+  FROM blog_posts
+  LEFT JOIN users ON users.id = blog_posts.author_id
+  WHERE blog_posts.status = 'published'
+    AND (blog_posts.published_at = '' OR date(blog_posts.published_at) <= date('now', 'localtime'))
+  ORDER BY blog_posts.featured DESC,
+           blog_posts.display_order ASC,
+           date(blog_posts.published_at) DESC,
+           datetime(blog_posts.created_at) DESC,
+           blog_posts.id DESC
+`);
+
+const listHomepageBlogPostsStatement = db.prepare(`
+  SELECT blog_posts.*,
+         users.full_name AS user_full_name
+  FROM blog_posts
+  LEFT JOIN users ON users.id = blog_posts.author_id
+  WHERE blog_posts.status = 'published'
+    AND blog_posts.show_on_home = 1
+    AND (blog_posts.published_at = '' OR date(blog_posts.published_at) <= date('now', 'localtime'))
+  ORDER BY blog_posts.featured DESC,
+           blog_posts.display_order ASC,
+           date(blog_posts.published_at) DESC,
+           datetime(blog_posts.created_at) DESC,
+           blog_posts.id DESC
+`);
+
 const listFavoriteCarsByUserStatement = db.prepare(`
   SELECT cars.*
   FROM user_favorite_cars
@@ -1587,6 +1761,99 @@ const seedCars = [
   }
 ];
 
+const seedBlogPosts = [
+  {
+    slug: '7-hang-muc-kiem-tra-khi-mua-xe-cu',
+    category: 'Kinh nghiệm mua xe',
+    title: '7 hạng mục cần kiểm tra trước khi xuống tiền mua xe cũ',
+    excerpt: 'Một quy trình kiểm tra ngắn gọn giúp người mua nhận biết tình trạng thân vỏ, động cơ, giấy tờ và chi phí có thể phát sinh.',
+    content: 'Bắt đầu từ hồ sơ pháp lý: đăng ký xe, đăng kiểm, số khung và số máy cần trùng khớp với chiếc xe thực tế. Người mua cũng nên xác minh chủ sở hữu, tình trạng thế chấp và lịch sử phạt nguội trước khi đặt cọc.\n\nQuan sát thân vỏ, khoang máy và gầm xe để nhận biết dấu hiệu sửa chữa lớn. Khi lái thử, hãy kiểm tra phanh, vô lăng, tiếng động lạ và độ ổn định ở nhiều dải tốc độ.\n\nNgoài giá mua, nên dành ngân sách cho bảo dưỡng ban đầu, bảo hiểm, lệ phí sang tên và các hạng mục hao mòn.',
+    imageUrl: '/images/blog-1.jpg',
+    imageAlt: 'Xe Porsche màu đen đang di chuyển trên đường',
+    authorName: 'Ban biên tập OkXe',
+    publishedAt: '2026-06-18',
+    readTime: 7,
+    status: 'published',
+    featured: true,
+    displayOrder: 1,
+  },
+  {
+    slug: 'chi-phi-nuoi-xe-hang-thang',
+    category: 'Chi phí sử dụng',
+    title: 'Chi phí nuôi xe hàng tháng gồm những khoản nào?',
+    excerpt: 'Nhiên liệu chỉ là một phần. Hãy tính thêm gửi xe, bảo dưỡng, bảo hiểm và khoản dự phòng để chọn xe vừa với ngân sách dài hạn.',
+    content: 'Phí gửi xe, bảo hiểm bắt buộc, phí đường bộ và đăng kiểm là các khoản có thể ước tính theo năm rồi chia trung bình theo tháng.\n\nNhiên liệu, cầu đường và rửa xe tăng theo quãng đường sử dụng. Để dự toán sát hơn, hãy lấy số kilomet đi lại trung bình mỗi tháng nhân với mức tiêu hao thực tế của mẫu xe.\n\nMột chiếc xe có giá mua thấp chưa chắc tiết kiệm nếu tiêu hao nhiên liệu cao hoặc phụ tùng khó tìm. Tổng chi phí sở hữu trong ba đến năm năm là thước đo phù hợp hơn giá niêm yết ban đầu.',
+    imageUrl: '/images/blog-2.jpg',
+    imageAlt: 'Xe sedan màu trắng trong bãi đỗ xe',
+    authorName: 'Minh Khôi',
+    publishedAt: '2026-06-14',
+    readTime: 6,
+    status: 'published',
+    featured: true,
+    displayOrder: 2,
+  },
+  {
+    slug: 'sedan-hay-suv-phu-hop-gia-dinh',
+    category: 'Tư vấn chọn xe',
+    title: 'Sedan hay SUV: đâu là lựa chọn phù hợp cho gia đình?',
+    excerpt: 'So sánh không gian, khả năng vận hành, mức tiêu hao và thói quen sử dụng để tìm kiểu xe phù hợp thay vì chạy theo xu hướng.',
+    content: 'Sedan thường có trọng tâm thấp, cảm giác lái ổn định và mức tiêu hao dễ chịu. Kiểu xe này phù hợp với người chủ yếu di chuyển trong đô thị.\n\nSUV có khoảng sáng gầm và khoang hành lý linh hoạt, thuận tiện khi đi xa, chở trẻ nhỏ hoặc di chuyển qua đoạn đường xấu.\n\nHãy lái thử với đúng nhu cầu: mang theo ghế trẻ em, vali hoặc vật dụng thường dùng để kiểm tra không gian thực tế.',
+    imageUrl: '/images/blog-3.jpg',
+    imageAlt: 'Xe thể thao màu đen nhìn từ phía trước',
+    authorName: 'Hoàng Nam',
+    publishedAt: '2026-06-10',
+    readTime: 5,
+    status: 'published',
+    featured: false,
+    displayOrder: 3,
+  },
+  {
+    slug: 'xe-dien-cu-can-luu-y-dieu-gi',
+    category: 'Công nghệ xe',
+    title: 'Mua xe điện đã qua sử dụng cần lưu ý điều gì?',
+    excerpt: 'Tình trạng pin, khả năng sạc và chính sách bảo hành là ba yếu tố cần được kiểm tra kỹ trước khi quyết định.',
+    content: 'Dung lượng pin còn lại nên được kiểm tra bằng thiết bị chẩn đoán thay vì chỉ dựa trên quãng đường hiển thị. Nhiệt độ, thói quen sạc và lịch sử sử dụng đều ảnh hưởng tới độ suy giảm.\n\nNgười mua cần xác định chỗ đỗ có thể lắp sạc hay không, vị trí trạm sạc thường dùng và chuẩn đầu sạc của xe.\n\nHãy kiểm tra thời hạn bảo hành pin, lịch sử cập nhật phần mềm và khả năng chuyển quyền sử dụng ứng dụng của hãng sang chủ mới.',
+    imageUrl: '/images/vehicle-showroom-a3.jpg',
+    imageAlt: 'Xe điện Porsche Taycan trong studio',
+    authorName: 'Ban biên tập OkXe',
+    publishedAt: '2026-06-06',
+    readTime: 8,
+    status: 'published',
+    featured: false,
+    displayOrder: 4,
+  },
+  {
+    slug: 'lich-bao-duong-xe-cu-sau-khi-mua',
+    category: 'Chăm sóc xe',
+    title: 'Lịch bảo dưỡng nên làm ngay sau khi mua xe cũ',
+    excerpt: 'Thay dầu, kiểm tra phanh, lốp và các loại dung dịch giúp thiết lập lại mốc bảo dưỡng rõ ràng cho chủ xe mới.',
+    content: 'Nếu hồ sơ bảo dưỡng không đầy đủ, nên thay dầu động cơ và các bộ lọc cơ bản để chủ động tạo mốc theo dõi mới.\n\nMá phanh, đĩa phanh, lốp, đèn và gạt mưa cần được kiểm tra trước các món nâng cấp tiện nghi.\n\nLưu lại hóa đơn, số kilomet và hạng mục đã làm để sử dụng xe ổn định hơn và tăng độ tin cậy khi bán lại.',
+    imageUrl: '/images/rental-4.png',
+    imageAlt: 'Ô tô màu trắng được trưng bày ngoài trời',
+    authorName: 'Tuấn Anh',
+    publishedAt: '2026-05-30',
+    readTime: 6,
+    status: 'published',
+    featured: false,
+    displayOrder: 5,
+  },
+  {
+    slug: 'quy-trinh-sang-ten-xe-cu',
+    category: 'Pháp lý ô tô',
+    title: 'Quy trình sang tên xe cũ: giấy tờ nào cần chuẩn bị?',
+    excerpt: 'Danh sách hồ sơ và các bước cơ bản giúp bên mua, bên bán chủ động thời gian khi thực hiện thủ tục chuyển quyền sở hữu.',
+    content: 'Hai bên cần chuẩn bị giấy tờ cá nhân hợp lệ, đăng ký xe, chứng nhận kiểm định và chứng từ chuyển quyền sở hữu.\n\nSau khi có chứng từ mua bán hợp lệ, bên mua thực hiện kê khai lệ phí trước bạ theo quy định và lưu chứng từ để hoàn thiện hồ sơ đăng ký.\n\nTên chủ xe, số khung, số máy và thông tin phương tiện trên giấy hẹn phải chính xác trước khi nhận đăng ký mới.',
+    imageUrl: '/images/car-buy-requests-hero.png',
+    imageAlt: 'Nhiều mẫu ô tô trong khu trưng bày',
+    authorName: 'Ban biên tập OkXe',
+    publishedAt: '2026-05-24',
+    readTime: 7,
+    status: 'published',
+    featured: false,
+    displayOrder: 6,
+  },
+];
+
 const normalizeEmail = (email) => String(email || '').trim().toLowerCase();
 
 const normalizeFullName = (fullName) =>
@@ -1831,6 +2098,67 @@ const sanitizePromotion = (promotionRow) => {
     displayOrder: Number(promotionRow.display_order || 0),
     createdAt: promotionRow.created_at || '',
     updatedAt: promotionRow.updated_at || '',
+  };
+};
+
+const normalizeBlogPostPayload = (blogPost = {}) => {
+  const readTime = Number(blogPost.readTime || blogPost.read_time || 5);
+  const displayOrder = Number(blogPost.displayOrder ?? blogPost.display_order ?? 0);
+  const requestedStatus = blogPost.status
+    || (blogPost.isPublished || blogPost.published ? 'published' : 'draft');
+
+  return {
+    slug: String(blogPost.slug || '').trim().toLowerCase(),
+    category: String(blogPost.category || '').trim().replace(/\s+/g, ' '),
+    title: String(blogPost.title || '').trim().replace(/\s+/g, ' '),
+    excerpt: String(blogPost.excerpt || blogPost.summary || '').trim().replace(/\s+/g, ' '),
+    content: String(blogPost.content || '').trim(),
+    imageUrl: String(blogPost.imageUrl || blogPost.image || '').trim(),
+    imageAlt: String(blogPost.imageAlt || '').trim().replace(/\s+/g, ' '),
+    authorId: Number.isInteger(Number(blogPost.authorId)) && Number(blogPost.authorId) > 0
+      ? Number(blogPost.authorId)
+      : null,
+    authorName: String(blogPost.authorName || blogPost.author || 'Ban biên tập OkXe').trim().replace(/\s+/g, ' ') || 'Ban biên tập OkXe',
+    publishedAt: String(blogPost.publishedAt || blogPost.published_at || '').trim(),
+    readTime: Number.isFinite(readTime) ? Math.max(1, Math.trunc(readTime)) : 5,
+    status: normalizeBlogPostStatus(requestedStatus),
+    featured: normalizeBooleanInteger(blogPost.featured),
+    showOnHome: normalizeBooleanInteger(blogPost.showOnHome ?? blogPost.show_on_home),
+    displayOrder: Number.isFinite(displayOrder) ? Math.max(0, Math.trunc(displayOrder)) : 0,
+  };
+};
+
+const sanitizeBlogPost = (blogPostRow) => {
+  if (!blogPostRow) {
+    return null;
+  }
+
+  const authorName = blogPostRow.author_name || blogPostRow.user_full_name || 'Ban biên tập OkXe';
+  const imageUrl = blogPostRow.image_url || '';
+  const status = normalizeBlogPostStatus(blogPostRow.status);
+
+  return {
+    id: blogPostRow.id,
+    slug: blogPostRow.slug,
+    category: blogPostRow.category || '',
+    title: blogPostRow.title,
+    excerpt: blogPostRow.excerpt || '',
+    content: blogPostRow.content || '',
+    imageUrl,
+    image: imageUrl,
+    imageAlt: blogPostRow.image_alt || blogPostRow.title || '',
+    authorId: blogPostRow.author_id || null,
+    authorName,
+    author: authorName,
+    publishedAt: blogPostRow.published_at || '',
+    readTime: Number(blogPostRow.read_time || 5),
+    status,
+    isPublished: status === 'published',
+    featured: Boolean(blogPostRow.featured),
+    showOnHome: Boolean(blogPostRow.show_on_home),
+    displayOrder: Number(blogPostRow.display_order || 0),
+    createdAt: blogPostRow.created_at || '',
+    updatedAt: blogPostRow.updated_at || '',
   };
 };
 
@@ -2536,6 +2864,33 @@ const listPublicPromotions = () =>
 
 const getPromotionById = (promotionId) =>
   sanitizePromotion(findPromotionByIdStatement.get(promotionId));
+
+const listAdminBlogPosts = () =>
+  listAdminBlogPostsStatement.all().map(sanitizeBlogPost);
+
+const listPublicBlogPosts = () =>
+  listPublicBlogPostsStatement.all().map(sanitizeBlogPost);
+
+const listHomepageBlogPosts = () =>
+  listHomepageBlogPostsStatement.all().map(sanitizeBlogPost);
+
+const getBlogPostById = (blogPostId) =>
+  sanitizeBlogPost(findBlogPostByIdStatement.get(blogPostId));
+
+const getPublicBlogPostBySlug = (slug) =>
+  sanitizeBlogPost(findPublicBlogPostBySlugStatement.get(String(slug || '').trim()));
+
+const getBlogPostStats = () => {
+  const stats = blogPostStatsStatement.get() || {};
+
+  return {
+    total: Number(stats.total || 0),
+    published: Number(stats.published || 0),
+    draft: Number(stats.draft || 0),
+    featured: Number(stats.featured || 0),
+    homeVisible: Number(stats.home_visible || 0),
+  };
+};
 
 const getCarBuyRequestById = (requestId) =>
   sanitizeCarBuyRequest(findCarBuyRequestByIdStatement.get(requestId));
@@ -3264,11 +3619,203 @@ const deletePromotion = (promotionId) => {
   return existingPromotion;
 };
 
+const createBlogPost = (blogPost, author = {}) => {
+  const normalizedBlogPost = normalizeBlogPostPayload({
+    ...blogPost,
+    authorId: author.id || blogPost.authorId,
+    authorName: author.fullName || author.email || blogPost.authorName || blogPost.author,
+  });
+  const result = insertBlogPostStatement.run(
+    normalizedBlogPost.slug,
+    normalizedBlogPost.category,
+    normalizedBlogPost.title,
+    normalizedBlogPost.excerpt,
+    normalizedBlogPost.content,
+    normalizedBlogPost.imageUrl,
+    normalizedBlogPost.imageAlt,
+    normalizedBlogPost.authorId,
+    normalizedBlogPost.authorName,
+    normalizedBlogPost.publishedAt,
+    normalizedBlogPost.readTime,
+    normalizedBlogPost.status,
+    normalizedBlogPost.featured,
+    normalizedBlogPost.showOnHome,
+    normalizedBlogPost.displayOrder
+  );
+
+  return getBlogPostById(result.lastInsertRowid);
+};
+
+const updateBlogPost = (blogPostId, blogPost) => {
+  const existingBlogPost = getBlogPostById(blogPostId);
+
+  if (!existingBlogPost) {
+    return null;
+  }
+
+  const normalizedBlogPost = normalizeBlogPostPayload({
+    ...blogPost,
+    authorId: existingBlogPost.authorId,
+    authorName: existingBlogPost.authorName,
+  });
+
+  updateBlogPostStatement.run(
+    normalizedBlogPost.slug,
+    normalizedBlogPost.category,
+    normalizedBlogPost.title,
+    normalizedBlogPost.excerpt,
+    normalizedBlogPost.content,
+    normalizedBlogPost.imageUrl,
+    normalizedBlogPost.imageAlt,
+    normalizedBlogPost.publishedAt,
+    normalizedBlogPost.readTime,
+    normalizedBlogPost.status,
+    normalizedBlogPost.featured,
+    normalizedBlogPost.showOnHome,
+    normalizedBlogPost.displayOrder,
+    blogPostId
+  );
+
+  return getBlogPostById(blogPostId);
+};
+
+const deleteBlogPost = (blogPostId) => {
+  const existingBlogPost = getBlogPostById(blogPostId);
+
+  if (!existingBlogPost) {
+    return null;
+  }
+
+  deleteBlogPostStatement.run(blogPostId);
+  return existingBlogPost;
+};
+
+const serializeStaticBlogContent = (content) => {
+  if (!Array.isArray(content)) {
+    return String(content || '').trim();
+  }
+
+  return content
+    .map((section) => {
+      const blocks = [];
+      const heading = String(section?.heading || '').trim();
+      const paragraphs = Array.isArray(section?.paragraphs) ? section.paragraphs : [];
+      const listItems = Array.isArray(section?.list) ? section.list : [];
+
+      if (heading) {
+        blocks.push(heading);
+      }
+
+      paragraphs
+        .map((paragraph) => String(paragraph || '').trim())
+        .filter(Boolean)
+        .forEach((paragraph) => blocks.push(paragraph));
+
+      listItems
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+        .forEach((item) => blocks.push(`- ${item}`));
+
+      return blocks.join('\n\n');
+    })
+    .filter(Boolean)
+    .join('\n\n');
+};
+
+const normalizeStaticBlogPostForDatabase = (blogPost, index = 0) => ({
+  slug: blogPost.slug,
+  category: blogPost.category,
+  title: blogPost.title,
+  excerpt: blogPost.excerpt,
+  content: serializeStaticBlogContent(blogPost.content),
+  imageUrl: blogPost.imageUrl || blogPost.image || '',
+  imageAlt: blogPost.imageAlt || '',
+  authorName: blogPost.authorName || blogPost.author || 'Ban biên tập OkXe',
+  publishedAt: blogPost.publishedAt || '',
+  readTime: Number(blogPost.readTime || 5),
+  status: blogPost.status || 'published',
+  featured: Boolean(blogPost.featured),
+  showOnHome: blogPost.showOnHome ?? true,
+  displayOrder: Number(blogPost.displayOrder ?? blogPost.id ?? index + 1),
+});
+
+const loadStaticBlogPostsForDatabase = () => {
+  const staticBlogDataPath = path.join(__dirname, 'public', 'blog', 'data.js');
+
+  if (!fs.existsSync(staticBlogDataPath)) {
+    return [];
+  }
+
+  try {
+    const sandbox = { window: {} };
+    const source = fs.readFileSync(staticBlogDataPath, 'utf8');
+    vm.runInNewContext(source, sandbox, {
+      filename: 'public/blog/data.js',
+      timeout: 1000,
+    });
+
+    return Array.isArray(sandbox.window.OKXE_BLOG_POSTS)
+      ? sandbox.window.OKXE_BLOG_POSTS.map(normalizeStaticBlogPostForDatabase)
+      : [];
+  } catch (error) {
+    console.warn(`Could not load static blog posts: ${error.message}`);
+    return [];
+  }
+};
+
+const getSeedBlogPosts = () => {
+  const staticBlogPosts = loadStaticBlogPostsForDatabase();
+
+  return staticBlogPosts.length
+    ? staticBlogPosts
+    : seedBlogPosts.map((blogPost, index) =>
+      normalizeStaticBlogPostForDatabase(blogPost, index)
+    );
+};
+
+const shouldRefreshSeededBlogPost = (existingBlogPost, seedBlogPost) =>
+  existingBlogPost
+  && existingBlogPost.title === seedBlogPost.title
+  && existingBlogPost.excerpt === seedBlogPost.excerpt
+  && String(existingBlogPost.content || '').trim().length < String(seedBlogPost.content || '').trim().length;
+
+const seedBlogPostsIfMissing = () => {
+  const existingPostsBySlug = new Map(
+    listAdminBlogPosts().map((blogPost) => [blogPost.slug, blogPost])
+  );
+
+  getSeedBlogPosts().forEach((blogPost) => {
+    const existingBlogPost = existingPostsBySlug.get(blogPost.slug);
+
+    if (!existingBlogPost) {
+      createBlogPost({
+        ...blogPost,
+        showOnHome: blogPost.showOnHome ?? true,
+      }, {
+        fullName: blogPost.authorName,
+      });
+      return;
+    }
+
+    if (shouldRefreshSeededBlogPost(existingBlogPost, blogPost)) {
+      updateBlogPost(existingBlogPost.id, {
+        ...blogPost,
+        status: existingBlogPost.status,
+        featured: existingBlogPost.featured,
+        showOnHome: existingBlogPost.showOnHome,
+        displayOrder: existingBlogPost.displayOrder || blogPost.displayOrder,
+      });
+    }
+  });
+};
+
 seedCarsIfEmpty();
+seedBlogPostsIfMissing();
 
 module.exports = {
   addFavoriteCarForUser,
   authenticateUser,
+  createBlogPost,
   createCar,
   createCarBuyRequest,
   createCarSellRequest,
@@ -3281,6 +3828,7 @@ module.exports = {
   createUser,
   countAdminUsers,
   deleteCar,
+  deleteBlogPost,
   deleteCarBuyRequest,
   deleteConsultationRequest,
   deletePromotion,
@@ -3288,17 +3836,22 @@ module.exports = {
   deleteTestDriveAppointment,
   deleteUser,
   getCarById,
+  getBlogPostById,
+  getBlogPostStats,
   getCarBuyRequestById,
   getCarBuyRequestOfferById,
   getCarSellRequestById,
   getConsultationRequestById,
   getPromotionById,
+  getPublicBlogPostBySlug,
   getTestDriveAppointmentById,
   getUserById,
   getUserBySession,
   employeeRoles,
   isFavoriteCarByUser,
+  listHomepageBlogPosts,
   listHomepagePromotions,
+  listAdminBlogPosts,
   listAvailableTestDriveCars,
   listAdminCars,
   listCarBuyRequestOffersByRequestId,
@@ -3313,6 +3866,7 @@ module.exports = {
   listCars,
   listFavoriteCarsByUser,
   listPublicPromotions,
+  listPublicBlogPosts,
   listPublicCarBuyRequests,
   listPromotions,
   listConsultationRequests,
@@ -3321,6 +3875,7 @@ module.exports = {
   removeFavoriteCarForUser,
   resetPasswordWithOtp,
   updateConsultationRequestStatus,
+  updateBlogPost,
   updatePromotion,
   updateTestDriveAppointmentStatus,
   updateUserProfile,

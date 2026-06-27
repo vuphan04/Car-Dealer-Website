@@ -131,7 +131,7 @@ const renderPromotions = () => {
                     </div>
                     <h3>${escapeHtml(promotion.title || 'Ưu đãi OkXe')}</h3>
                     <p>${escapeHtml(promotion.summary || 'Liên hệ OkXe để nhận thông tin ưu đãi mới nhất.')}</p>
-                    ${preview ? `<p>${escapeHtml(preview)}</p>` : ''}
+                    ${preview ? `<p class="promotion-card__preview">${escapeHtml(preview)}</p>` : ''}
                     <div class="promotion-card__footer">
                         <small>Nhấn để xem chi tiết</small>
                         <button type="button" data-view-promotion="${escapeHtml(String(promotion.id || ''))}">

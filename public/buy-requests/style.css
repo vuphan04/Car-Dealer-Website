@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap");
-
 :root {
     --main-color: #f15a29;
     --main-color-dark: #da4c1f;
@@ -11,7 +9,6 @@
     --line-color: #e3e8f2;
     --success: #1f9d63;
     --danger: #d93025;
-    --font-ui: "Be Vietnam Pro", "Segoe UI", Arial, sans-serif;
 }
 
 * {

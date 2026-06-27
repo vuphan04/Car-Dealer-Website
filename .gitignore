@@ -7,6 +7,7 @@ data/*.db-journal
 data/rentals.backup-before-restore-*.db
 storage/
 dist/
+.tmp/
 .tmp-runtime*/
 .tmp-screenshots/
 .tmp-logo-preview.png

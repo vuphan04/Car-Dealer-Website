@@ -14,6 +14,7 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Cho phép người dùng đăng ký, đăng nhập, quản lý tài khoản
 - Cho phép người dùng đã đăng nhập xem họ tên, email và cập nhật hồ sơ cá nhân: số điện thoại, số CCCD, ngày sinh, giới tính, ảnh đại diện và địa chỉ liên hệ.
 - Cho phép người dùng đã đăng nhập lưu xe yêu thích và xem danh sách xe yêu thích của chính mình.
+- Popup thông tin tài khoản của người dùng đã đăng nhập có mục quản lý tin đăng, gồm tab tin bán xe và tin mua xe, hiển thị số lượng tin, lọc theo trạng thái và liên kết đăng tin mới tương ứng; menu tài khoản có nút mở nhanh thẳng tới mục này bằng chế độ chỉ hiển thị quản lý tin, không kèm khối thông tin cá nhân.
 - Cho phép người dùng liên hệ mua xe hoặc đặt lịch xem xe
 - Trang chi tiết xe có nút "Nhận tư vấn & báo giá" mở popup cho khách gửi yêu cầu tư vấn theo xe đang xem, gồm họ tên, số điện thoại, email, nhu cầu, thời gian muốn gọi lại và ghi chú; khách chưa đăng nhập vẫn gửi được yêu cầu. Nếu xe đã hết hàng/đã bán, nút chính đổi thành "Tư vấn xe tương tự", popup báo xe hiện đã hết hàng và yêu cầu gửi lên admin phải thể hiện khách cần tư vấn xe tương tự.
 - Trang quản trị có mục "Yêu cầu tư vấn" để `staff` và `admin` xem, tìm kiếm, cập nhật trạng thái và xóa yêu cầu tư vấn của khách hàng.
@@ -32,7 +33,8 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Trang quản trị có mục "Thông tin khuyến mại" nằm dưới mục "Khách hàng" để nhân viên/admin viết bài khuyến mại, tải ảnh minh họa bằng nút chọn ảnh, cắt ảnh banner theo tỷ lệ 2:1 trước khi lưu, sửa, xóa, bật/tắt hiển thị và sắp xếp thứ tự trên trang chủ.
 - Trang chủ hiển thị thông tin khuyến mại ngay bên dưới mục đăng ký lái thử bằng carousel trượt, chỉ lấy các bài khuyến mại đang bật hiển thị và còn trong thời gian áp dụng; khi nhấn vào card khuyến mại sẽ mở popup chi tiết bài khuyến mại.
 - Header website có mục "Khuyến mại"; khi nhấn vào sẽ mở trang con `/khuyen-mai` hiển thị tất cả khuyến mại công khai hiện có của cửa hàng bằng giao diện gọn, đẹp, đồng bộ website và có metadata SEO cơ bản.
-- Trang chủ có section blog ngay dưới khuyến mại, hiển thị carousel bài viết ô tô mới bằng dữ liệu frontend tạm. Header và section này liên kết tới `/blog`; trang blog có bài nổi bật, tìm kiếm, lọc chủ đề và danh sách bài responsive. Mỗi bài mở thành trang đọc riêng tại `/blog/:slug`, có metadata bài viết, nội dung đầy đủ và bài liên quan. Dữ liệu hiện đặt tại `public/blog/data.js` để thay bằng API khi phát triển backend sau.
+- Trang chủ có section blog ngay dưới khuyến mại, hiển thị carousel bài viết ô tô mới đã bật hiển thị Home từ API blog và fallback dữ liệu tĩnh `public/blog/data.js` khi chưa chạy backend. Header và section này liên kết tới `/blog`; trang blog có carousel bài nổi bật, tìm kiếm, lọc chủ đề và danh sách bài responsive. Mỗi bài mở thành trang đọc riêng tại `/blog/:slug`, có metadata SEO server-side, breadcrumb, người đăng, nội dung đầy đủ, sidebar tin mới nhất/nhận tin tức mới và bài liên quan.
+- Trang quản trị có mục "Quản lý blog" cho `staff` và `admin` tạo, sửa, xóa bài viết, tải/cắt ảnh đại diện theo tỷ lệ 16:9, chèn ảnh đã cắt vào giữa nội dung bài viết, bật/tắt xuất bản, bật/tắt hiển thị ở Home, đánh dấu bài đăng nổi bật và xem thống kê nhỏ gồm tổng bài, đã xuất bản, nổi bật, hiển thị Home và bản nháp.
 - Tất cả trang con công khai phải dùng header đồng nhất với trang chủ về logo, nội dung menu, font chữ, chiều rộng, chiều cao và trạng thái đăng nhập/đăng xuất; menu phải responsive trên desktop, tablet và mobile.
 - Tất cả trang công khai dành cho khách hàng phải dùng chung một footer OkXe, đồng nhất nội dung, font chữ, chiều rộng, khoảng cách và cách hiển thị responsive trên desktop, tablet và mobile.
 - Khi có bài khuyến mại đang hiển thị trên trang chủ, mục "Thông báo" của khách hàng hiển thị badge số lượng thông báo, danh sách khuyến mại mới nhất, cho phép xóa từng thông báo; khi nhấn vào thông báo khuyến mại sẽ mở popup chi tiết bài khuyến mại.
@@ -122,6 +124,8 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Trường `sales_bio` là mô tả chi tiết nhân viên, nhập bằng textarea trong admin và hiển thị đầy đủ trong popup chi tiết nhân viên ở trang chủ.
 - Bảng `cars` lưu hãng xe trong cột `brand`, mô tả xe trong cột `description`, thông số dẫn động trong cột `drivetrain`, ảnh chính trong cột `image` và danh sách nhiều ảnh trong cột `images_json`.
 - Bảng `promotions` lưu bài khuyến mại trong các cột `title`, `summary`, `content`, `badge_text`, `image_url`, `cta_text`, `cta_url`, `starts_at`, `ends_at`, `show_on_home`, `display_order`, `created_at`, `updated_at`.
+- Bảng `blog_posts` lưu bài viết blog trong các cột `slug`, `category`, `title`, `excerpt`, `content`, `image_url`, `image_alt`, `author_id`, `author_name`, `published_at`, `read_time`, `status`, `featured`, `show_on_home`, `display_order`, `created_at`, `updated_at`. Trạng thái gồm `draft`, `published`; chỉ bài `published` và đến ngày đăng mới hiển thị công khai. Cột `show_on_home` quyết định bài có xuất hiện trong carousel blog ở trang chủ hay không. Trường `content` hỗ trợ ảnh xen giữa nội dung bằng cú pháp `![mô tả ảnh](đường-dẫn-ảnh)`.
+- Khi backend khởi động, các bài blog tĩnh cũ trong `public/blog/data.js` được đồng bộ vào bảng `blog_posts` theo `slug`; bài còn thiếu sẽ được thêm mới, còn bài seed cũ có nội dung ngắn hơn sẽ được cập nhật nội dung mà vẫn giữ trạng thái, nổi bật, hiển thị Home và thứ tự hiện có trong admin.
 - Bảng `user_favorite_cars` lưu xe yêu thích của khách hàng bằng `user_id`, `car_id`, `created_at`, có khóa ngoại tới `users` và `cars`.
 - Bảng `test_drive_appointments` lưu lịch đăng ký lái thử của khách hàng bằng `user_id`, `car_id`, thông tin xe tại thời điểm đăng ký, `full_name`, `phone`, `preferred_date`, `preferred_time_slot`, `status`, `status_note`, `created_at`, `updated_at`.
 - Bảng `consultation_requests` lưu yêu cầu tư vấn theo xe bằng `user_id`, `car_id`, thông tin xe tại thời điểm gửi, `full_name`, `phone`, `email`, `request_type`, `preferred_contact_time`, `note`, `status`, `status_note`, `created_at`, `updated_at`.
@@ -132,6 +136,7 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Ảnh xe được upload local vào thư mục `storage/uploads/cars` hoặc thư mục được cấu hình bằng `OKXE_UPLOAD_DIR`.
 - Ảnh đại diện người dùng được upload local vào thư mục `storage/uploads/avatars` hoặc thư mục upload được cấu hình bằng `OKXE_UPLOAD_DIR`.
 - Ảnh khuyến mại được upload local vào thư mục `storage/uploads/promotions` hoặc thư mục upload được cấu hình bằng `OKXE_UPLOAD_DIR`.
+- Ảnh đại diện bài viết blog được upload local vào thư mục `storage/uploads/blog` hoặc thư mục upload được cấu hình bằng `OKXE_UPLOAD_DIR`.
 
 ### Bảo mật
 
@@ -142,7 +147,7 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Trang quản trị sử dụng trang đăng nhập nhân viên riêng tại `/admin-login`.
 - Email nhân viên/admin có thể được cấu hình bằng `STAFF_EMAILS` và `ADMIN_EMAILS` trong `.env` để tự gán quyền khi tài khoản đăng ký hoặc khi server khởi động.
 - Quyền `staff` được quản lý xe trong admin. Quyền `admin` được quản lý xe và quản lý tài khoản nhân viên, bao gồm tạo tài khoản nhân viên/admin, chỉnh sửa họ tên/email/mật khẩu/role, đổi role nhanh và xóa tài khoản.
-- Quyền `staff` hoặc `admin` được quản lý bài khuyến mại trong trang admin.
+- Quyền `staff` hoặc `admin` được quản lý bài khuyến mại và bài viết blog trong trang admin.
 - Trong form nhân viên/admin, trường vai trò chỉ cho chọn `staff` hoặc `admin`; không cho đổi nhân viên/admin thành khách hàng.
 - Trong mục quản lý Admin, form tạo/sửa admin không hiển thị các trường nghiệp vụ kinh doanh như vai trò, chức danh kinh doanh, kinh nghiệm, mô tả, thứ tự hiển thị và hiển thị trên trang chủ; thông tin admin cũng không hiển thị các trường này.
 - Hệ thống không cho xóa hoặc hạ quyền admin cuối cùng để tránh khóa mất quyền quản trị.

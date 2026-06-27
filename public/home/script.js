@@ -98,11 +98,17 @@ let favoriteCars = [];
 let favoriteCarIds = new Set();
 let teamMembersState = [];
 let promotionsState = [];
+let homeBlogPostsState = [];
 let testDriveAppointmentsState = [];
 let carBuyRequestsState = [];
+let carSellRequestsState = [];
 let userNotificationsState = [];
+let homeBlogResizeControlsBound = false;
 let teamMemberCloseTimer = 0;
 let dismissedNotificationIds = new Set();
+let carBuyRequestBudgetLabelsState = {};
+let activeProfileListingsTab = 'sell';
+let activeProfileListingsFilter = 'all';
 const dismissedNotificationsStorageKey = 'okxe:dismissedPromotionNotifications';
 const promotionDateFormatter = new Intl.DateTimeFormat('vi-VN', {
     year: 'numeric',
@@ -2114,7 +2120,8 @@ promotionCarousel?.addEventListener('keydown', (event) => {
 });
 
 const formatBlogDate = (value) => {
-    const date = new Date(`${value}T00:00:00`);
+    const dateValue = String(value || '').slice(0, 10);
+    const date = new Date(`${dateValue}T00:00:00`);
 
     if (Number.isNaN(date.getTime())) {
         return '';
@@ -2127,21 +2134,98 @@ const formatBlogDate = (value) => {
     }).format(date);
 };
 
-const renderHomeBlog = () => {
+const normalizeHomeBlogPost = (post) => ({
+    ...post,
+    image: post.image || post.imageUrl || '/images/blog-1.jpg',
+    author: post.author || post.authorName || 'Ban biên tập OkXe',
+    authorName: post.authorName || post.author || 'Ban biên tập OkXe',
+    readTime: Number(post.readTime || 5),
+    publishedAt: String(post.publishedAt || '').slice(0, 10)
+});
+
+const updateHomeBlogCarouselControls = () => {
     if (!homeBlogCarousel) {
         return;
     }
 
-    const posts = Array.isArray(window.OKXE_BLOG_POSTS)
-        ? window.OKXE_BLOG_POSTS.slice(0, 6)
-        : [];
+    const viewport = homeBlogCarousel.querySelector('.home-blog__viewport');
+    const previous = homeBlogCarousel.querySelector('[data-home-blog-direction="-1"]');
+    const next = homeBlogCarousel.querySelector('[data-home-blog-direction="1"]');
+    const dots = Array.from(homeBlogCarousel.querySelectorAll('[data-home-blog-slide-index]'));
 
-    if (!posts.length) {
+    if (!viewport || !previous || !next) {
+        return;
+    }
+
+    const maxScrollLeft = viewport.scrollWidth - viewport.clientWidth;
+    const canScroll = maxScrollLeft > 1;
+    const activeIndex = Math.round(viewport.scrollLeft / Math.max(viewport.clientWidth, 1));
+
+    previous.disabled = !canScroll || viewport.scrollLeft <= 1;
+    next.disabled = !canScroll || viewport.scrollLeft >= maxScrollLeft - 1;
+
+    dots.forEach((dot, index) => {
+        dot.classList.toggle('is-active', index === activeIndex);
+        dot.setAttribute('aria-current', index === activeIndex ? 'true' : 'false');
+    });
+};
+
+const renderHomeBlogCarouselDots = () => {
+    const viewport = homeBlogCarousel?.querySelector('.home-blog__viewport');
+    const dotsContainer = homeBlogCarousel?.querySelector('.home-blog__dots');
+
+    if (!viewport || !dotsContainer) {
+        return;
+    }
+
+    const pageCount = Math.max(1, Math.ceil((viewport.scrollWidth - viewport.clientWidth) / Math.max(viewport.clientWidth, 1)) + 1);
+
+    dotsContainer.innerHTML = pageCount > 1
+        ? Array.from({ length: pageCount }, (_, index) => `
+            <button type="button" class="home-blog__dot${index === 0 ? ' is-active' : ''}" data-home-blog-slide-index="${index}" aria-label="Xem trang bài viết ${index + 1}" aria-current="${index === 0 ? 'true' : 'false'}"></button>
+        `).join('')
+        : '';
+};
+
+const scrollHomeBlogCarousel = (direction) => {
+    const viewport = homeBlogCarousel?.querySelector('.home-blog__viewport');
+
+    if (!viewport) {
+        return;
+    }
+
+    viewport.scrollBy({
+        left: direction * viewport.clientWidth,
+        behavior: 'smooth'
+    });
+};
+
+const goToHomeBlogCarouselPage = (pageIndex) => {
+    const viewport = homeBlogCarousel?.querySelector('.home-blog__viewport');
+
+    if (!viewport) {
+        return;
+    }
+
+    viewport.scrollTo({
+        left: pageIndex * viewport.clientWidth,
+        behavior: 'smooth'
+    });
+};
+
+const renderHomeBlog = (posts = homeBlogPostsState) => {
+    if (!homeBlogCarousel) {
+        return;
+    }
+
+    const visiblePosts = posts.slice(0, 6);
+
+    if (!visiblePosts.length) {
         homeBlogCarousel.innerHTML = '<p class="home-blog__empty">Chưa có bài viết nào được hiển thị.</p>';
         return;
     }
 
-    const cards = posts.map((post) => `
+    const cards = visiblePosts.map((post) => `
         <article class="home-blog-card">
             <a href="/blog/${encodeURIComponent(post.slug)}" class="home-blog-card__media" aria-label="Đọc bài ${escapeHtml(post.title)}">
                 <img src="${escapeHtml(post.image)}" alt="${escapeHtml(post.imageAlt || post.title)}">
@@ -2153,6 +2237,10 @@ const renderHomeBlog = () => {
                 </div>
                 <h3><a href="/blog/${encodeURIComponent(post.slug)}">${escapeHtml(post.title)}</a></h3>
                 <p>${escapeHtml(post.excerpt)}</p>
+                <div class="home-blog-card__author">
+                    <i class="bx bx-user" aria-hidden="true"></i>
+                    <span>${escapeHtml(post.authorName || post.author)}</span>
+                </div>
                 <a href="/blog/${encodeURIComponent(post.slug)}" class="home-blog-card__read">
                     <span>Đọc bài viết</span>
                     <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
@@ -2170,38 +2258,65 @@ const renderHomeBlog = () => {
             <button type="button" class="home-blog__button home-blog__button--next" data-home-blog-direction="1" aria-label="Xem bài viết tiếp theo">
                 <i class="bx bx-chevron-right" aria-hidden="true"></i>
             </button>
+            <div class="home-blog__dots" aria-label="Chọn trang bài viết"></div>
         </div>
     `;
 
     const viewport = homeBlogCarousel.querySelector('.home-blog__viewport');
-    const updateButtons = () => {
-        const maxScroll = viewport.scrollWidth - viewport.clientWidth;
-        const previous = homeBlogCarousel.querySelector('[data-home-blog-direction="-1"]');
-        const next = homeBlogCarousel.querySelector('[data-home-blog-direction="1"]');
-        previous.disabled = viewport.scrollLeft <= 1;
-        next.disabled = viewport.scrollLeft >= maxScroll - 1 || maxScroll <= 1;
-    };
+    viewport?.addEventListener('scroll', updateHomeBlogCarouselControls, { passive: true });
 
-    viewport.addEventListener('scroll', updateButtons, { passive: true });
-    window.addEventListener('resize', updateButtons);
-    window.requestAnimationFrame(updateButtons);
+    if (!homeBlogResizeControlsBound) {
+        window.addEventListener('resize', () => {
+            renderHomeBlogCarouselDots();
+            updateHomeBlogCarouselControls();
+        });
+        homeBlogResizeControlsBound = true;
+    }
+
+    window.requestAnimationFrame(() => {
+        renderHomeBlogCarouselDots();
+        updateHomeBlogCarouselControls();
+    });
+};
+
+const syncHomeBlog = async () => {
+    if (!homeBlogCarousel) {
+        return;
+    }
+
+    const fallbackPosts = Array.isArray(window.OKXE_BLOG_POSTS)
+        ? window.OKXE_BLOG_POSTS.map(normalizeHomeBlogPost)
+        : [];
+
+    try {
+        const { response, data } = await requestJson('/api/blog/posts/home');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải bài viết blog.');
+        }
+
+        const apiPosts = Array.isArray(data.posts) ? data.posts : [];
+        homeBlogPostsState = apiPosts.map(normalizeHomeBlogPost);
+    } catch (error) {
+        homeBlogPostsState = fallbackPosts;
+    }
+
+    renderHomeBlog();
 };
 
 homeBlogCarousel?.addEventListener('click', (event) => {
     const button = event.target.closest('[data-home-blog-direction]');
+    const dotButton = event.target.closest('[data-home-blog-slide-index]');
 
-    if (!button) {
+    if (button) {
+        scrollHomeBlogCarousel(Number(button.dataset.homeBlogDirection || 1));
         return;
     }
 
-    const viewport = homeBlogCarousel.querySelector('.home-blog__viewport');
-    viewport?.scrollBy({
-        left: Number(button.dataset.homeBlogDirection || 1) * viewport.clientWidth,
-        behavior: 'smooth'
-    });
+    if (dotButton) {
+        goToHomeBlogCarouselPage(Number(dotButton.dataset.homeBlogSlideIndex || 0));
+    }
 });
-
-renderHomeBlog();
 
 const syncCars = async () => {
     if (!rentalContainer) {
@@ -2336,12 +2451,16 @@ const accountMenuName = document.querySelector('#account-menu-name');
 const accountMenuEmail = document.querySelector('#account-menu-email');
 const accountMenuPhone = document.querySelector('#account-menu-phone');
 const profileOpenButtons = document.querySelectorAll('[data-open-profile]');
+const listingOpenButtons = document.querySelectorAll('[data-open-listings]');
 const favoriteOpenButtons = document.querySelectorAll('[data-open-favorites]');
 const notificationOpenButtons = document.querySelectorAll('[data-open-notifications]');
 const profileModal = document.querySelector('#profile-modal');
 const profileCloseButtons = document.querySelectorAll('[data-close-profile]');
 const profileForm = document.querySelector('.profile-form');
 const profileFeedback = document.querySelector('#profile-feedback');
+const profileModalEyebrow = document.querySelector('#profile-modal-eyebrow');
+const profileModalTitle = document.querySelector('#profile-modal-title');
+const profileModalDescription = document.querySelector('#profile-modal-description');
 const profileEditToggle = document.querySelector('#profile-edit-toggle');
 const profileEditPanel = document.querySelector('#profile-edit-panel');
 const profileAvatarInput = document.querySelector('#profile-avatar-input');
@@ -2354,6 +2473,13 @@ const profileOverviewCitizen = document.querySelector('#profile-overview-citizen
 const profileOverviewBirthDate = document.querySelector('#profile-overview-birth-date');
 const profileOverviewGender = document.querySelector('#profile-overview-gender');
 const profileOverviewAddress = document.querySelector('#profile-overview-address');
+const profileListingsTabs = document.querySelectorAll('[data-profile-listings-tab]');
+const profileListingsFilter = document.querySelector('#profile-listings-filter');
+const profileListingsList = document.querySelector('#profile-listings-list');
+const profileSellCount = document.querySelector('#profile-sell-count');
+const profileBuyCount = document.querySelector('#profile-buy-count');
+const profileListingsCreateLink = document.querySelector('#profile-listings-create-link');
+const profileListingsSecondaryLink = document.querySelector('#profile-listings-secondary-link');
 const chooseAvatarButton = document.querySelector('#choose-avatar-button');
 const switchToSignupLink = document.querySelector('#switch-to-signup');
 const switchToLoginLink = document.querySelector('#switch-to-login');
@@ -2661,19 +2787,424 @@ const setProfileEditPanelOpen = (isOpen, shouldFocus = false) => {
     }
 };
 
+const profileListingStatusLabels = {
+    sell: {
+        all: 'Tất cả',
+        selling: 'Đang bán',
+        pending: 'Chờ duyệt',
+        rejected: 'Không duyệt',
+        sold: 'Xe đã bán',
+        expired: 'Tin xe hết hạn'
+    },
+    buy: {
+        all: 'Tất cả',
+        approved: 'Đang mua',
+        pending: 'Chờ duyệt',
+        rejected: 'Không duyệt'
+    }
+};
+
+const profileListingFilterOptions = {
+    sell: [
+        ['all', 'Tất cả'],
+        ['selling', 'Đang bán'],
+        ['pending', 'Chờ duyệt'],
+        ['rejected', 'Không duyệt'],
+        ['sold', 'Xe đã bán'],
+        ['expired', 'Tin xe hết hạn']
+    ],
+    buy: [
+        ['all', 'Tất cả'],
+        ['approved', 'Đang mua'],
+        ['pending', 'Chờ duyệt'],
+        ['rejected', 'Không duyệt']
+    ]
+};
+
+const formatProfileListingDate = (value) => {
+    const normalizedValue = String(value || '').trim();
+
+    if (!normalizedValue) {
+        return 'Chưa cập nhật';
+    }
+
+    const datePart = normalizedValue.slice(0, 10);
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(datePart)
+        ? new Date(`${datePart}T00:00:00`)
+        : new Date(normalizedValue.replace(' ', 'T'));
+
+    return Number.isNaN(date.getTime())
+        ? normalizedValue
+        : profileDateFormatter.format(date);
+};
+
+const getProfileSellRejectedNotifications = () =>
+    userNotificationsState
+        .filter((notification) => {
+            const type = String(notification.type || '').trim();
+            const entityType = String(notification.entityType || '').trim();
+            const status = String(notification.status || '').trim().toLowerCase();
+
+            return status === 'rejected'
+                && (type === 'car-sell-request' || entityType === 'car_sell_request');
+        })
+        .map((notification) => ({
+            ...notification,
+            isRejectedSellNotification: true,
+            code: notification.entityId
+                ? `BX-${String(notification.entityId).padStart(6, '0')}`
+                : `TB-${String(notification.id || '').padStart(6, '0')}`,
+            status: 'rejected',
+            title: notification.title || 'Tin bán xe không được duyệt',
+            message: notification.message || 'Tin bán xe chưa được duyệt. Bạn có thể đăng lại với thông tin phù hợp hơn.'
+        }));
+
+const getProfileSellListingStatus = (request = {}) => {
+    if (request.isRejectedSellNotification) {
+        return 'rejected';
+    }
+
+    const status = String(request.status || 'pending').trim().toLowerCase();
+
+    if (status === 'pending') {
+        return 'pending';
+    }
+
+    const actionText = String(request.actionText || '').trim().toLocaleLowerCase('vi-VN');
+
+    if (actionText.includes('đã bán') || actionText.includes('hết xe') || actionText.includes('hết hàng')) {
+        return 'sold';
+    }
+
+    return status === 'approved' ? 'selling' : status;
+};
+
+const getProfileBuyListingStatus = (request = {}) => {
+    const status = String(request.status || 'pending').trim().toLowerCase();
+
+    return ['approved', 'pending', 'rejected'].includes(status) ? status : 'pending';
+};
+
+const getProfileListingStatusClass = (status) => {
+    if (['selling', 'approved'].includes(status)) {
+        return 'is-approved';
+    }
+
+    if (status === 'rejected') {
+        return 'is-rejected';
+    }
+
+    if (status === 'sold' || status === 'expired') {
+        return 'is-muted';
+    }
+
+    return 'is-pending';
+};
+
+const getProfileSellListings = () => [
+    ...carSellRequestsState,
+    ...getProfileSellRejectedNotifications()
+].sort((first, second) => {
+    const firstTime = new Date(String(first.createdAt || '').replace(' ', 'T')).getTime() || 0;
+    const secondTime = new Date(String(second.createdAt || '').replace(' ', 'T')).getTime() || 0;
+
+    return secondTime - firstTime;
+});
+
+const updateProfileListingCounts = () => {
+    if (profileSellCount) {
+        profileSellCount.textContent = String(getProfileSellListings().length);
+    }
+
+    if (profileBuyCount) {
+        profileBuyCount.textContent = String(carBuyRequestsState.length);
+    }
+};
+
+const setProfileListingCreateLinks = () => {
+    const isSellTab = activeProfileListingsTab === 'sell';
+    const href = isSellTab ? '/dang-tin-ban-xe' : '/dang-tin-mua-o-to';
+    const label = isSellTab ? 'Đăng tin bán xe' : 'Đăng tin mua xe';
+
+    [profileListingsCreateLink, profileListingsSecondaryLink].forEach((link) => {
+        if (!link) {
+            return;
+        }
+
+        link.href = href;
+        const labelElement = link.querySelector('span');
+
+        if (labelElement) {
+            labelElement.textContent = label;
+        } else {
+            link.textContent = label;
+        }
+    });
+};
+
+const populateProfileListingFilter = () => {
+    if (!profileListingsFilter) {
+        return;
+    }
+
+    const options = profileListingFilterOptions[activeProfileListingsTab] || profileListingFilterOptions.sell;
+    const validValues = new Set(options.map(([value]) => value));
+
+    if (!validValues.has(activeProfileListingsFilter)) {
+        activeProfileListingsFilter = 'all';
+    }
+
+    profileListingsFilter.innerHTML = options
+        .map(([value, label]) => `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`)
+        .join('');
+    profileListingsFilter.value = activeProfileListingsFilter;
+};
+
+const renderProfileListingEmpty = (message = '') => {
+    const isSellTab = activeProfileListingsTab === 'sell';
+    const title = message || (isSellTab ? 'Không có tin đăng bán xe nào' : 'Không có tin đăng mua xe nào');
+    const hint = isSellTab
+        ? 'Bạn có thể gửi thông tin xe cần bán để OkXe kiểm tra và hỗ trợ nhập kho.'
+        : 'Bạn có thể đăng nhu cầu mua xe để OkXe hỗ trợ kết nối xe phù hợp.';
+
+    return `
+        <article class="profile-listings__empty">
+            <i class="bx bx-folder-open" aria-hidden="true"></i>
+            <strong>${escapeHtml(title)}</strong>
+            <p>${escapeHtml(hint)}</p>
+        </article>
+    `;
+};
+
+const renderProfileSellListingCard = (request = {}) => {
+    const status = getProfileSellListingStatus(request);
+    const statusLabel = profileListingStatusLabels.sell[status] || profileListingStatusLabels.sell.pending;
+    const title = request.isRejectedSellNotification
+        ? request.title
+        : [request.brand, request.name].filter(Boolean).join(' ') || 'Xe cần bán';
+    const description = request.isRejectedSellNotification
+        ? request.message
+        : request.description || request.statusNote || 'OkXe đang lưu thông tin xe bạn gửi bán.';
+    const detailChips = request.isRejectedSellNotification
+        ? []
+        : [
+            request.price,
+            request.year ? `Đời ${request.year}` : '',
+            request.mileage,
+            request.condition
+        ].filter(Boolean);
+    const actionHref = status === 'selling' && request.approvedCarId
+        ? `/cars/${encodeURIComponent(String(request.approvedCarId))}`
+        : '/dang-tin-ban-xe';
+    const actionText = status === 'selling' && request.approvedCarId ? 'Xem xe đang bán' : 'Đăng tin bán xe';
+
+    return `
+        <article class="profile-listing-card">
+            <div class="profile-listing-card__top">
+                <div>
+                    <span>${escapeHtml(request.code || 'Tin bán xe')}</span>
+                    <h4>${escapeHtml(title)}</h4>
+                </div>
+                <strong class="profile-listing-status ${getProfileListingStatusClass(status)}">${escapeHtml(statusLabel)}</strong>
+            </div>
+            <div class="profile-listing-card__meta">
+                <span>Ngày gửi: ${escapeHtml(formatProfileListingDate(request.createdAt))}</span>
+                ${request.updatedAt ? `<span>Cập nhật: ${escapeHtml(formatProfileListingDate(request.updatedAt))}</span>` : ''}
+            </div>
+            <p>${escapeHtml(description)}</p>
+            ${detailChips.length ? `
+                <div class="profile-listing-card__chips">
+                    ${detailChips.map((chip) => `<span>${escapeHtml(chip)}</span>`).join('')}
+                </div>
+            ` : ''}
+            ${request.statusNote ? `<small class="profile-listing-card__note">Ghi chú: ${escapeHtml(request.statusNote)}</small>` : ''}
+            <div class="profile-listing-card__actions">
+                <a href="${escapeHtml(actionHref)}">${escapeHtml(actionText)}</a>
+            </div>
+        </article>
+    `;
+};
+
+const renderProfileBuyListingCard = (request = {}) => {
+    const status = getProfileBuyListingStatus(request);
+    const statusLabel = profileListingStatusLabels.buy[status] || profileListingStatusLabels.buy.pending;
+    const budgetLabel = carBuyRequestBudgetLabelsState[request.budgetRange] || request.budgetRange || 'Chưa chọn ngân sách';
+    const offerCount = Number(request.offerCount || 0);
+    const actionHref = status === 'rejected' ? '/dang-tin-mua-o-to' : '/tin-mua-o-to';
+    const actionText = status === 'rejected' ? 'Đăng lại tin mua' : 'Xem tin mua ô tô';
+
+    return `
+        <article class="profile-listing-card">
+            <div class="profile-listing-card__top">
+                <div>
+                    <span>${escapeHtml(request.code || 'Tin mua xe')}</span>
+                    <h4>${escapeHtml(request.title || 'Nhu cầu mua ô tô')}</h4>
+                </div>
+                <strong class="profile-listing-status ${getProfileListingStatusClass(status)}">${escapeHtml(statusLabel)}</strong>
+            </div>
+            <div class="profile-listing-card__meta">
+                <span>Ngày gửi: ${escapeHtml(formatProfileListingDate(request.createdAt))}</span>
+                ${request.province ? `<span>Khu vực: ${escapeHtml(request.province)}</span>` : ''}
+            </div>
+            <p>${escapeHtml(request.content || 'Bạn đã gửi nhu cầu mua xe tới OkXe.')}</p>
+            <div class="profile-listing-card__chips">
+                <span>${escapeHtml(budgetLabel)}</span>
+                <span>${offerCount} đề xuất xe</span>
+            </div>
+            ${request.statusNote ? `<small class="profile-listing-card__note">${status === 'rejected' ? 'Lý do' : 'Ghi chú'}: ${escapeHtml(request.statusNote)}</small>` : ''}
+            <div class="profile-listing-card__actions">
+                <a href="${escapeHtml(actionHref)}">${escapeHtml(actionText)}</a>
+            </div>
+        </article>
+    `;
+};
+
+const renderProfileListings = ({ isLoading = false } = {}) => {
+    if (!profileListingsList) {
+        return;
+    }
+
+    updateProfileListingCounts();
+    setProfileListingCreateLinks();
+    populateProfileListingFilter();
+
+    profileListingsTabs.forEach((tab) => {
+        const isActive = tab.dataset.profileListingsTab === activeProfileListingsTab;
+        tab.classList.toggle('is-active', isActive);
+        tab.setAttribute('aria-selected', String(isActive));
+    });
+
+    if (isLoading) {
+        profileListingsList.innerHTML = `
+            <article class="profile-listings__empty">
+                <i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i>
+                <strong>Đang tải tin của bạn</strong>
+                <p>OkXe đang kiểm tra các tin đăng gắn với tài khoản này.</p>
+            </article>
+        `;
+        return;
+    }
+
+    const allListings = activeProfileListingsTab === 'sell'
+        ? getProfileSellListings()
+        : carBuyRequestsState;
+    const filteredListings = activeProfileListingsFilter === 'all'
+        ? allListings
+        : allListings.filter((request) => {
+            const status = activeProfileListingsTab === 'sell'
+                ? getProfileSellListingStatus(request)
+                : getProfileBuyListingStatus(request);
+
+            return status === activeProfileListingsFilter;
+        });
+
+    if (!filteredListings.length) {
+        profileListingsList.innerHTML = renderProfileListingEmpty(
+            activeProfileListingsFilter === 'all'
+                ? ''
+                : `Không có tin ở trạng thái "${(profileListingStatusLabels[activeProfileListingsTab] || {})[activeProfileListingsFilter] || 'đã chọn'}"`
+        );
+        return;
+    }
+
+    profileListingsList.innerHTML = filteredListings
+        .map((request) => activeProfileListingsTab === 'sell'
+            ? renderProfileSellListingCard(request)
+            : renderProfileBuyListingCard(request))
+        .join('');
+};
+
+const syncCarSellRequests = async () => {
+    if (!currentUser) {
+        carSellRequestsState = [];
+        renderProfileListings();
+        return;
+    }
+
+    try {
+        const { response, data } = await requestJson('/api/car-sell-requests/my');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải tin bán xe của bạn.');
+        }
+
+        carSellRequestsState = Array.isArray(data.requests) ? data.requests : [];
+    } catch (error) {
+        carSellRequestsState = [];
+    }
+
+    renderProfileListings();
+};
+
+const syncProfileListings = async () => {
+    if (!currentUser) {
+        carSellRequestsState = [];
+        carBuyRequestsState = [];
+        carBuyRequestBudgetLabelsState = {};
+        userNotificationsState = [];
+        renderProfileListings();
+        return;
+    }
+
+    renderProfileListings({ isLoading: true });
+
+    await Promise.all([
+        syncCarSellRequests(),
+        syncCarBuyRequests(),
+        syncUserNotifications()
+    ]);
+
+    renderProfileListings();
+};
+
 const closeProfileModal = () => {
     if (!profileModal) {
         return;
     }
 
     profileModal.classList.remove('is-open');
+    profileModal.classList.remove('profile-modal--listings');
     profileModal.setAttribute('aria-hidden', 'true');
     setBodyModalClass('profile-modal-open', false);
     setProfileEditPanelOpen(false);
     setFormFeedback(profileFeedback, '');
 };
 
-const openProfileModal = () => {
+const setProfileModalContentMode = (isListingsMode) => {
+    if (profileModalEyebrow) {
+        profileModalEyebrow.textContent = isListingsMode ? 'Tin đăng khách hàng' : 'Tài khoản khách hàng';
+    }
+
+    if (profileModalTitle) {
+        profileModalTitle.textContent = isListingsMode ? 'Quản lý tin đăng của tôi' : 'Thông tin tài khoản của tôi';
+    }
+
+    if (profileModalDescription) {
+        profileModalDescription.textContent = isListingsMode
+            ? 'Theo dõi tin bán xe, tin mua xe và trạng thái xử lý của từng tin trong tài khoản.'
+            : 'Xem thông tin đang lưu trên hệ thống OkXe và cập nhật hồ sơ liên hệ khi cần.';
+    }
+};
+
+const focusProfileListingsSection = ({ scrollToSection = true } = {}) => {
+    const listingsSection = document.querySelector('.profile-listings');
+    const dialog = profileModal?.querySelector('.profile-modal__dialog');
+
+    if (!listingsSection || !dialog) {
+        return;
+    }
+
+    window.setTimeout(() => {
+        dialog.scrollTo({
+            top: scrollToSection ? Math.max(listingsSection.offsetTop - 20, 0) : 0,
+            behavior: scrollToSection ? 'smooth' : 'auto'
+        });
+
+        profileListingsTabs[0]?.focus({ preventScroll: true });
+    }, 120);
+};
+
+const openProfileModal = ({ focusListings = false, listingsOnly = false } = {}) => {
     if (!profileModal) {
         return;
     }
@@ -2684,12 +3215,24 @@ const openProfileModal = () => {
     }
 
     fillProfileForm(currentUser);
+    profileModal.classList.toggle('profile-modal--listings', listingsOnly);
+    setProfileModalContentMode(listingsOnly);
     setProfileEditPanelOpen(false);
+
+    if (focusListings) {
+        activeProfileListingsTab = 'sell';
+        activeProfileListingsFilter = 'all';
+    }
+
+    renderProfileListings();
     profileModal.classList.add('is-open');
     profileModal.setAttribute('aria-hidden', 'false');
     setBodyModalClass('profile-modal-open', true);
+    syncProfileListings();
 
-    if (profileEditToggle) {
+    if (focusListings) {
+        focusProfileListingsSection({ scrollToSection: !listingsOnly });
+    } else if (profileEditToggle) {
         profileEditToggle.focus();
     }
 };
@@ -2836,6 +3379,8 @@ const syncTestDriveAppointments = async () => {
 const syncCarBuyRequests = async () => {
     if (!currentUser) {
         carBuyRequestsState = [];
+        carBuyRequestBudgetLabelsState = {};
+        renderProfileListings();
         renderPromotionNotifications();
         return;
     }
@@ -2848,16 +3393,22 @@ const syncCarBuyRequests = async () => {
         }
 
         carBuyRequestsState = Array.isArray(data.requests) ? data.requests : [];
+        carBuyRequestBudgetLabelsState = data.budgetRanges && typeof data.budgetRanges === 'object'
+            ? data.budgetRanges
+            : {};
     } catch (error) {
         carBuyRequestsState = [];
+        carBuyRequestBudgetLabelsState = {};
     }
 
+    renderProfileListings();
     renderPromotionNotifications();
 };
 
 const syncUserNotifications = async () => {
     if (!currentUser) {
         userNotificationsState = [];
+        renderProfileListings();
         renderPromotionNotifications();
         return;
     }
@@ -2874,6 +3425,7 @@ const syncUserNotifications = async () => {
         userNotificationsState = [];
     }
 
+    renderProfileListings();
     renderPromotionNotifications();
 };
 
@@ -2885,6 +3437,7 @@ const syncCurrentUser = async () => {
             updateAuthUi(null);
             await syncFavoriteCars();
             await syncTestDriveAppointments();
+            await syncCarSellRequests();
             await syncCarBuyRequests();
             await syncUserNotifications();
             return;
@@ -2893,12 +3446,14 @@ const syncCurrentUser = async () => {
         updateAuthUi(data.user);
         await syncFavoriteCars();
         await syncTestDriveAppointments();
+        await syncCarSellRequests();
         await syncCarBuyRequests();
         await syncUserNotifications();
     } catch (error) {
         updateAuthUi(null);
         await syncFavoriteCars();
         await syncTestDriveAppointments();
+        await syncCarSellRequests();
         await syncCarBuyRequests();
         await syncUserNotifications();
     }
@@ -3005,6 +3560,14 @@ profileOpenButtons.forEach((button) => {
     });
 });
 
+listingOpenButtons.forEach((button) => {
+    button.addEventListener('click', (event) => {
+        event.preventDefault();
+        closeAccountMenu();
+        openProfileModal({ focusListings: true, listingsOnly: true });
+    });
+});
+
 favoriteOpenButtons.forEach((button) => {
     button.addEventListener('click', (event) => {
         event.preventDefault();
@@ -3047,6 +3610,25 @@ profileEditToggle?.addEventListener('click', () => {
     const isOpen = profileEditToggle.getAttribute('aria-expanded') === 'true';
 
     setProfileEditPanelOpen(!isOpen, true);
+});
+
+profileListingsTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+        const nextTab = tab.dataset.profileListingsTab === 'buy' ? 'buy' : 'sell';
+
+        if (nextTab === activeProfileListingsTab) {
+            return;
+        }
+
+        activeProfileListingsTab = nextTab;
+        activeProfileListingsFilter = 'all';
+        renderProfileListings();
+    });
+});
+
+profileListingsFilter?.addEventListener('change', () => {
+    activeProfileListingsFilter = profileListingsFilter.value || 'all';
+    renderProfileListings();
 });
 
 if (notificationsModal) {
@@ -3499,6 +4081,9 @@ if (logoutButton) {
             updateAuthUi(null);
             await syncFavoriteCars();
             await syncTestDriveAppointments();
+            await syncCarSellRequests();
+            await syncCarBuyRequests();
+            await syncUserNotifications();
             setButtonLoading(logoutButton, false, 'Đăng xuất');
         }
     });
@@ -3508,6 +4093,7 @@ loadDismissedNotificationIds();
 syncCars();
 syncTeamMembers();
 syncPromotions();
+syncHomeBlog();
 
 const openRequestedHomePanel = () => {
     const url = new URL(window.location.href);
@@ -3520,6 +4106,8 @@ const openRequestedHomePanel = () => {
         openSignupModal();
     } else if (accountAction === 'profile') {
         openProfileModal();
+    } else if (accountAction === 'listings') {
+        openProfileModal({ focusListings: true, listingsOnly: true });
     } else if (accountAction === 'favorites') {
         openFavoriteCarsModal();
     } else if (accountAction === 'notifications') {

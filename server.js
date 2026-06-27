@@ -8,6 +8,7 @@ const {
   addFavoriteCarForUser,
   authenticateUser,
   approveCarSellRequest,
+  createBlogPost,
   createCar,
   createCarBuyRequest,
   createCarSellRequest,
@@ -20,6 +21,7 @@ const {
   createUser,
   countAdminUsers,
   deleteCar,
+  deleteBlogPost,
   deleteCarBuyRequest,
   deleteConsultationRequest,
   deletePromotion,
@@ -28,14 +30,17 @@ const {
   deleteUser,
   employeeRoles,
   getCarById,
+  getBlogPostStats,
   getCarBuyRequestById,
   getTestDriveAppointmentById,
   getCarSellRequestById,
   getUserById,
+  getPublicBlogPostBySlug,
   getUserBySession,
   isFavoriteCarByUser,
   listAvailableTestDriveCars,
   listAdminCars,
+  listAdminBlogPosts,
   listCarBuyRequests,
   listCarBuyRequestsByUser,
   listCarSellRequests,
@@ -43,9 +48,11 @@ const {
   listConsultationRequests,
   listCars,
   listFavoriteCarsByUser,
+  listHomepageBlogPosts,
   listHomepagePromotions,
   listHomepageTeamMembers,
   listPublicPromotions,
+  listPublicBlogPosts,
   listPublicTeamMembers,
   listPromotions,
   listPublicCarBuyRequests,
@@ -56,6 +63,7 @@ const {
   removeFavoriteCarForUser,
   resetPasswordWithOtp,
   rejectCarSellRequest,
+  updateBlogPost,
   updateCar,
   updateCarBuyRequestStatus,
   updateCarBuyRequestOfferStatus,
@@ -86,6 +94,7 @@ const publicPath = path.join(__dirname, 'public');
 const imagesPath = path.join(__dirname, 'images');
 const getPublicPagePath = (pageName) => path.join(publicPath, pageName, 'index.html');
 const sendPublicPage = (res, pageName) => {
+  res.set('Cache-Control', 'no-store');
   res.sendFile(getPublicPagePath(pageName));
 };
 const publicPages = {
@@ -119,6 +128,7 @@ const uploadsPath = path.join(
 const carUploadsPath = path.join(uploadsPath, 'cars');
 const avatarUploadsPath = path.join(uploadsPath, 'avatars');
 const promotionUploadsPath = path.join(uploadsPath, 'promotions');
+const blogUploadsPath = path.join(uploadsPath, 'blog');
 const uploadJsonParser = express.json({ limit: '80mb' });
 const profileJsonParser = express.json({ limit: '8mb' });
 const maxCarImages = 10;
@@ -521,6 +531,18 @@ const saveUploadedPromotionImage = (file, fallbackBaseName = 'promotion') => {
   return `/uploads/promotions/${fileName}`;
 };
 
+const saveUploadedBlogImage = (file, fallbackBaseName = 'blog-cover') => {
+  const parsedImage = parseUploadedImage(file, fallbackBaseName);
+  fs.mkdirSync(blogUploadsPath, { recursive: true });
+
+  const fileName = `${Date.now()}-${randomUUID()}-${parsedImage.baseName}${parsedImage.extension}`;
+  const filePath = path.join(blogUploadsPath, fileName);
+
+  fs.writeFileSync(filePath, parsedImage.buffer);
+
+  return `/uploads/blog/${fileName}`;
+};
+
 const carOptionFields = {
   category: ['Sedan', 'SUV', 'Thể thao'],
   type: ['Tự động', 'Số sàn'],
@@ -800,6 +822,75 @@ const validatePromotionPayload = (promotion = {}) => {
   }
 
   return { promotion: normalizedPromotion };
+};
+
+const createSlugFromText = (value) =>
+  String(value || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120);
+
+const validateBlogPostPayload = (blogPost = {}) => {
+  const displayOrder = Number(blogPost.displayOrder || 0);
+  const readTime = Number(blogPost.readTime || 5);
+  const normalizedStatus = String(blogPost.status || '').trim().toLowerCase();
+  const status = ['draft', 'published'].includes(normalizedStatus)
+    ? normalizedStatus
+    : normalizeBoolean(blogPost.isPublished)
+      ? 'published'
+      : 'draft';
+  const title = normalizeShortText(blogPost.title, 180);
+  const slug = createSlugFromText(blogPost.slug || title);
+  const normalizedBlogPost = {
+    slug,
+    category: normalizeShortText(blogPost.category, 80),
+    title,
+    excerpt: normalizeShortText(blogPost.excerpt || blogPost.summary, 260),
+    content: String(blogPost.content || '').trim().slice(0, 8000),
+    imageUrl: String(blogPost.imageUrl || blogPost.image || '').trim().slice(0, 500),
+    imageAlt: normalizeShortText(blogPost.imageAlt, 180),
+    publishedAt: normalizePromotionDate(blogPost.publishedAt || blogPost.published_at),
+    readTime: Number.isFinite(readTime) ? Math.min(60, Math.max(1, Math.trunc(readTime))) : 5,
+    status,
+    featured: normalizeBoolean(blogPost.featured),
+    showOnHome: normalizeBoolean(blogPost.showOnHome ?? blogPost.show_on_home),
+    displayOrder: Number.isFinite(displayOrder) ? Math.max(0, Math.trunc(displayOrder)) : 0,
+  };
+
+  if (normalizedBlogPost.title.length < 5) {
+    return { error: 'Tiêu đề bài viết phải có ít nhất 5 ký tự.' };
+  }
+
+  if (!normalizedBlogPost.slug || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(normalizedBlogPost.slug)) {
+    return { error: 'Đường dẫn bài viết không hợp lệ.' };
+  }
+
+  if (!normalizedBlogPost.category) {
+    return { error: 'Vui lòng nhập chủ đề bài viết.' };
+  }
+
+  if (!normalizedBlogPost.excerpt) {
+    return { error: 'Vui lòng nhập mô tả ngắn cho bài viết.' };
+  }
+
+  if (!normalizedBlogPost.content) {
+    return { error: 'Vui lòng nhập nội dung bài viết.' };
+  }
+
+  if (!isSafePromotionUrl(normalizedBlogPost.imageUrl)) {
+    return { error: 'Đường dẫn ảnh bài viết không hợp lệ.' };
+  }
+
+  if (!isValidPromotionDate(normalizedBlogPost.publishedAt)) {
+    return { error: 'Ngày đăng bài viết không hợp lệ.' };
+  }
+
+  return { blogPost: normalizedBlogPost };
 };
 
 const testDriveTimeSlots = new Set([
@@ -1406,6 +1497,115 @@ const renderCarDetailHtml = (req, car) => {
   );
 };
 
+const buildBlogArticleStructuredData = (req, blogPost, description, canonicalUrl, imageUrl) => ({
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Article',
+      mainEntityOfPage: {
+        '@type': 'WebPage',
+        '@id': canonicalUrl,
+      },
+      headline: blogPost.title,
+      description,
+      image: [imageUrl],
+      datePublished: blogPost.publishedAt || blogPost.createdAt || '',
+      dateModified: blogPost.updatedAt || blogPost.publishedAt || blogPost.createdAt || '',
+      author: {
+        '@type': 'Person',
+        name: blogPost.authorName || blogPost.author || 'Ban biên tập OkXe',
+      },
+      publisher: {
+        '@type': 'Organization',
+        name: 'OkXe',
+      },
+      articleSection: blogPost.category || 'Blog ô tô',
+      inLanguage: 'vi-VN',
+    },
+    {
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        {
+          '@type': 'ListItem',
+          position: 1,
+          name: 'Trang chủ',
+          item: getAbsoluteUrl(req, '/'),
+        },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'Blog',
+          item: getAbsoluteUrl(req, '/blog'),
+        },
+        {
+          '@type': 'ListItem',
+          position: 3,
+          name: blogPost.title,
+          item: canonicalUrl,
+        },
+      ],
+    },
+  ],
+});
+
+const buildBlogArticleSeoMeta = (req, blogPost) => {
+  const canonicalUrl = getAbsoluteUrl(req, `/blog/${encodeURIComponent(blogPost.slug)}`);
+  const title = normalizeSeoText(`${blogPost.title} | OkXe Blog`, 68);
+  const description = normalizeSeoText(
+    blogPost.excerpt || `Đọc bài viết ${blogPost.title} trên OkXe Blog.`,
+    158
+  );
+  const primaryImage = blogPost.imageUrl || blogPost.image || '/images/blog-1.jpg';
+  const absoluteImageUrl = getAbsoluteUrl(req, primaryImage);
+  const authorName = blogPost.authorName || blogPost.author || 'Ban biên tập OkXe';
+  const structuredData = JSON.stringify(
+    buildBlogArticleStructuredData(req, blogPost, description, canonicalUrl, absoluteImageUrl)
+  ).replace(/</g, '\\u003c');
+
+  return `
+    <!-- OKXE_BLOG_SEO_META -->
+    <title>${escapeHtml(title)}</title>
+    <meta name="description" content="${escapeHtml(description)}">
+    <link rel="canonical" href="${escapeHtml(canonicalUrl)}">
+    <meta name="robots" content="index, follow">
+    <meta property="og:locale" content="vi_VN">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="${escapeHtml(title)}">
+    <meta property="og:description" content="${escapeHtml(description)}">
+    <meta property="og:url" content="${escapeHtml(canonicalUrl)}">
+    <meta property="og:image" content="${escapeHtml(absoluteImageUrl)}">
+    <meta property="article:published_time" content="${escapeHtml(blogPost.publishedAt || blogPost.createdAt || '')}">
+    <meta property="article:modified_time" content="${escapeHtml(blogPost.updatedAt || blogPost.publishedAt || blogPost.createdAt || '')}">
+    <meta property="article:author" content="${escapeHtml(authorName)}">
+    <meta property="article:section" content="${escapeHtml(blogPost.category || 'Blog ô tô')}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="${escapeHtml(title)}">
+    <meta name="twitter:description" content="${escapeHtml(description)}">
+    <meta name="twitter:image" content="${escapeHtml(absoluteImageUrl)}">
+    <script type="application/ld+json" id="blog-article-seo-json">${structuredData}</script>
+    <!-- /OKXE_BLOG_SEO_META -->
+  `;
+};
+
+const getBlogPostSortTime = (blogPost = {}) => {
+  const preferredDate = String(blogPost.publishedAt || '').slice(0, 10);
+  const fallbackDateTime = String(blogPost.createdAt || '').replace(' ', 'T');
+  const preferredTime = preferredDate ? Date.parse(`${preferredDate}T00:00:00`) : 0;
+  const fallbackTime = fallbackDateTime ? Date.parse(fallbackDateTime) : 0;
+
+  return preferredTime || fallbackTime || 0;
+};
+
+const renderBlogArticleHtml = (req, blogPost) => {
+  const template = fs.readFileSync(path.join(publicPath, 'blog', 'article.html'), 'utf8');
+  const seoMeta = buildBlogArticleSeoMeta(req, blogPost);
+
+  return template.replace(
+    /<!-- OKXE_BLOG_SEO_META -->[\s\S]*?<!-- \/OKXE_BLOG_SEO_META -->/,
+    seoMeta
+  );
+};
+
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'same-origin');
@@ -1536,6 +1736,46 @@ app.post('/api/uploads/promotion-image/cropped', requireAdmin, profileJsonParser
   }
 });
 
+app.post('/api/uploads/blog-image', requireAdmin, profileJsonParser, (req, res) => {
+  const file = req.body?.file;
+
+  if (!file) {
+    res.status(400).json({ message: 'Vui lòng chọn ảnh bài viết blog.' });
+    return;
+  }
+
+  try {
+    const imageUrl = saveUploadedBlogImage(file);
+
+    res.status(201).json({
+      message: 'Tải ảnh bài viết blog thành công.',
+      imageUrl,
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message || 'Không thể tải ảnh bài viết blog.' });
+  }
+});
+
+app.post('/api/uploads/blog-image/cropped', requireAdmin, profileJsonParser, (req, res) => {
+  const file = req.body?.file;
+
+  if (!file) {
+    res.status(400).json({ message: 'Vui lòng cắt ảnh bài viết blog trước khi tải lên.' });
+    return;
+  }
+
+  try {
+    const imageUrl = saveUploadedBlogImage(file, 'blog-cover');
+
+    res.status(201).json({
+      message: 'Tải ảnh bài viết blog thành công.',
+      imageUrl,
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message || 'Không thể tải ảnh bài viết blog.' });
+  }
+});
+
 app.patch('/api/auth/profile', requireUser, profileJsonParser, (req, res) => {
   const { profile, error } = validateUserProfilePayload(req.body || {});
 
@@ -1625,7 +1865,19 @@ app.get(['/blog', '/blog/', '/blog.html'], (req, res) => {
 app.use('/blog', express.static(path.join(publicPath, 'blog'), { index: false }));
 
 app.get('/blog/:slug', (req, res) => {
-  res.sendFile(path.join(publicPath, 'blog', 'article.html'));
+  const blogPost = getPublicBlogPostBySlug(req.params.slug);
+
+  if (!blogPost) {
+    res.status(404).sendFile(path.join(publicPath, 'blog', 'article.html'));
+    return;
+  }
+
+  try {
+    res.send(renderBlogArticleHtml(req, blogPost));
+  } catch (error) {
+    console.error('Render blog article SEO page error:', error);
+    res.sendFile(path.join(publicPath, 'blog', 'article.html'));
+  }
 });
 
 app.get(['/dang-ky-lai-thu', '/dang-ky-lai-thu/', '/dang-ky-lai-thu.html'], (req, res) => {
@@ -1677,6 +1929,38 @@ app.get('/api/promotions', (req, res) => {
 
 app.get('/api/promotions/all', (req, res) => {
   res.json({ promotions: listPublicPromotions() });
+});
+
+app.get('/api/blog/posts', (req, res) => {
+  res.json({ posts: listPublicBlogPosts() });
+});
+
+app.get('/api/blog/posts/home', (req, res) => {
+  res.json({ posts: listHomepageBlogPosts() });
+});
+
+app.get('/api/blog/posts/:slug', (req, res) => {
+  const blogPost = getPublicBlogPostBySlug(req.params.slug);
+
+  if (!blogPost) {
+    res.status(404).json({ message: 'Không tìm thấy bài viết.' });
+    return;
+  }
+
+  const publicBlogPosts = listPublicBlogPosts();
+  const latestPosts = [...publicBlogPosts]
+    .filter((post) => post.slug !== blogPost.slug)
+    .sort((first, second) =>
+      getBlogPostSortTime(second) - getBlogPostSortTime(first)
+      || Number(second.id || 0) - Number(first.id || 0)
+    )
+    .slice(0, 4);
+  const relatedPosts = publicBlogPosts
+    .filter((post) => post.slug !== blogPost.slug)
+    .sort((first, second) => Number(second.category === blogPost.category) - Number(first.category === blogPost.category))
+    .slice(0, 3);
+
+  res.json({ post: blogPost, relatedPosts, latestPosts });
 });
 
 app.get('/api/car-buy-requests', (req, res) => {
@@ -2137,6 +2421,105 @@ app.delete('/api/admin/promotions/:id', requireAdmin, (req, res) => {
   } catch (dbError) {
     console.error('Delete promotion error:', dbError);
     res.status(500).json({ message: 'Không thể xóa bài khuyến mại lúc này.' });
+  }
+});
+
+app.get('/api/admin/blog-posts', requireAdmin, (req, res) => {
+  res.json({
+    posts: listAdminBlogPosts(),
+    stats: getBlogPostStats(),
+  });
+});
+
+app.post('/api/admin/blog-posts', requireAdmin, (req, res) => {
+  const { blogPost, error } = validateBlogPostPayload(req.body || {});
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const createdBlogPost = createBlogPost(blogPost, req.user);
+
+    res.status(201).json({
+      message: 'Tạo bài viết blog thành công.',
+      post: createdBlogPost,
+      stats: getBlogPostStats(),
+    });
+  } catch (dbError) {
+    if (String(dbError.message || '').includes('UNIQUE constraint failed: blog_posts.slug')) {
+      res.status(409).json({ message: 'Đường dẫn bài viết này đã tồn tại. Vui lòng đổi slug khác.' });
+      return;
+    }
+
+    console.error('Create blog post error:', dbError);
+    res.status(500).json({ message: 'Không thể tạo bài viết blog lúc này.' });
+  }
+});
+
+app.put('/api/admin/blog-posts/:id', requireAdmin, (req, res) => {
+  const blogPostId = Number(req.params.id);
+  const { blogPost, error } = validateBlogPostPayload(req.body || {});
+
+  if (!Number.isFinite(blogPostId)) {
+    res.status(400).json({ message: 'Mã bài viết blog không hợp lệ.' });
+    return;
+  }
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const updatedBlogPost = updateBlogPost(blogPostId, blogPost);
+
+    if (!updatedBlogPost) {
+      res.status(404).json({ message: 'Không tìm thấy bài viết blog để cập nhật.' });
+      return;
+    }
+
+    res.json({
+      message: 'Cập nhật bài viết blog thành công.',
+      post: updatedBlogPost,
+      stats: getBlogPostStats(),
+    });
+  } catch (dbError) {
+    if (String(dbError.message || '').includes('UNIQUE constraint failed: blog_posts.slug')) {
+      res.status(409).json({ message: 'Đường dẫn bài viết này đã tồn tại. Vui lòng đổi slug khác.' });
+      return;
+    }
+
+    console.error('Update blog post error:', dbError);
+    res.status(500).json({ message: 'Không thể cập nhật bài viết blog lúc này.' });
+  }
+});
+
+app.delete('/api/admin/blog-posts/:id', requireAdmin, (req, res) => {
+  const blogPostId = Number(req.params.id);
+
+  if (!Number.isFinite(blogPostId)) {
+    res.status(400).json({ message: 'Mã bài viết blog không hợp lệ.' });
+    return;
+  }
+
+  try {
+    const deletedBlogPost = deleteBlogPost(blogPostId);
+
+    if (!deletedBlogPost) {
+      res.status(404).json({ message: 'Không tìm thấy bài viết blog để xóa.' });
+      return;
+    }
+
+    res.json({
+      message: 'Xóa bài viết blog thành công.',
+      post: deletedBlogPost,
+      stats: getBlogPostStats(),
+    });
+  } catch (dbError) {
+    console.error('Delete blog post error:', dbError);
+    res.status(500).json({ message: 'Không thể xóa bài viết blog lúc này.' });
   }
 });
 

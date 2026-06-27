@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap");
-
 :root {
     --main-color: #f15a29;
     --main-color-dark: #da4c1f;
@@ -9,8 +7,13 @@
     --section-bg: #fdf8f5;
     --border-color: #e8e8ee;
     --shadow-soft: 0 20px 50px rgba(8, 21, 74, 0.08);
-    --font-ui: "Be Vietnam Pro", "Segoe UI", Arial, sans-serif;
-    --font-display: "Be Vietnam Pro", "Segoe UI", Arial, sans-serif;
+    --home-content-carousel-width: min(1180px, calc(100% - 48px));
+    --home-content-carousel-gap: 1.25rem;
+    --home-content-card-width: clamp(290px, 31vw, 380px);
+    --home-content-card-height: 560px;
+    --home-content-card-media-height: 190px;
+    --home-content-card-radius: 8px;
+    --home-content-card-shadow: 0 18px 42px rgba(8, 21, 74, 0.09);
 }
 
 * {
@@ -1055,7 +1058,7 @@ section {
 }
 
 .promotion-carousel {
-    width: min(1180px, calc(100% - 48px));
+    width: var(--home-content-carousel-width);
     margin: 0 auto;
 }
 
@@ -1065,13 +1068,13 @@ section {
 
 .promotion-carousel__viewport {
     display: flex;
-    gap: 1.35rem;
+    gap: var(--home-content-carousel-gap);
     overflow-x: auto;
     overflow-y: hidden;
     scroll-behavior: smooth;
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
-    padding: 0.35rem 0.25rem 1.15rem;
+    padding: 0.25rem 0.2rem 1rem;
 }
 
 .promotion-carousel__viewport::-webkit-scrollbar {
@@ -1080,15 +1083,16 @@ section {
 
 .promotion-card {
     position: relative;
-    flex: 0 0 clamp(290px, 31vw, 380px);
+    flex: 0 0 var(--home-content-card-width);
     scroll-snap-align: start;
     display: grid;
-    grid-template-rows: 190px 1fr;
+    grid-template-rows: var(--home-content-card-media-height) minmax(0, 1fr);
+    height: var(--home-content-card-height);
     overflow: hidden;
     border: 1px solid rgba(8, 21, 74, 0.07);
-    border-radius: 28px;
+    border-radius: var(--home-content-card-radius);
     background: #ffffff;
-    box-shadow: var(--shadow-soft);
+    box-shadow: var(--home-content-card-shadow);
     cursor: pointer;
     transition: transform 0.28s ease, box-shadow 0.28s ease;
 }
@@ -1138,9 +1142,10 @@ section {
 }
 
 .promotion-card__body {
-    display: grid;
-    align-content: start;
-    gap: 0.85rem;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
     padding: 1.25rem;
 }
 
@@ -1152,9 +1157,11 @@ section {
 }
 
 .promotion-card__meta span {
+    flex: 0 1 auto;
     min-height: 30px;
     display: inline-flex;
     align-items: center;
+    max-width: 52%;
     padding: 0 0.75rem;
     border-radius: 999px;
     color: var(--main-color);
@@ -1165,6 +1172,8 @@ section {
 }
 
 .promotion-card__meta small {
+    flex: 1 1 auto;
+    min-width: 0;
     color: var(--muted-color);
     font-size: 0.78rem;
     font-weight: 800;
@@ -1173,30 +1182,40 @@ section {
 
 .promotion-card h3 {
     margin: 0;
+    min-height: 4.9rem;
     color: var(--text-color);
-    font-size: clamp(1.15rem, 1.6vw, 1.45rem);
-    line-height: 1.28;
+    font-size: 1.18rem;
+    line-height: 1.38;
     font-weight: 900;
-    letter-spacing: -0.03em;
+    letter-spacing: 0;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
 }
 
 .promotion-card p {
     margin: 0;
     color: var(--muted-color);
     line-height: 1.65;
-    font-size: 0.94rem;
+    font-size: 0.9rem;
     font-weight: 600;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }
 
 .promotion-card__detail {
     padding-top: 0.2rem;
     color: #4c5878 !important;
+    -webkit-line-clamp: 3;
 }
 
 .promotion-card__button {
     width: fit-content;
     min-height: 44px;
-    margin-top: 0.25rem;
+    margin-top: auto;
     padding: 0 1rem;
     border-radius: 999px;
     display: inline-flex;
@@ -1316,32 +1335,35 @@ section {
 
 .home-blog__heading {
     width: min(1180px, calc(100% - 48px));
-    margin-bottom: 2.25rem;
+    position: relative;
+    margin: 0 auto 2.25rem;
     display: grid;
-    grid-template-columns: minmax(0, 760px) auto;
-    align-items: end;
-    gap: 2rem;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 0.75rem;
+    text-align: center;
 }
 
 .home-blog__heading > div {
-    max-width: 760px;
+    max-width: 860px;
 }
 
-.home-blog__heading span:first-child {
+.home-blog__heading > div > span:first-child {
     display: block;
-    margin-bottom: 0.55rem;
+    margin-bottom: 0.35rem;
     color: var(--main-color);
-    font-size: 0.82rem;
-    font-weight: 900;
+    font-size: 1.875rem;
+    font-weight: 500;
+    letter-spacing: 0;
     text-transform: uppercase;
 }
 
 .home-blog__heading h2 {
     margin: 0;
     color: var(--text-color);
-    font-size: clamp(1.8rem, 3.2vw, 2.8rem);
-    line-height: 1.18;
-    font-weight: 900;
+    font-size: clamp(1.45rem, calc(1.325rem + 0.9vw), 2rem);
+    line-height: 1.2;
+    font-weight: 500;
     letter-spacing: 0;
 }
 
@@ -1355,10 +1377,13 @@ section {
 }
 
 .home-blog__view-all {
+    position: absolute;
+    right: 0;
+    bottom: 0.2rem;
     flex: 0 0 auto;
     min-height: 44px;
     justify-self: end;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0;
 }
 
 .home-blog__view-all span {
@@ -1380,7 +1405,7 @@ section {
 }
 
 .home-blog__carousel {
-    width: min(1180px, calc(100% - 48px));
+    width: var(--home-content-carousel-width);
 }
 
 .home-blog__shell {
@@ -1389,8 +1414,9 @@ section {
 
 .home-blog__viewport {
     display: flex;
-    gap: 1.25rem;
+    gap: var(--home-content-carousel-gap);
     overflow-x: auto;
+    overflow-y: hidden;
     scroll-behavior: smooth;
     scroll-snap-type: x mandatory;
     scrollbar-width: none;
@@ -1402,15 +1428,16 @@ section {
 }
 
 .home-blog-card {
-    flex: 0 0 clamp(290px, 31vw, 380px);
+    flex: 0 0 var(--home-content-card-width);
     border: 1px solid rgba(8, 21, 74, 0.08);
-    border-radius: 8px;
+    border-radius: var(--home-content-card-radius);
     display: grid;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: var(--home-content-card-media-height) minmax(0, 1fr);
+    height: var(--home-content-card-height);
     overflow: hidden;
     scroll-snap-align: start;
     background: #ffffff;
-    box-shadow: 0 18px 42px rgba(8, 21, 74, 0.09);
+    box-shadow: var(--home-content-card-shadow);
     transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
@@ -1421,7 +1448,7 @@ section {
 
 .home-blog-card__media {
     display: block;
-    aspect-ratio: 16 / 9;
+    height: 100%;
     overflow: hidden;
     background: #eef1f7;
 }
@@ -1438,9 +1465,9 @@ section {
 }
 
 .home-blog-card__body {
-    display: grid;
-    grid-template-rows: 30px 3.6rem 5rem auto;
-    align-content: stretch;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     gap: 0.85rem;
     padding: 1.25rem;
 }
@@ -1473,10 +1500,8 @@ section {
 
 .home-blog-card h3 {
     margin: 0;
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+    min-width: 0;
+    min-height: 4.9rem;
     font-size: 1.18rem;
     line-height: 1.38;
     font-weight: 900;
@@ -1484,7 +1509,12 @@ section {
 }
 
 .home-blog-card h3 a {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
     color: var(--text-color);
+    overflow-wrap: anywhere;
 }
 
 .home-blog-card h3 a:hover,
@@ -1503,41 +1533,82 @@ section {
     font-size: 0.9rem;
     line-height: 1.65;
     font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.home-blog-card__author {
+    min-width: 0;
+    min-height: 22px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: #6f7a99;
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.home-blog-card__author span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .home-blog-card__read {
     align-self: end;
     width: fit-content;
-    font-size: 0.88rem;
+    min-height: 44px;
+    margin-top: auto;
+    padding: 0 1rem;
+    border-radius: 999px;
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--main-color) 0%, var(--main-color-dark) 100%);
+    font-size: 0.92rem;
+    font-weight: 900;
+    box-shadow: 0 14px 26px rgba(241, 90, 41, 0.24);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.home-blog-card__read:hover,
+.home-blog-card__read:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 32px rgba(241, 90, 41, 0.3);
+    outline: 0;
 }
 
 .home-blog__button {
     position: absolute;
-    top: 45%;
+    top: 50%;
     z-index: 4;
-    width: 46px;
-    height: 46px;
-    border: 1px solid rgba(8, 21, 74, 0.08);
+    width: 48px;
+    height: 48px;
+    border: 0;
     border-radius: 50%;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: var(--text-color);
-    background: #ffffff;
-    box-shadow: 0 14px 30px rgba(8, 21, 74, 0.15);
-    font-size: 1.75rem;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 14px 32px rgba(8, 21, 74, 0.16);
     cursor: pointer;
     transform: translateY(-50%);
+    transition: background 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
 .home-blog__button:hover:not(:disabled) {
     color: #ffffff;
     background: var(--main-color);
+    transform: translateY(-50%) scale(1.05);
 }
 
 .home-blog__button:disabled {
-    opacity: 0.28;
+    opacity: 0.32;
     cursor: not-allowed;
+    box-shadow: none;
+}
+
+.home-blog__button .bx {
+    font-size: 1.9rem;
 }
 
 .home-blog__button--prev {
@@ -1548,6 +1619,29 @@ section {
     right: -18px;
 }
 
+.home-blog__dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.55rem;
+    min-height: 10px;
+    margin-top: 0.6rem;
+}
+
+.home-blog__dot {
+    width: 9px;
+    height: 9px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(8, 21, 74, 0.18);
+    cursor: pointer;
+    transition: width 0.2s ease, background 0.2s ease;
+}
+
+.home-blog__dot.is-active {
+    width: 26px;
+    background: var(--main-color);
+}
+
 .home-blog__empty {
     margin: 0;
     padding: 2rem;
@@ -1556,6 +1650,11 @@ section {
 }
 
 @media (max-width: 900px) {
+    .home-blog__view-all {
+        position: static;
+        justify-self: center;
+    }
+
     .drive-steps__grid {
         grid-template-columns: 1fr;
         gap: 1.75rem;
@@ -1619,7 +1718,8 @@ section {
 
     .promotion-card {
         flex-basis: min(100%, 340px);
-        grid-template-rows: 170px 1fr;
+        grid-template-rows: 170px minmax(0, 1fr);
+        height: 540px;
     }
 
     .promotion-carousel__button {
@@ -1641,13 +1741,22 @@ section {
 
     .home-blog__heading {
         width: min(100% - 32px, 1120px);
-        align-items: flex-start;
-        grid-template-columns: 1fr;
+        justify-items: center;
         gap: 0.8rem;
     }
 
+    .home-blog__heading > div > span:first-child {
+        font-size: 1.2rem;
+    }
+
+    .home-blog__heading h2 {
+        font-size: 1.45rem;
+        line-height: 1.45;
+    }
+
     .home-blog__view-all {
-        justify-self: start;
+        position: static;
+        justify-self: center;
         margin-bottom: 0;
     }
 
@@ -1657,10 +1766,8 @@ section {
 
     .home-blog-card {
         flex-basis: min(100%, 340px);
-    }
-
-    .home-blog-card__body {
-        grid-template-rows: 30px auto auto auto;
+        grid-template-rows: 170px minmax(0, 1fr);
+        height: 540px;
     }
 
     .home-blog-card h3,
@@ -3046,7 +3153,7 @@ section {
     visibility: hidden;
     pointer-events: none;
     transition: opacity 0.22s ease, visibility 0.22s ease;
-    font-family: "Be Vietnam Pro", sans-serif;
+    font-family: var(--font-ui);
 }
 
 .team-member-modal.is-open {
@@ -3701,7 +3808,7 @@ body.team-modal-open {
     font-size: 0.78rem;
 }
 .login-modal__intro h2 {
-    font-family: "Be Vietnam Pro", sans-serif;
+    font-family: var(--font-ui);
     font-size: clamp(2rem, 4vw, 3.2rem);
     line-height: 1.2;
     margin-bottom: 1rem;
@@ -3709,7 +3816,7 @@ body.team-modal-open {
     letter-spacing: -0.03em;
 }
 .login-modal__intro p {
-    font-family: "Be Vietnam Pro", sans-serif;
+    font-family: var(--font-ui);
     margin: 0;
     max-width: 34rem;
     color: var(--muted-color);
@@ -3910,7 +4017,7 @@ body.login-modal-open {
 .signup-modal__title {
     margin: 0;
     text-align: center;
-    font-family: "Be Vietnam Pro", sans-serif;
+    font-family: var(--font-ui);
     font-size: clamp(2rem, 4vw, 2.7rem);
     font-weight: 800;
     line-height: 1.15;
@@ -3959,7 +4066,7 @@ body.login-modal-open {
     font-size: 1rem;
     color: #25345f;
     background: transparent;
-    font-family: "Be Vietnam Pro", sans-serif;
+    font-family: var(--font-ui);
 }
 
 .signup-form__field input::placeholder {
@@ -4016,7 +4123,7 @@ body.login-modal-open {
     border-radius: 16px;
     background: linear-gradient(135deg, #ff5f2c 0%, #ff7d35 100%);
     color: #ffffff;
-    font-family: "Be Vietnam Pro", sans-serif;
+    font-family: var(--font-ui);
     font-size: 1.2rem;
     font-weight: 800;
     cursor: pointer;
@@ -4277,7 +4384,7 @@ body.signup-modal-open {
     color: var(--muted-color);
     font-size: 0.9rem;
     line-height: 1.5;
-    font-weight: 650;
+    font-weight: 700;
 }
 
 .profile-edit-toggle {
@@ -4309,6 +4416,305 @@ body.signup-modal-open {
 
 .profile-edit-toggle i {
     font-size: 1.15rem;
+}
+
+.profile-listings {
+    margin-bottom: 1.25rem;
+    border: 1px solid rgba(8, 21, 74, 0.08);
+    border-radius: 20px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 16px 34px rgba(8, 21, 74, 0.06);
+}
+
+.profile-modal--listings .profile-form {
+    padding: 1.6rem;
+}
+
+.profile-modal--listings .profile-overview,
+.profile-modal--listings .profile-edit-callout,
+.profile-modal--listings .profile-edit-panel {
+    display: none;
+}
+
+.profile-modal--listings .profile-form__header {
+    margin-bottom: 1rem;
+}
+
+.profile-modal--listings .profile-listings {
+    margin-bottom: 0;
+}
+
+.profile-listings__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.15rem 1.25rem;
+    background: linear-gradient(135deg, #fff7f2 0%, #ffffff 70%);
+}
+
+.profile-listings__header > div {
+    min-width: 0;
+}
+
+.profile-listings__header h3 {
+    margin: 0.25rem 0 0;
+    color: var(--text-color);
+    font-size: 1.08rem;
+    line-height: 1.35;
+    font-weight: 900;
+}
+
+.profile-listings__eyebrow {
+    display: block;
+    color: var(--main-color);
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.profile-listings__quick-link,
+.profile-listings__create,
+.profile-listing-card__actions a {
+    min-height: 42px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0 1rem;
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--main-color) 0%, var(--main-color-dark) 100%);
+    font-size: 0.9rem;
+    font-weight: 900;
+    white-space: nowrap;
+    box-shadow: 0 14px 26px rgba(241, 90, 41, 0.2);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.profile-listings__quick-link:hover,
+.profile-listings__quick-link:focus-visible,
+.profile-listings__create:hover,
+.profile-listings__create:focus-visible,
+.profile-listing-card__actions a:hover,
+.profile-listing-card__actions a:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 32px rgba(241, 90, 41, 0.27);
+    outline: 0;
+}
+
+.profile-listings__tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid rgba(8, 21, 74, 0.08);
+    border-bottom: 1px solid rgba(8, 21, 74, 0.08);
+    background: #f5f7fc;
+}
+
+.profile-listings__tab {
+    min-height: 50px;
+    border: 0;
+    border-right: 1px solid rgba(8, 21, 74, 0.08);
+    color: #18348e;
+    background: linear-gradient(180deg, #ffffff 0%, #eef2fb 100%);
+    font: inherit;
+    font-size: 0.94rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.profile-listings__tab:last-child {
+    border-right: 0;
+}
+
+.profile-listings__tab.is-active {
+    color: var(--text-color);
+    background: #ffffff;
+    box-shadow: inset 0 -3px 0 var(--main-color);
+}
+
+.profile-listings__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: #ffffff;
+}
+
+.profile-listings__filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-left: auto;
+    color: var(--text-color);
+    font-size: 0.92rem;
+    font-weight: 800;
+}
+
+.profile-listings__filter select {
+    min-width: 180px;
+    min-height: 44px;
+    border: 1px solid rgba(8, 21, 74, 0.14);
+    border-radius: 12px;
+    padding: 0 0.8rem;
+    color: var(--text-color);
+    background: #ffffff;
+    font: inherit;
+    outline: 0;
+}
+
+.profile-listings__filter select:focus {
+    border-color: rgba(241, 90, 41, 0.7);
+    box-shadow: 0 0 0 4px rgba(241, 90, 41, 0.12);
+}
+
+.profile-listings__panel {
+    border-top: 1px dashed rgba(8, 21, 74, 0.12);
+    padding: 1rem;
+}
+
+.profile-listings__list {
+    max-height: 430px;
+    display: grid;
+    gap: 0.9rem;
+    overflow: auto;
+    padding-right: 0.15rem;
+}
+
+.profile-listings__empty {
+    min-height: 150px;
+    border: 1px dashed rgba(8, 21, 74, 0.16);
+    border-radius: 16px;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 0.45rem;
+    padding: 1.2rem;
+    text-align: center;
+    color: var(--muted-color);
+    background: #fbfcff;
+}
+
+.profile-listings__empty .bx {
+    color: var(--main-color);
+    font-size: 2rem;
+}
+
+.profile-listings__empty strong {
+    color: var(--text-color);
+    font-size: 1rem;
+    font-weight: 900;
+}
+
+.profile-listings__empty p {
+    max-width: 520px;
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.55;
+    font-weight: 600;
+}
+
+.profile-listing-card {
+    min-width: 0;
+    border: 1px solid rgba(8, 21, 74, 0.08);
+    border-radius: 16px;
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: #ffffff;
+    box-shadow: 0 12px 28px rgba(8, 21, 74, 0.06);
+}
+
+.profile-listing-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.profile-listing-card__top div {
+    min-width: 0;
+}
+
+.profile-listing-card__top span,
+.profile-listing-card__meta,
+.profile-listing-card__note {
+    color: #7b86a3;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    font-weight: 800;
+}
+
+.profile-listing-card h4 {
+    margin: 0.25rem 0 0;
+    color: var(--text-color);
+    font-size: 1.02rem;
+    line-height: 1.35;
+    font-weight: 900;
+}
+
+.profile-listing-card p {
+    margin: 0;
+    color: var(--muted-color);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    font-weight: 600;
+}
+
+.profile-listing-card__meta,
+.profile-listing-card__chips,
+.profile-listing-card__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.profile-listing-card__chips span {
+    min-height: 30px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.75rem;
+    color: #18348e;
+    background: #eef2fb;
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.profile-listing-status {
+    flex: 0 0 auto;
+    min-height: 30px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 0.75rem;
+    font-size: 0.78rem;
+    line-height: 1;
+    font-weight: 900;
+}
+
+.profile-listing-status.is-approved {
+    color: #0f7a4f;
+    background: #e9f8f0;
+}
+
+.profile-listing-status.is-pending {
+    color: #a15c00;
+    background: #fff4df;
+}
+
+.profile-listing-status.is-rejected {
+    color: #b42318;
+    background: #fff1f0;
+}
+
+.profile-listing-status.is-muted {
+    color: #4b587c;
+    background: #eef2fb;
 }
 
 .profile-edit-panel {
@@ -4587,7 +4993,7 @@ body.promotion-detail-modal-open {
 .forgot-password-modal__title,
 .reset-password-modal__title {
     margin: 0;
-    font-family: "Be Vietnam Pro", sans-serif;
+    font-family: var(--font-ui);
     font-size: clamp(2rem, 4vw, 2.6rem);
     font-weight: 800;
     line-height: 1.15;
@@ -4645,7 +5051,7 @@ body.promotion-detail-modal-open {
     border-radius: 16px;
     background: linear-gradient(135deg, #ff5f2c 0%, #ff7d35 100%);
     color: #ffffff;
-    font-family: "Be Vietnam Pro", sans-serif;
+    font-family: var(--font-ui);
     font-size: 1.05rem;
     font-weight: 800;
     cursor: pointer;
@@ -4665,7 +5071,7 @@ body.promotion-detail-modal-open {
     border-radius: 16px;
     background: #ffffff;
     color: var(--text-color);
-    font-family: "Be Vietnam Pro", sans-serif;
+    font-family: var(--font-ui);
     font-size: 0.98rem;
     font-weight: 700;
     cursor: pointer;
@@ -4710,7 +5116,7 @@ body.promotion-detail-modal-open {
     padding-right: 2.8rem;
     font-size: 1rem;
     background: transparent;
-    font-family: "Be Vietnam Pro", sans-serif;
+    font-family: var(--font-ui);
 }
 
 .reset-password-form__toggle {
@@ -4788,6 +5194,47 @@ body.reset-password-modal-open {
 
     .profile-edit-toggle {
         width: 100%;
+    }
+
+    .profile-listings__header,
+    .profile-listings__toolbar,
+    .profile-listing-card__top {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .profile-listings__quick-link,
+    .profile-listings__create,
+    .profile-listing-card__actions a {
+        width: 100%;
+    }
+
+    .profile-listings__tabs {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-listings__tab {
+        border-right: 0;
+        border-bottom: 1px solid rgba(8, 21, 74, 0.08);
+    }
+
+    .profile-listings__tab:last-child {
+        border-bottom: 0;
+    }
+
+    .profile-listings__filter {
+        width: 100%;
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .profile-listings__filter select {
+        width: 100%;
+    }
+
+    .profile-listings__list {
+        max-height: none;
+        overflow: visible;
     }
 
     .profile-avatar {

@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&display=swap");
-
 :root {
     --main-color: #f15a29;
     --main-color-dark: #da4c1f;
@@ -15,7 +13,7 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: "Be Vietnam Pro", "Segoe UI", Arial, sans-serif;
+    font-family: var(--font-ui);
 }
 
 body {
@@ -301,10 +299,11 @@ input {
 
 .promotion-card {
     min-width: 0;
+    min-height: 650px;
     border: 1px solid var(--border-color);
     border-radius: 28px;
     display: grid;
-    grid-template-rows: 210px 1fr;
+    grid-template-rows: 210px minmax(0, 1fr);
     overflow: hidden;
     background: #ffffff;
     box-shadow: var(--shadow-soft);
@@ -338,8 +337,9 @@ input {
 }
 
 .promotion-card__body {
-    display: grid;
-    align-content: start;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     gap: 0.85rem;
     padding: 1.25rem;
 }
@@ -350,13 +350,14 @@ input {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    flex-wrap: wrap;
 }
 
 .promotion-card__meta span {
+    flex: 0 1 auto;
     min-height: 30px;
     display: inline-flex;
     align-items: center;
+    max-width: 52%;
     padding: 0 0.75rem;
     border-radius: 999px;
     color: var(--main-color);
@@ -368,9 +369,25 @@ input {
 
 .promotion-card__meta small,
 .promotion-card__footer small {
+    min-width: 0;
     color: var(--muted-color);
     font-size: 0.82rem;
     font-weight: 800;
+}
+
+.promotion-card__meta small {
+    flex: 1 1 auto;
+    text-align: right;
+}
+
+.promotion-card__footer {
+    min-height: 44px;
+    margin-top: auto;
+    padding-top: 0.2rem;
+}
+
+.promotion-card__footer small {
+    flex: 1 1 auto;
 }
 
 .promotion-card h3 {
@@ -378,16 +395,29 @@ input {
     font-size: 1.18rem;
     line-height: 1.35;
     font-weight: 900;
-    letter-spacing: -0.03em;
+    letter-spacing: 0;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
 }
 
 .promotion-card p {
     color: var(--muted-color);
     line-height: 1.65;
     font-weight: 600;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+}
+
+.promotion-card__preview {
+    -webkit-line-clamp: 5;
 }
 
 .promotion-card__footer button {
+    flex: 0 0 auto;
     min-height: 40px;
     border: 0;
     border-radius: 999px;
@@ -670,6 +700,7 @@ input {
 
     .promotion-card {
         grid-template-rows: 190px 1fr;
+        min-height: 590px;
     }
 
     .promotion-detail__media {

@@ -73,6 +73,35 @@ const promotionCropFileName = document.querySelector('#promotion-crop-file-name'
 const promotionCropApplyButton = document.querySelector('#promotion-crop-apply-button');
 const promotionCropFeedback = document.querySelector('#promotion-crop-feedback');
 const promotionCropCloseButtons = document.querySelectorAll('[data-close-promotion-crop]');
+const blogPostForm = document.querySelector('#blog-post-form');
+const blogPostIdInput = document.querySelector('#blog-post-id');
+const blogPostFormTitle = document.querySelector('#blog-post-form-title');
+const blogPostSubmitButton = document.querySelector('#blog-post-submit-button');
+const blogPostResetButton = document.querySelector('#blog-post-reset-button');
+const blogPostRefreshButton = document.querySelector('#blog-post-refresh-button');
+const blogPostFeedback = document.querySelector('#blog-post-feedback');
+const blogPostSearchInput = document.querySelector('#blog-post-search');
+const blogPostTableBody = document.querySelector('#blog-post-table-body');
+const blogPostStatTotal = document.querySelector('#blog-stat-total');
+const blogPostStatPublished = document.querySelector('#blog-stat-published');
+const blogPostStatFeatured = document.querySelector('#blog-stat-featured');
+const blogPostStatHome = document.querySelector('#blog-stat-home');
+const blogPostStatDraft = document.querySelector('#blog-stat-draft');
+const chooseBlogPostImageButton = document.querySelector('#choose-blog-post-image-button');
+const blogPostImageInput = document.querySelector('#blog-post-image-input');
+const blogPostImagePreview = document.querySelector('#blog-post-image-preview');
+const blogPostImageFileName = document.querySelector('#blog-post-image-file-name');
+const blogPostCropPanel = document.querySelector('#blog-post-crop-panel');
+const blogPostCropCanvas = document.querySelector('#blog-post-crop-canvas');
+const blogPostCropZoomInput = document.querySelector('#blog-post-crop-zoom');
+const blogPostCropXInput = document.querySelector('#blog-post-crop-x');
+const blogPostCropYInput = document.querySelector('#blog-post-crop-y');
+const blogPostCropFileName = document.querySelector('#blog-post-crop-file-name');
+const blogPostCropApplyButton = document.querySelector('#blog-post-crop-apply-button');
+const blogPostCropFeedback = document.querySelector('#blog-post-crop-feedback');
+const blogPostCropCloseButtons = document.querySelectorAll('[data-close-blog-post-crop]');
+const insertBlogContentImageButton = document.querySelector('#insert-blog-content-image-button');
+const blogContentImageInput = document.querySelector('#blog-content-image-input');
 const testDriveSearchInput = document.querySelector('#test-drive-search');
 const testDriveRefreshButton = document.querySelector('#test-drive-refresh-button');
 const testDriveTableBody = document.querySelector('#test-drive-table-body');
@@ -159,6 +188,14 @@ const incompleteCarsDetailElement = document.querySelector('#stat-incomplete-car
 let cars = [];
 let employees = [];
 let promotions = [];
+let blogPosts = [];
+let blogPostStats = {
+    total: 0,
+    published: 0,
+    featured: 0,
+    homeVisible: 0,
+    draft: 0
+};
 let testDriveAppointments = [];
 let consultationRequests = [];
 let carBuyRequests = [];
@@ -166,6 +203,7 @@ let carSellRequests = [];
 let currentAdminUser = null;
 let editingEmployeeId = null;
 let editingPromotionId = null;
+let editingBlogPostId = null;
 let activeAccountView = 'staff';
 let selectedCarImages = [];
 let toastId = 0;
@@ -176,6 +214,7 @@ let consultationStatusCloseTimer = null;
 let carBuyRequestStatusCloseTimer = null;
 let carSellRequestStatusCloseTimer = null;
 let promotionCropCloseTimer = null;
+let blogPostCropCloseTimer = null;
 let activeTestDriveAppointmentId = null;
 let activeTestDriveStatus = 'approved';
 let activeConsultationRequestId = null;
@@ -184,6 +223,7 @@ let activeCarBuyRequestOriginalStatus = 'pending';
 let activeCarBuyRequestOriginalRejectedNote = '';
 let activeCarSellRequestId = null;
 let promotionCropState = null;
+let blogPostCropState = null;
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN');
 const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
@@ -799,6 +839,10 @@ const switchAdminView = (viewName) => {
         loadPromotions();
     }
 
+    if (viewName === 'blog-posts') {
+        loadBlogPosts();
+    }
+
     if (viewName === 'test-drives') {
         loadTestDriveAppointments();
     }
@@ -877,6 +921,19 @@ const setPromotionFeedback = (message, type = 'success') => {
 
     if (message) {
         promotionFeedback.classList.add(type === 'success' ? 'is-success' : 'is-error');
+    }
+};
+
+const setBlogPostFeedback = (message, type = 'success') => {
+    if (!blogPostFeedback) {
+        return;
+    }
+
+    blogPostFeedback.textContent = message || '';
+    blogPostFeedback.className = 'admin-feedback';
+
+    if (message) {
+        blogPostFeedback.classList.add(type === 'success' ? 'is-success' : 'is-error');
     }
 };
 
@@ -1127,6 +1184,20 @@ const setPromotionImagePreview = (imageUrl = '', fileName = '') => {
     }
 };
 
+const setBlogPostImagePreview = (imageUrl = '', fileName = '') => {
+    const normalizedImageUrl = String(imageUrl || '').trim();
+
+    if (blogPostImagePreview) {
+        blogPostImagePreview.innerHTML = normalizedImageUrl
+            ? `<img src="${escapeHtml(normalizedImageUrl)}" alt="Ảnh đại diện bài viết blog">`
+            : '<i class="bx bxs-image"></i>';
+    }
+
+    if (blogPostImageFileName) {
+        blogPostImageFileName.textContent = fileName || (normalizedImageUrl ? 'Đã chọn ảnh blog' : 'Chưa chọn ảnh');
+    }
+};
+
 const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
 
@@ -1203,6 +1274,52 @@ const uploadCroppedPromotionImage = async ({ dataUrl, fileName }) => {
 
     if (!response.ok) {
         throw new Error(data.message || 'Không thể tải ảnh banner khuyến mại lúc này.');
+    }
+
+    return data.imageUrl || '';
+};
+
+const uploadBlogPostImage = async (file) => {
+    if (!file.type.startsWith('image/')) {
+        throw new Error('Chỉ được chọn file ảnh.');
+    }
+
+    if (file.size > maxUploadedImageSize) {
+        throw new Error(`Ảnh "${file.name}" vượt quá 5MB.`);
+    }
+
+    const { response, data } = await requestJson('/api/uploads/blog-image', {
+        method: 'POST',
+        body: JSON.stringify({
+            file: {
+                name: file.name,
+                type: file.type,
+                dataUrl: await readFileAsDataUrl(file)
+            }
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(data.message || 'Không thể tải ảnh bài viết blog lúc này.');
+    }
+
+    return data.imageUrl || '';
+};
+
+const uploadCroppedBlogPostImage = async ({ dataUrl, fileName }) => {
+    const { response, data } = await requestJson('/api/uploads/blog-image/cropped', {
+        method: 'POST',
+        body: JSON.stringify({
+            file: {
+                name: fileName || 'blog-cover.jpg',
+                type: 'image/jpeg',
+                dataUrl
+            }
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(data.message || 'Không thể tải ảnh bài viết blog lúc này.');
     }
 
     return data.imageUrl || '';
@@ -1391,6 +1508,227 @@ const getCroppedPromotionImageDataUrl = () => {
     context.imageSmoothingQuality = 'high';
     context.drawImage(
         promotionCropState.image,
+        cropRect.x,
+        cropRect.y,
+        cropRect.width,
+        cropRect.height,
+        0,
+        0,
+        outputCanvas.width,
+        outputCanvas.height
+    );
+
+    return outputCanvas.toDataURL('image/jpeg', 0.9);
+};
+
+const setBlogPostCropFeedback = (message = '', type = 'error') => {
+    if (!blogPostCropFeedback) {
+        return;
+    }
+
+    blogPostCropFeedback.textContent = message;
+    blogPostCropFeedback.classList.toggle('is-error', Boolean(message) && type === 'error');
+    blogPostCropFeedback.classList.toggle('is-success', Boolean(message) && type === 'success');
+};
+
+const getBlogPostCropValues = () => ({
+    zoom: Math.max(1, Number(blogPostCropZoomInput?.value || 1)),
+    focusX: Math.min(100, Math.max(0, Number(blogPostCropXInput?.value || 50))),
+    focusY: Math.min(100, Math.max(0, Number(blogPostCropYInput?.value || 50)))
+});
+
+const getBlogPostCropRect = () => {
+    if (!blogPostCropState?.image) {
+        return null;
+    }
+
+    const { zoom, focusX, focusY } = getBlogPostCropValues();
+    const image = blogPostCropState.image;
+    const sourceAspectRatio = image.naturalWidth / image.naturalHeight;
+    const targetAspectRatio = 16 / 9;
+    let cropWidth;
+    let cropHeight;
+
+    if (sourceAspectRatio > targetAspectRatio) {
+        cropHeight = image.naturalHeight / zoom;
+        cropWidth = cropHeight * targetAspectRatio;
+    } else {
+        cropWidth = image.naturalWidth / zoom;
+        cropHeight = cropWidth / targetAspectRatio;
+    }
+
+    cropWidth = Math.min(cropWidth, image.naturalWidth);
+    cropHeight = Math.min(cropHeight, image.naturalHeight);
+
+    return {
+        x: (image.naturalWidth - cropWidth) * (focusX / 100),
+        y: (image.naturalHeight - cropHeight) * (focusY / 100),
+        width: cropWidth,
+        height: cropHeight
+    };
+};
+
+const renderBlogPostCropPreview = () => {
+    if (!blogPostCropCanvas || !blogPostCropState?.image) {
+        return;
+    }
+
+    const cropRect = getBlogPostCropRect();
+    const context = blogPostCropCanvas.getContext('2d');
+
+    if (!cropRect || !context) {
+        return;
+    }
+
+    context.clearRect(0, 0, blogPostCropCanvas.width, blogPostCropCanvas.height);
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(
+        blogPostCropState.image,
+        cropRect.x,
+        cropRect.y,
+        cropRect.width,
+        cropRect.height,
+        0,
+        0,
+        blogPostCropCanvas.width,
+        blogPostCropCanvas.height
+    );
+};
+
+const closeBlogPostCropPanel = () => {
+    if (!blogPostCropPanel || blogPostCropPanel.hidden) {
+        return;
+    }
+
+    blogPostCropPanel.classList.add('is-closing');
+    blogPostCropPanel.classList.remove('is-visible');
+    window.clearTimeout(blogPostCropCloseTimer);
+    blogPostCropCloseTimer = window.setTimeout(() => {
+        blogPostCropPanel.hidden = true;
+        blogPostCropPanel.setAttribute('aria-hidden', 'true');
+        blogPostCropPanel.classList.remove('is-closing');
+    }, 280);
+
+    if (blogPostCropState?.objectUrl) {
+        URL.revokeObjectURL(blogPostCropState.objectUrl);
+    }
+
+    blogPostCropState = null;
+    if (blogPostImageInput) {
+        blogPostImageInput.value = '';
+    }
+    if (blogContentImageInput) {
+        blogContentImageInput.value = '';
+    }
+    setBlogPostCropFeedback('');
+};
+
+const openBlogPostCropPanel = () => {
+    if (!blogPostCropPanel) {
+        return;
+    }
+
+    window.clearTimeout(blogPostCropCloseTimer);
+    blogPostCropPanel.hidden = false;
+    blogPostCropPanel.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => {
+        blogPostCropPanel.classList.add('is-visible');
+        blogPostCropPanel.classList.remove('is-closing');
+    });
+};
+
+const insertBlogContentImageMarkup = (imageUrl, fileName = '') => {
+    const contentField = blogPostForm?.elements.content;
+
+    if (!contentField || !imageUrl) {
+        return;
+    }
+
+    const altText = String(fileName || 'Ảnh minh họa bài viết')
+        .replace(/\.[^.]+$/, '')
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim() || 'Ảnh minh họa bài viết';
+    const imageMarkup = `![${altText}](${imageUrl})`;
+    const start = Number(contentField.selectionStart ?? contentField.value.length);
+    const end = Number(contentField.selectionEnd ?? contentField.value.length);
+    const before = contentField.value.slice(0, start).replace(/\s*$/, '');
+    const after = contentField.value.slice(end).replace(/^\s*/, '');
+    const prefix = before ? `${before}\n\n` : '';
+    const suffix = after ? `\n\n${after}` : '\n\n';
+
+    contentField.value = `${prefix}${imageMarkup}${suffix}`;
+    const nextCursorPosition = `${prefix}${imageMarkup}`.length;
+    contentField.focus();
+    contentField.setSelectionRange(nextCursorPosition, nextCursorPosition);
+};
+
+const openBlogPostImageCropper = async (file, target = 'cover') => {
+    validatePromotionImageFile(file);
+
+    if (!blogPostCropCanvas || !window.URL) {
+        const imageUrl = await uploadBlogPostImage(file);
+
+        if (target === 'content') {
+            insertBlogContentImageMarkup(imageUrl, file.name);
+        } else {
+            blogPostForm.elements.imageUrl.value = imageUrl;
+            setBlogPostImagePreview(imageUrl, file.name);
+        }
+        showToast('Tải ảnh bài viết blog thành công.', 'success', 'Đã tải ảnh');
+        return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    await new Promise((resolve, reject) => {
+        image.addEventListener('load', resolve, { once: true });
+        image.addEventListener('error', () => reject(new Error('Không thể mở ảnh để cắt.')), { once: true });
+        image.src = objectUrl;
+    });
+
+    blogPostCropState = { file, image, objectUrl, target };
+    if (blogPostCropZoomInput) {
+        blogPostCropZoomInput.value = '1';
+    }
+    if (blogPostCropXInput) {
+        blogPostCropXInput.value = '50';
+    }
+    if (blogPostCropYInput) {
+        blogPostCropYInput.value = '50';
+    }
+    if (blogPostCropFileName) {
+        blogPostCropFileName.textContent = target === 'content'
+            ? `${file.name} - ảnh sẽ được cắt và chèn vào nội dung bài viết.`
+            : `${file.name} - ảnh sẽ được cắt theo tỷ lệ 16:9 cho trang blog.`;
+    }
+
+    setBlogPostCropFeedback('');
+    renderBlogPostCropPreview();
+    openBlogPostCropPanel();
+};
+
+const getCroppedBlogPostImageDataUrl = () => {
+    if (!blogPostCropState?.image) {
+        throw new Error('Chưa có ảnh để cắt.');
+    }
+
+    const cropRect = getBlogPostCropRect();
+    const outputCanvas = document.createElement('canvas');
+    const context = outputCanvas.getContext('2d');
+
+    if (!cropRect || !context) {
+        throw new Error('Không thể cắt ảnh trên trình duyệt này.');
+    }
+
+    outputCanvas.width = 1200;
+    outputCanvas.height = 675;
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = 'high';
+    context.drawImage(
+        blogPostCropState.image,
         cropRect.x,
         cropRect.y,
         cropRect.width,
@@ -1888,6 +2226,185 @@ const loadPromotions = async () => {
         promotionTableBody.innerHTML = `
             <tr>
                 <td colspan="5" class="table-empty">Không thể tải danh sách khuyến mại.</td>
+            </tr>
+        `;
+    }
+};
+
+const formatBlogPostDate = (value, fallback = 'Chưa đặt ngày') => {
+    if (!value) {
+        return fallback;
+    }
+
+    const date = new Date(`${value}T00:00:00`);
+
+    return Number.isNaN(date.getTime()) ? fallback : dateFormatter.format(date);
+};
+
+const getBlogPostStatusMeta = (post) => {
+    const isPublished = post?.status === 'published' || post?.isPublished;
+
+    return isPublished
+        ? { label: 'Đã xuất bản', className: 'is-approved' }
+        : { label: 'Bản nháp', className: 'is-pending' };
+};
+
+const updateBlogPostStats = () => {
+    const stats = blogPostStats || {};
+    const fallbackTotal = blogPosts.length;
+    const fallbackPublished = blogPosts.filter((post) => post.status === 'published' || post.isPublished).length;
+    const fallbackFeatured = blogPosts.filter((post) => post.featured).length;
+    const fallbackHomeVisible = blogPosts.filter((post) => post.showOnHome).length;
+    const total = Number(stats.total ?? fallbackTotal);
+    const published = Number(stats.published ?? fallbackPublished);
+    const featured = Number(stats.featured ?? fallbackFeatured);
+    const homeVisible = Number(stats.homeVisible ?? fallbackHomeVisible);
+    const draft = Number(stats.draft ?? Math.max(0, total - published));
+
+    if (blogPostStatTotal) {
+        blogPostStatTotal.textContent = String(total);
+    }
+    if (blogPostStatPublished) {
+        blogPostStatPublished.textContent = String(published);
+    }
+    if (blogPostStatFeatured) {
+        blogPostStatFeatured.textContent = String(featured);
+    }
+    if (blogPostStatHome) {
+        blogPostStatHome.textContent = String(homeVisible);
+    }
+    if (blogPostStatDraft) {
+        blogPostStatDraft.textContent = String(draft);
+    }
+};
+
+const getFilteredBlogPosts = () => {
+    const keyword = normalizeSearchValue(blogPostSearchInput?.value || '');
+
+    if (!keyword) {
+        return blogPosts;
+    }
+
+    return blogPosts.filter((post) =>
+        normalizeSearchValue([
+            post.title,
+            post.slug,
+            post.category,
+            post.excerpt,
+            post.content,
+            post.authorName,
+            post.author
+        ].join(' ')).includes(keyword)
+    );
+};
+
+const renderBlogPosts = () => {
+    updateBlogPostStats();
+
+    if (!blogPostTableBody) {
+        return;
+    }
+
+    const filteredPosts = getFilteredBlogPosts();
+
+    if (!filteredPosts.length) {
+        blogPostTableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="table-empty">Chưa có bài viết blog phù hợp.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    blogPostTableBody.innerHTML = filteredPosts.map((post) => {
+        const imageHtml = post.imageUrl || post.image
+            ? `<img src="${escapeHtml(post.imageUrl || post.image)}" alt="${escapeHtml(post.imageAlt || post.title)}">`
+            : '<i class="bx bxs-news" aria-hidden="true"></i>';
+        const statusMeta = getBlogPostStatusMeta(post);
+        const publishedText = formatBlogPostDate(post.publishedAt);
+        const createdText = post.createdAt
+            ? dateFormatter.format(new Date(post.createdAt))
+            : 'Chưa rõ';
+        const authorName = post.authorName || post.author || 'Ban biên tập OkXe';
+        const homeChipHtml = post.showOnHome
+            ? '<span class="blog-post-home-chip"><i class="bx bxs-home" aria-hidden="true"></i>Hiển thị Home</span>'
+            : '';
+
+        return `
+            <tr>
+                <td>
+                    <div class="promotion-title-cell blog-post-title-cell">
+                        <span class="promotion-thumb blog-post-thumb">${imageHtml}</span>
+                        <div class="promotion-copy blog-post-copy">
+                            <span>${escapeHtml(post.category || 'Chưa có chủ đề')} · /blog/${escapeHtml(post.slug || '')}</span>
+                            <strong>${escapeHtml(post.title || 'Bài viết chưa có tiêu đề')}</strong>
+                            ${homeChipHtml}
+                            <small>${escapeHtml(post.excerpt || 'Chưa có mô tả ngắn')}</small>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="blog-post-author-stack">
+                        <strong>${escapeHtml(authorName)}</strong>
+                        <span>Tạo ${escapeHtml(createdText)}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="test-drive-status-cell">
+                        <span class="test-drive-status-badge ${statusMeta.className}">${escapeHtml(statusMeta.label)}</span>
+                        <small>${escapeHtml(publishedText)} · ${Number(post.readTime || 5)} phút đọc</small>
+                    </div>
+                </td>
+                <td>
+                    <button type="button" class="homepage-toggle${post.showOnHome ? ' is-active' : ''}" data-toggle-blog-home="${post.id}" aria-pressed="${post.showOnHome ? 'true' : 'false'}">
+                        <i class="bx ${post.showOnHome ? 'bxs-home' : 'bx-home-alt'}" aria-hidden="true"></i>
+                        <span>${post.showOnHome ? 'Đang ở Home' : 'Đưa lên Home'}</span>
+                    </button>
+                </td>
+                <td>
+                    <button type="button" class="homepage-toggle${post.featured ? ' is-active' : ''}" data-toggle-blog-featured="${post.id}" aria-pressed="${post.featured ? 'true' : 'false'}">
+                        <i class="bx ${post.featured ? 'bxs-star' : 'bx-star'}" aria-hidden="true"></i>
+                        <span>${post.featured ? 'Đang nổi bật' : 'Đưa nổi bật'}</span>
+                    </button>
+                    <span class="homepage-order">Thứ tự ${Number(post.displayOrder || 0)}</span>
+                </td>
+                <td>
+                    <div class="table-actions">
+                        <button type="button" class="icon-btn icon-btn--edit" data-edit-blog-post="${post.id}" aria-label="Sửa ${escapeHtml(post.title)}" title="Sửa bài">
+                            <i class="bx bx-pencil"></i>
+                        </button>
+                        <button type="button" class="icon-btn icon-btn--delete" data-delete-blog-post="${post.id}" aria-label="Xóa ${escapeHtml(post.title)}" title="Xóa bài">
+                            <i class="bx bx-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+};
+
+const loadBlogPosts = async () => {
+    if (!blogPostTableBody) {
+        return;
+    }
+
+    setBlogPostFeedback('');
+
+    try {
+        const { response, data } = await requestJson('/api/admin/blog-posts');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải danh sách bài viết blog.');
+        }
+
+        blogPosts = data.posts || [];
+        blogPostStats = data.stats || blogPostStats;
+        renderBlogPosts();
+    } catch (error) {
+        setBlogPostFeedback(error.message || 'Không thể tải danh sách bài viết blog.', 'error');
+        blogPostTableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="table-empty">Không thể tải danh sách bài viết blog.</td>
             </tr>
         `;
     }
@@ -3556,6 +4073,88 @@ const buildPromotionUpdatePayload = (promotion, overrides = {}) => ({
     ...overrides
 });
 
+const resetBlogPostForm = () => {
+    blogPostForm?.reset();
+    editingBlogPostId = null;
+    if (blogPostIdInput) {
+        blogPostIdInput.value = '';
+    }
+    if (blogPostImageInput) {
+        blogPostImageInput.value = '';
+    }
+    setBlogPostImagePreview('');
+    if (blogPostFormTitle) {
+        blogPostFormTitle.textContent = 'Bài blog mới';
+    }
+    if (blogPostSubmitButton) {
+        blogPostSubmitButton.innerHTML = '<i class="bx bx-save"></i><span>Lưu bài blog</span>';
+    }
+    setBlogPostFeedback('');
+};
+
+const setBlogPostSubmitLoading = (isLoading) => {
+    if (!blogPostSubmitButton) {
+        return;
+    }
+
+    blogPostSubmitButton.disabled = isLoading;
+    blogPostSubmitButton.innerHTML = isLoading
+        ? '<i class="bx bx-loader-alt bx-spin"></i><span>Đang lưu...</span>'
+        : editingBlogPostId
+            ? '<i class="bx bx-save"></i><span>Cập nhật bài</span>'
+            : '<i class="bx bx-save"></i><span>Lưu bài blog</span>';
+};
+
+const fillBlogPostForm = (post) => {
+    if (!blogPostForm || !post) {
+        return;
+    }
+
+    editingBlogPostId = post.id;
+    blogPostIdInput.value = post.id;
+    blogPostForm.elements.title.value = post.title || '';
+    blogPostForm.elements.slug.value = post.slug || '';
+    blogPostForm.elements.category.value = post.category || '';
+    blogPostForm.elements.imageUrl.value = post.imageUrl || post.image || '';
+    setBlogPostImagePreview(post.imageUrl || post.image || '');
+    blogPostForm.elements.imageAlt.value = post.imageAlt || '';
+    blogPostForm.elements.excerpt.value = post.excerpt || '';
+    blogPostForm.elements.content.value = typeof post.content === 'string' ? post.content : '';
+    blogPostForm.elements.publishedAt.value = post.publishedAt || '';
+    blogPostForm.elements.readTime.value = Number(post.readTime || 5);
+    blogPostForm.elements.displayOrder.value = Number(post.displayOrder || 0);
+    blogPostForm.elements.isPublished.checked = post.status === 'published' || Boolean(post.isPublished);
+    blogPostForm.elements.featured.checked = Boolean(post.featured);
+    blogPostForm.elements.showOnHome.checked = Boolean(post.showOnHome);
+
+    if (blogPostFormTitle) {
+        blogPostFormTitle.textContent = `Chỉnh sửa: ${post.title}`;
+    }
+    if (blogPostSubmitButton) {
+        blogPostSubmitButton.innerHTML = '<i class="bx bx-save"></i><span>Cập nhật bài</span>';
+    }
+
+    blogPostForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    blogPostForm.elements.title?.focus();
+};
+
+const buildBlogPostUpdatePayload = (post, overrides = {}) => ({
+    title: post.title || '',
+    slug: post.slug || '',
+    category: post.category || '',
+    excerpt: post.excerpt || '',
+    content: typeof post.content === 'string' ? post.content : '',
+    imageUrl: post.imageUrl || post.image || '',
+    imageAlt: post.imageAlt || '',
+    publishedAt: post.publishedAt || '',
+    readTime: Number(post.readTime || 5),
+    status: post.status || (post.isPublished ? 'published' : 'draft'),
+    featured: Boolean(post.featured),
+    showOnHome: Boolean(post.showOnHome),
+    displayOrder: Number(post.displayOrder || 0),
+    ...overrides
+});
+
 const getUserAddressText = (user) => {
     const address = user?.address || {};
 
@@ -4304,6 +4903,9 @@ employeeTableBody?.addEventListener('click', async (event) => {
 promotionRefreshButton?.addEventListener('click', loadPromotions);
 promotionResetButton?.addEventListener('click', resetPromotionForm);
 promotionSearchInput?.addEventListener('input', renderPromotions);
+blogPostRefreshButton?.addEventListener('click', loadBlogPosts);
+blogPostResetButton?.addEventListener('click', resetBlogPostForm);
+blogPostSearchInput?.addEventListener('input', renderBlogPosts);
 testDriveRefreshButton?.addEventListener('click', loadTestDriveAppointments);
 testDriveSearchInput?.addEventListener('input', renderTestDriveAppointments);
 consultationRefreshButton?.addEventListener('click', loadConsultationRequests);
@@ -4816,6 +5418,14 @@ choosePromotionImageButton?.addEventListener('click', () => {
     promotionImageInput?.click();
 });
 
+chooseBlogPostImageButton?.addEventListener('click', () => {
+    blogPostImageInput?.click();
+});
+
+insertBlogContentImageButton?.addEventListener('click', () => {
+    blogContentImageInput?.click();
+});
+
 promotionImageInput?.addEventListener('change', async () => {
     const file = promotionImageInput.files?.[0];
 
@@ -4835,17 +5445,68 @@ promotionImageInput?.addEventListener('change', async () => {
     }
 });
 
+blogPostImageInput?.addEventListener('change', async () => {
+    const file = blogPostImageInput.files?.[0];
+
+    if (!file || !blogPostForm) {
+        return;
+    }
+
+    setBlogPostFeedback('');
+
+    try {
+        await openBlogPostImageCropper(file);
+    } catch (error) {
+        blogPostImageInput.value = '';
+        setBlogPostImagePreview(blogPostForm.elements.imageUrl.value || '');
+        setBlogPostFeedback(error.message || 'Không thể tải ảnh bài viết blog.', 'error');
+        showToast(error.message || 'Không thể tải ảnh bài viết blog.', 'error');
+    }
+});
+
+blogContentImageInput?.addEventListener('change', async () => {
+    const file = blogContentImageInput.files?.[0];
+
+    if (!file || !blogPostForm) {
+        return;
+    }
+
+    setBlogPostFeedback('');
+
+    try {
+        await openBlogPostImageCropper(file, 'content');
+    } catch (error) {
+        blogContentImageInput.value = '';
+        setBlogPostFeedback(error.message || 'Không thể chèn ảnh vào nội dung blog.', 'error');
+        showToast(error.message || 'Không thể chèn ảnh vào nội dung blog.', 'error');
+    }
+});
+
 [promotionCropZoomInput, promotionCropXInput, promotionCropYInput].forEach((input) => {
     input?.addEventListener('input', renderPromotionCropPreview);
+});
+
+[blogPostCropZoomInput, blogPostCropXInput, blogPostCropYInput].forEach((input) => {
+    input?.addEventListener('input', renderBlogPostCropPreview);
 });
 
 promotionCropCloseButtons.forEach((button) => {
     button.addEventListener('click', closePromotionCropPanel);
 });
 
+blogPostCropCloseButtons.forEach((button) => {
+    button.addEventListener('click', closeBlogPostCropPanel);
+});
+
 promotionCropPanel?.addEventListener('click', (event) => {
     if (event.target === promotionCropPanel) {
         closePromotionCropPanel();
+    }
+});
+
+blogPostCropPanel?.addEventListener('click', (event) => {
+    if (event.target === blogPostCropPanel) {
+        closeBlogPostCropPanel();
     }
 });
 
@@ -4878,6 +5539,49 @@ promotionCropApplyButton?.addEventListener('click', async () => {
     } finally {
         promotionCropApplyButton.disabled = false;
         promotionCropApplyButton.innerHTML = originalButtonHtml;
+    }
+});
+
+blogPostCropApplyButton?.addEventListener('click', async () => {
+    if (!blogPostForm || !blogPostCropState?.file) {
+        setBlogPostCropFeedback('Chưa có ảnh bài viết blog để cắt.');
+        return;
+    }
+
+    const originalButtonHtml = blogPostCropApplyButton.innerHTML;
+
+    blogPostCropApplyButton.disabled = true;
+    blogPostCropApplyButton.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i><span>Đang tải...</span>';
+    setBlogPostCropFeedback('');
+
+    try {
+        const isContentImage = blogPostCropState.target === 'content';
+        const originalFileName = String(blogPostCropState.file.name || 'blog-cover').replace(/\.[^.]+$/, '');
+        const dataUrl = getCroppedBlogPostImageDataUrl();
+        const imageUrl = await uploadCroppedBlogPostImage({
+            dataUrl,
+            fileName: `${originalFileName}-cover.jpg`
+        });
+
+        if (isContentImage) {
+            insertBlogContentImageMarkup(imageUrl, `${originalFileName}-cover.jpg`);
+        } else {
+            blogPostForm.elements.imageUrl.value = imageUrl;
+            setBlogPostImagePreview(imageUrl, `${originalFileName}-cover.jpg`);
+        }
+        closeBlogPostCropPanel();
+        showToast(
+            isContentImage
+                ? 'Cắt và chèn ảnh vào nội dung thành công.'
+                : 'Cắt và tải ảnh bài viết blog thành công.',
+            'success',
+            isContentImage ? 'Đã chèn ảnh' : 'Đã lưu ảnh blog'
+        );
+    } catch (error) {
+        setBlogPostCropFeedback(error.message || 'Không thể cắt ảnh bài viết blog.');
+    } finally {
+        blogPostCropApplyButton.disabled = false;
+        blogPostCropApplyButton.innerHTML = originalButtonHtml;
     }
 });
 
@@ -5020,6 +5724,187 @@ promotionTableBody?.addEventListener('click', async (event) => {
     } catch (error) {
         deleteButton.disabled = false;
         showToast(error.message || 'Không thể xóa bài khuyến mại.', 'error');
+    }
+});
+
+blogPostForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    setBlogPostFeedback('');
+
+    const formData = new FormData(blogPostForm);
+    const payload = {
+        title: formData.get('title'),
+        slug: formData.get('slug'),
+        category: formData.get('category'),
+        excerpt: formData.get('excerpt'),
+        content: formData.get('content'),
+        imageUrl: formData.get('imageUrl'),
+        imageAlt: formData.get('imageAlt'),
+        publishedAt: formData.get('publishedAt'),
+        readTime: Number(formData.get('readTime') || 5),
+        displayOrder: Number(formData.get('displayOrder') || 0),
+        status: formData.get('isPublished') === '1' ? 'published' : 'draft',
+        featured: formData.get('featured') === '1',
+        showOnHome: formData.get('showOnHome') === '1'
+    };
+    const isEditing = Boolean(editingBlogPostId);
+
+    setBlogPostSubmitLoading(true);
+
+    try {
+        const { response, data } = await requestJson(
+            isEditing ? `/api/admin/blog-posts/${editingBlogPostId}` : '/api/admin/blog-posts',
+            {
+                method: isEditing ? 'PUT' : 'POST',
+                body: JSON.stringify(payload)
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể lưu bài viết blog lúc này.');
+        }
+
+        resetBlogPostForm();
+        await loadBlogPosts();
+        showToast(
+            data.message || 'Lưu bài viết blog thành công.',
+            'success',
+            isEditing ? 'Đã cập nhật bài' : 'Đã tạo bài'
+        );
+    } catch (error) {
+        setBlogPostFeedback(error.message || 'Không thể lưu bài viết blog lúc này.', 'error');
+        showToast(error.message || 'Không thể lưu bài viết blog lúc này.', 'error');
+    } finally {
+        setBlogPostSubmitLoading(false);
+    }
+});
+
+blogPostTableBody?.addEventListener('click', async (event) => {
+    const editButton = event.target.closest('[data-edit-blog-post]');
+    const deleteButton = event.target.closest('[data-delete-blog-post]');
+    const toggleHomeButton = event.target.closest('[data-toggle-blog-home]');
+    const toggleFeaturedButton = event.target.closest('[data-toggle-blog-featured]');
+
+    if (editButton) {
+        const postId = Number(editButton.dataset.editBlogPost);
+        const post = blogPosts.find((item) => item.id === postId);
+
+        if (post) {
+            fillBlogPostForm(post);
+        }
+
+        return;
+    }
+
+    if (toggleHomeButton) {
+        const postId = Number(toggleHomeButton.dataset.toggleBlogHome);
+        const post = blogPosts.find((item) => item.id === postId);
+
+        if (!post) {
+            return;
+        }
+
+        toggleHomeButton.disabled = true;
+
+        try {
+            const { response, data } = await requestJson(`/api/admin/blog-posts/${postId}`, {
+                method: 'PUT',
+                body: JSON.stringify(buildBlogPostUpdatePayload(post, {
+                    showOnHome: !post.showOnHome
+                }))
+            });
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Không thể cập nhật hiển thị Home.');
+            }
+
+            await loadBlogPosts();
+            showToast(
+                data.message || 'Cập nhật hiển thị Home thành công.',
+                'success',
+                post.showOnHome ? 'Đã ẩn khỏi Home' : 'Đã đưa lên Home'
+            );
+        } catch (error) {
+            toggleHomeButton.disabled = false;
+            showToast(error.message || 'Không thể cập nhật hiển thị Home.', 'error');
+        }
+
+        return;
+    }
+
+    if (toggleFeaturedButton) {
+        const postId = Number(toggleFeaturedButton.dataset.toggleBlogFeatured);
+        const post = blogPosts.find((item) => item.id === postId);
+
+        if (!post) {
+            return;
+        }
+
+        toggleFeaturedButton.disabled = true;
+
+        try {
+            const { response, data } = await requestJson(`/api/admin/blog-posts/${postId}`, {
+                method: 'PUT',
+                body: JSON.stringify(buildBlogPostUpdatePayload(post, {
+                    featured: !post.featured
+                }))
+            });
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Không thể cập nhật bài nổi bật.');
+            }
+
+            await loadBlogPosts();
+            showToast(
+                data.message || 'Cập nhật bài nổi bật thành công.',
+                'success',
+                post.featured ? 'Đã bỏ nổi bật' : 'Đã đưa vào nổi bật'
+            );
+        } catch (error) {
+            toggleFeaturedButton.disabled = false;
+            showToast(error.message || 'Không thể cập nhật bài nổi bật.', 'error');
+        }
+
+        return;
+    }
+
+    if (!deleteButton) {
+        return;
+    }
+
+    const postId = Number(deleteButton.dataset.deleteBlogPost);
+    const post = blogPosts.find((item) => item.id === postId);
+
+    if (!post) {
+        return;
+    }
+
+    const isConfirmed = window.confirm(`Bạn có chắc muốn xóa bài viết "${post.title}"?`);
+
+    if (!isConfirmed) {
+        return;
+    }
+
+    deleteButton.disabled = true;
+
+    try {
+        const { response, data } = await requestJson(`/api/admin/blog-posts/${postId}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể xóa bài viết blog.');
+        }
+
+        if (String(editingBlogPostId) === String(postId)) {
+            resetBlogPostForm();
+        }
+
+        await loadBlogPosts();
+        showToast(data.message || 'Xóa bài viết blog thành công.', 'success', 'Đã xóa bài');
+    } catch (error) {
+        deleteButton.disabled = false;
+        showToast(error.message || 'Không thể xóa bài viết blog.', 'error');
     }
 });
 
@@ -5235,6 +6120,11 @@ carSellRequestStatusPanel?.addEventListener('click', (event) => {
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !promotionCropPanel?.hidden) {
         closePromotionCropPanel();
+        return;
+    }
+
+    if (event.key === 'Escape' && !blogPostCropPanel?.hidden) {
+        closeBlogPostCropPanel();
         return;
     }
 

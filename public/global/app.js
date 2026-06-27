@@ -74,6 +74,7 @@ const renderSharedSiteHeader = () => {
                                             </div>
                                         </div>
                                         <a href="/?account=profile" class="okxe-site-header__dropdown-link"><i class="bx bx-id-card" aria-hidden="true"></i><span>Thông tin của tôi</span></a>
+                                        <a href="/?account=listings" class="okxe-site-header__dropdown-link"><i class="bx bx-list-ul" aria-hidden="true"></i><span>Quản lý tin đăng</span></a>
                                         <a href="/?account=favorites" class="okxe-site-header__dropdown-link"><i class="bx bx-heart" aria-hidden="true"></i><span>Xe yêu thích</span></a>
                                         <a href="/?account=notifications" class="okxe-site-header__dropdown-link"><i class="bx bx-bell" aria-hidden="true"></i><span>Thông báo</span></a>
                                         <a href="/dang-tin-mua-o-to" class="okxe-site-header__dropdown-link"><i class="bx bx-message-square-edit" aria-hidden="true"></i><span>Đăng tin mua ô tô</span></a>
