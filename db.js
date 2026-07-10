@@ -29,6 +29,44 @@ const salesTitles = new Set(['Nhân viên kinh doanh', 'Trưởng phòng kinh do
 const testDriveAppointmentStatuses = new Set(['pending', 'approved', 'cancelled']);
 const approvedTestDriveAppointmentStatus = 'approved';
 const consultationRequestStatuses = new Set(['new', 'contacted', 'appointment', 'closed', 'failed']);
+const depositOrderStatuses = new Set([
+  'pending',
+  'confirmed',
+  'completed',
+  'cancelled_after_deposit',
+  'cancelled',
+  'expired',
+]);
+const depositOrderStatusTransitions = new Map([
+  ['pending', new Set(['confirmed', 'cancelled', 'expired'])],
+  ['confirmed', new Set(['completed', 'cancelled_after_deposit'])],
+  ['completed', new Set()],
+  ['cancelled_after_deposit', new Set()],
+  ['cancelled', new Set()],
+  ['expired', new Set()],
+]);
+const depositPaymentMethods = new Set(['bank', 'vnpay', 'wallet', 'card']);
+const salesKpiTypes = new Set(['acquisition', 'sale', 'direct_sale']);
+const salesKpiRewardStatuses = new Set(['pending', 'paid']);
+const carAvailableStatusText = 'Còn xe';
+const carHeldStatusText = 'Đang giữ chỗ';
+const carSoldStatusText = 'Xe đã bán';
+const depositOrderDefaultHoldHours = Math.max(
+  1,
+  Math.min(168, Number(process.env.OKXE_DEPOSIT_HOLD_HOURS || 24) || 24)
+);
+const depositOrderReminderHoursBeforeExpiry = Math.max(
+  1,
+  Math.min(24, Number(process.env.OKXE_DEPOSIT_REMINDER_HOURS || 3) || 3)
+);
+const depositPaymentDefaultAmountOptions = [5000000, 10000000, 20000000];
+const depositPaymentDefaultPolicyText = [
+  'Khách chuyển khoản đúng số tiền và nội dung trong đơn đặt cọc để OkXe đối soát.',
+  'Xe được giữ trong thời gian cấu hình kể từ khi tạo đơn; nếu quá hạn chưa xác nhận nhận tiền, đơn có thể bị hủy và xe được mở bán lại.',
+  'Sau khi OkXe xác nhận đã nhận tiền, khách có thể xem hoặc in biên nhận đặt cọc trong tài khoản.',
+  'Khi giao dịch mua xe hoàn tất, số tiền đặt cọc được khấu trừ vào giá trị thanh toán còn lại.',
+  'Trường hợp hủy sau đặt cọc hoặc hoàn cọc sẽ được nhân viên OkXe ghi nhận lý do, số tiền hoàn và mã giao dịch hoàn tiền trong lịch sử đơn.',
+].join('\n');
 const carBuyRequestStatuses = new Set(['pending', 'approved', 'rejected']);
 const carBuyRequestOfferStatuses = new Set(['new', 'contacted', 'matched', 'rejected']);
 const carSellRequestStatuses = new Set(['pending', 'approved']);
@@ -72,6 +110,273 @@ const normalizeConsultationRequestStatus = (status) => {
   return consultationRequestStatuses.has(normalizedStatus)
     ? normalizedStatus
     : 'new';
+};
+
+const normalizeDepositOrderStatus = (status) => {
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+
+  return depositOrderStatuses.has(normalizedStatus)
+    ? normalizedStatus
+    : 'pending';
+};
+
+const isAllowedDepositOrderStatusTransition = (currentStatus, nextStatus) => {
+  const normalizedCurrentStatus = normalizeDepositOrderStatus(currentStatus);
+  const normalizedNextStatus = normalizeDepositOrderStatus(nextStatus);
+
+  if (normalizedCurrentStatus === normalizedNextStatus) {
+    return true;
+  }
+
+  return Boolean(depositOrderStatusTransitions.get(normalizedCurrentStatus)?.has(normalizedNextStatus));
+};
+
+const normalizeDepositPaymentMethod = (paymentMethod) => {
+  const normalizedPaymentMethod = String(paymentMethod || '').trim().toLowerCase();
+
+  return depositPaymentMethods.has(normalizedPaymentMethod)
+    ? normalizedPaymentMethod
+    : 'bank';
+};
+
+const normalizeDepositSettingText = (value, maxLength = 120, fallback = '') =>
+  String(value ?? fallback)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, maxLength);
+
+const normalizeDepositPolicyText = (value, fallback = '') =>
+  String(value ?? fallback)
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => line.trim().replace(/\s+/g, ' '))
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 4000);
+
+const normalizeDepositAmountValue = (value, fallback = 0) => {
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue) && numberValue > 0
+    ? Math.trunc(numberValue)
+    : fallback;
+};
+
+const normalizeDepositHoldHoursValue = (value, fallback = depositOrderDefaultHoldHours) => {
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue) && numberValue > 0
+    ? Math.max(1, Math.min(168, Math.trunc(numberValue)))
+    : fallback;
+};
+
+const parseDepositAmountOptionsValue = (value) => {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  const textValue = String(value || '').trim();
+
+  if (!textValue) {
+    return [];
+  }
+
+  try {
+    const parsedValue = JSON.parse(textValue);
+
+    if (Array.isArray(parsedValue)) {
+      return parsedValue;
+    }
+  } catch (error) {
+    // Fall back to comma/newline parsing for values entered from admin forms.
+  }
+
+  return textValue.split(/[\s,;]+/);
+};
+
+const normalizeDepositAmountOptionsValue = (value, fallback = depositPaymentDefaultAmountOptions, limits = {}) => {
+  const minAmount = normalizeDepositAmountValue(limits.minAmount, 0);
+  const maxAmount = normalizeDepositAmountValue(limits.maxAmount, Number.MAX_SAFE_INTEGER);
+  const seenAmounts = new Set();
+  const normalizedOptions = parseDepositAmountOptionsValue(value)
+    .map((amount) => normalizeDepositAmountValue(amount, 0))
+    .filter((amount) => amount > 0)
+    .filter((amount) => amount >= minAmount && amount <= maxAmount)
+    .filter((amount) => {
+      if (seenAmounts.has(amount)) {
+        return false;
+      }
+
+      seenAmounts.add(amount);
+      return true;
+    })
+    .slice(0, 8);
+
+  return normalizedOptions.length ? normalizedOptions : [...fallback];
+};
+
+const normalizeDepositRequireProofValue = (value, fallback = false) => {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (Number(value) === 1) {
+    return true;
+  }
+
+  if (Number(value) === 0) {
+    return false;
+  }
+
+  const normalizedValue = String(value || '').trim().toLowerCase();
+
+  if (['true', 'yes', 'required', 'bat buoc', 'bắt buộc'].includes(normalizedValue)) {
+    return true;
+  }
+
+  if (['false', 'no', 'optional', 'khong', 'không'].includes(normalizedValue)) {
+    return false;
+  }
+
+  return fallback;
+};
+
+const depositPaymentSettingsDefaults = (() => {
+  const minDepositAmount = normalizeDepositAmountValue(process.env.OKXE_DEPOSIT_MIN_AMOUNT, 1000000);
+  const maxDepositAmount = Math.max(
+    minDepositAmount,
+    normalizeDepositAmountValue(process.env.OKXE_DEPOSIT_MAX_AMOUNT, 200000000)
+  );
+  const depositAmountOptions = normalizeDepositAmountOptionsValue(
+    process.env.OKXE_DEPOSIT_AMOUNT_OPTIONS,
+    depositPaymentDefaultAmountOptions,
+    { minAmount: minDepositAmount, maxAmount: maxDepositAmount }
+  );
+  const configuredDefaultAmount = normalizeDepositAmountValue(
+    process.env.OKXE_DEPOSIT_DEFAULT_AMOUNT,
+    10000000
+  );
+  const defaultDepositAmount =
+    configuredDefaultAmount >= minDepositAmount && configuredDefaultAmount <= maxDepositAmount
+      ? configuredDefaultAmount
+      : depositAmountOptions[0] || minDepositAmount;
+
+  return {
+    accountName: normalizeDepositSettingText(process.env.OKXE_DEPOSIT_BANK_ACCOUNT_NAME, 100, 'OKXE AUTO') || 'OKXE AUTO',
+    bankName: normalizeDepositSettingText(process.env.OKXE_DEPOSIT_BANK_NAME, 100, 'Vietcombank') || 'Vietcombank',
+    accountNumber: normalizeDepositSettingText(process.env.OKXE_DEPOSIT_BANK_ACCOUNT_NUMBER, 60, '0123 456 789') || '0123 456 789',
+    branch: normalizeDepositSettingText(process.env.OKXE_DEPOSIT_BANK_BRANCH, 100),
+    transferPrefix: normalizeDepositSettingText(process.env.OKXE_DEPOSIT_TRANSFER_PREFIX, 60, 'OKXE COC') || 'OKXE COC',
+    depositAmountOptions,
+    defaultDepositAmount,
+    minDepositAmount,
+    maxDepositAmount,
+    holdHours: normalizeDepositHoldHoursValue(process.env.OKXE_DEPOSIT_HOLD_HOURS, depositOrderDefaultHoldHours),
+    requireTransferProof: normalizeDepositRequireProofValue(process.env.OKXE_DEPOSIT_REQUIRE_TRANSFER_PROOF, false),
+    policyText: normalizeDepositPolicyText(process.env.OKXE_DEPOSIT_POLICY_TEXT, depositPaymentDefaultPolicyText)
+      || depositPaymentDefaultPolicyText,
+  };
+})();
+
+const normalizeDepositPaymentSettingsData = (settings = {}) => {
+  const minDepositAmount = normalizeDepositAmountValue(
+    settings.minDepositAmount ?? settings.min_deposit_amount,
+    depositPaymentSettingsDefaults.minDepositAmount
+  );
+  const maxDepositAmount = Math.max(
+    minDepositAmount,
+    normalizeDepositAmountValue(
+      settings.maxDepositAmount ?? settings.max_deposit_amount,
+      depositPaymentSettingsDefaults.maxDepositAmount
+    )
+  );
+  const depositAmountOptions = normalizeDepositAmountOptionsValue(
+    settings.depositAmountOptions ?? settings.deposit_amount_options_json,
+    depositPaymentSettingsDefaults.depositAmountOptions,
+    { minAmount: minDepositAmount, maxAmount: maxDepositAmount }
+  );
+  const requestedDefaultAmount = normalizeDepositAmountValue(
+    settings.defaultDepositAmount ?? settings.default_deposit_amount,
+    depositPaymentSettingsDefaults.defaultDepositAmount
+  );
+  const defaultDepositAmount =
+    requestedDefaultAmount >= minDepositAmount && requestedDefaultAmount <= maxDepositAmount
+      ? requestedDefaultAmount
+      : depositAmountOptions[0] || minDepositAmount;
+
+  return {
+    id: 1,
+    accountName: normalizeDepositSettingText(
+      settings.accountName ?? settings.account_name,
+      100,
+      depositPaymentSettingsDefaults.accountName
+    ) || depositPaymentSettingsDefaults.accountName,
+    bankName: normalizeDepositSettingText(
+      settings.bankName ?? settings.bank_name,
+      100,
+      depositPaymentSettingsDefaults.bankName
+    ) || depositPaymentSettingsDefaults.bankName,
+    accountNumber: normalizeDepositSettingText(
+      settings.accountNumber ?? settings.account_number,
+      60,
+      depositPaymentSettingsDefaults.accountNumber
+    ) || depositPaymentSettingsDefaults.accountNumber,
+    branch: normalizeDepositSettingText(
+      settings.branch,
+      100,
+      depositPaymentSettingsDefaults.branch
+    ),
+    transferPrefix: normalizeDepositSettingText(
+      settings.transferPrefix ?? settings.transfer_prefix,
+      60,
+      depositPaymentSettingsDefaults.transferPrefix
+    ) || depositPaymentSettingsDefaults.transferPrefix,
+    depositAmountOptions,
+    defaultDepositAmount,
+    minDepositAmount,
+    maxDepositAmount,
+    holdHours: normalizeDepositHoldHoursValue(
+      settings.holdHours ?? settings.hold_hours,
+      depositPaymentSettingsDefaults.holdHours
+    ),
+    requireTransferProof: normalizeDepositRequireProofValue(
+      settings.requireTransferProof ?? settings.require_transfer_proof,
+      depositPaymentSettingsDefaults.requireTransferProof
+    ),
+    policyText: normalizeDepositPolicyText(
+      settings.policyText ?? settings.policy_text,
+      depositPaymentSettingsDefaults.policyText
+    ) || depositPaymentSettingsDefaults.policyText,
+    updatedByUserId: Number(settings.updatedByUserId ?? settings.updated_by_user_id) || null,
+    updatedByName: normalizeDepositSettingText(settings.updatedByName ?? settings.updated_by_name, 160),
+    createdAt: settings.createdAt || settings.created_at || '',
+    updatedAt: settings.updatedAt || settings.updated_at || '',
+  };
+};
+
+const getDepositOrderExpiresAt = (baseDate = new Date(), holdHours = depositOrderDefaultHoldHours) => {
+  const createdAt = baseDate instanceof Date ? baseDate : new Date(baseDate);
+  const timestamp = Number.isNaN(createdAt.getTime()) ? Date.now() : createdAt.getTime();
+  const normalizedHoldHours = normalizeDepositHoldHoursValue(holdHours, depositOrderDefaultHoldHours);
+
+  return new Date(timestamp + normalizedHoldHours * 60 * 60 * 1000).toISOString();
+};
+
+const isDepositOrderOverdue = (order = {}, now = new Date()) => {
+  const status = normalizeDepositOrderStatus(order.status);
+  const expiresAt = String(order.expires_at || order.expiresAt || '').trim();
+
+  if (status !== 'pending' || !expiresAt) {
+    return false;
+  }
+
+  const expiresDate = new Date(expiresAt.replace(' ', 'T'));
+  const nowDate = now instanceof Date ? now : new Date(now);
+
+  return !Number.isNaN(expiresDate.getTime())
+    && !Number.isNaN(nowDate.getTime())
+    && expiresDate.getTime() <= nowDate.getTime();
 };
 
 const normalizeCarBuyRequestStatus = (status) => {
@@ -339,6 +644,93 @@ const initializeSchema = (database) => {
     FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE SET NULL
   );
 
+  CREATE TABLE IF NOT EXISTS deposit_orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    car_id INTEGER,
+    car_name TEXT NOT NULL DEFAULT '',
+    car_brand TEXT NOT NULL DEFAULT '',
+    car_price_text TEXT NOT NULL DEFAULT '',
+    car_price_value INTEGER NOT NULL DEFAULT 0,
+    full_name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL DEFAULT '',
+    province TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    deposit_amount INTEGER NOT NULL,
+    payment_method TEXT NOT NULL DEFAULT 'bank',
+    bank_transfer_note TEXT NOT NULL DEFAULT '',
+    vnpay_txn_ref TEXT NOT NULL DEFAULT '',
+    vnpay_transaction_no TEXT NOT NULL DEFAULT '',
+    vnpay_response_code TEXT NOT NULL DEFAULT '',
+    vnpay_transaction_status TEXT NOT NULL DEFAULT '',
+    vnpay_bank_code TEXT NOT NULL DEFAULT '',
+    vnpay_card_type TEXT NOT NULL DEFAULT '',
+    vnpay_pay_date TEXT NOT NULL DEFAULT '',
+    vnpay_payment_url TEXT NOT NULL DEFAULT '',
+    vnpay_confirmed_at TEXT NOT NULL DEFAULT '',
+    transfer_proof_url TEXT NOT NULL DEFAULT '',
+    transfer_proof_file_name TEXT NOT NULL DEFAULT '',
+    transfer_proof_uploaded_at TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    status_note TEXT NOT NULL DEFAULT '',
+    payment_reference TEXT NOT NULL DEFAULT '',
+    payment_received_at TEXT NOT NULL DEFAULT '',
+    payment_confirmation_note TEXT NOT NULL DEFAULT '',
+    payment_confirmed_by_user_id INTEGER,
+    payment_confirmed_by_name TEXT NOT NULL DEFAULT '',
+    payment_confirmed_at TEXT NOT NULL DEFAULT '',
+    refund_amount INTEGER NOT NULL DEFAULT 0,
+    refund_reference TEXT NOT NULL DEFAULT '',
+    refund_completed_at TEXT NOT NULL DEFAULT '',
+    refund_note TEXT NOT NULL DEFAULT '',
+    refund_confirmed_by_user_id INTEGER,
+    refund_confirmed_by_name TEXT NOT NULL DEFAULT '',
+    refund_confirmed_at TEXT NOT NULL DEFAULT '',
+    expires_at TEXT NOT NULL DEFAULT '',
+    expired_at TEXT NOT NULL DEFAULT '',
+    payment_reminder_sent_at TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS deposit_order_status_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    deposit_order_id INTEGER NOT NULL,
+    previous_status TEXT NOT NULL DEFAULT '',
+    next_status TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    actor_user_id INTEGER,
+    actor_name TEXT NOT NULL DEFAULT '',
+    action_type TEXT NOT NULL DEFAULT 'status_update',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (deposit_order_id) REFERENCES deposit_orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS deposit_payment_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    account_name TEXT NOT NULL DEFAULT '',
+    bank_name TEXT NOT NULL DEFAULT '',
+    account_number TEXT NOT NULL DEFAULT '',
+    branch TEXT NOT NULL DEFAULT '',
+    transfer_prefix TEXT NOT NULL DEFAULT 'OKXE COC',
+    deposit_amount_options_json TEXT NOT NULL DEFAULT '',
+    default_deposit_amount INTEGER NOT NULL DEFAULT 10000000,
+    min_deposit_amount INTEGER NOT NULL DEFAULT 1000000,
+    max_deposit_amount INTEGER NOT NULL DEFAULT 200000000,
+    hold_hours INTEGER NOT NULL DEFAULT 24,
+    require_transfer_proof INTEGER NOT NULL DEFAULT 0,
+    policy_text TEXT NOT NULL DEFAULT '',
+    updated_by_user_id INTEGER,
+    updated_by_name TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
   CREATE TABLE IF NOT EXISTS car_buy_requests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
@@ -391,6 +783,10 @@ const initializeSchema = (database) => {
     type TEXT NOT NULL DEFAULT '',
     price_text TEXT NOT NULL DEFAULT '',
     price_value INTEGER NOT NULL DEFAULT 0,
+    customer_deal_price_text TEXT NOT NULL DEFAULT '',
+    customer_deal_price_value INTEGER NOT NULL DEFAULT 0,
+    final_price_text TEXT NOT NULL DEFAULT '',
+    final_price_value INTEGER NOT NULL DEFAULT 0,
     image TEXT NOT NULL DEFAULT '',
     images_json TEXT NOT NULL DEFAULT '[]',
     year INTEGER NOT NULL DEFAULT 0,
@@ -413,6 +809,61 @@ const initializeSchema = (database) => {
     FOREIGN KEY (approved_car_id) REFERENCES cars(id) ON DELETE SET NULL
   );
 
+  CREATE TABLE IF NOT EXISTS sales_kpi_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    kpi_type TEXT NOT NULL,
+    source_id INTEGER NOT NULL,
+    sale_user_id INTEGER NOT NULL,
+    sale_name TEXT NOT NULL DEFAULT '',
+    car_id INTEGER,
+    car_name TEXT NOT NULL DEFAULT '',
+    car_brand TEXT NOT NULL DEFAULT '',
+    source_code TEXT NOT NULL DEFAULT '',
+    transaction_value INTEGER NOT NULL DEFAULT 0,
+    purchase_price_value INTEGER NOT NULL DEFAULT 0,
+    sale_price_value INTEGER NOT NULL DEFAULT 0,
+    reward_amount INTEGER NOT NULL DEFAULT 0,
+    reward_status TEXT NOT NULL DEFAULT 'pending',
+    record_status TEXT NOT NULL DEFAULT 'active',
+    note TEXT NOT NULL DEFAULT '',
+    recorded_by_user_id INTEGER,
+    recorded_by_name TEXT NOT NULL DEFAULT '',
+    recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    cancelled_at TEXT NOT NULL DEFAULT '',
+    cancelled_by_user_id INTEGER,
+    cancelled_by_name TEXT NOT NULL DEFAULT '',
+    cancellation_note TEXT NOT NULL DEFAULT '',
+    UNIQUE (kpi_type, source_id),
+    FOREIGN KEY (sale_user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE SET NULL,
+    FOREIGN KEY (recorded_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (cancelled_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_sales_kpi_records_sale
+  ON sales_kpi_records (sale_user_id, record_status, recorded_at);
+
+  CREATE INDEX IF NOT EXISTS idx_sales_kpi_records_status
+  ON sales_kpi_records (record_status, kpi_type, recorded_at);
+
+  CREATE TABLE IF NOT EXISTS direct_car_sales (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    car_id INTEGER NOT NULL UNIQUE,
+    car_name TEXT NOT NULL DEFAULT '',
+    car_brand TEXT NOT NULL DEFAULT '',
+    sale_price_value INTEGER NOT NULL DEFAULT 0,
+    sold_by_user_id INTEGER,
+    sold_by_name TEXT NOT NULL DEFAULT '',
+    sold_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE RESTRICT,
+    FOREIGN KEY (sold_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_direct_car_sales_sold_at
+  ON direct_car_sales (sold_at);
+
   CREATE TABLE IF NOT EXISTS user_notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
@@ -422,8 +873,25 @@ const initializeSchema = (database) => {
     entity_type TEXT NOT NULL DEFAULT '',
     entity_id INTEGER,
     status TEXT NOT NULL DEFAULT '',
+    is_read INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS admin_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL DEFAULT '',
+    entity_type TEXT NOT NULL DEFAULT '',
+    entity_id INTEGER,
+    status TEXT NOT NULL DEFAULT '',
+    is_read INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TEXT
   );
 
   CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id
@@ -468,6 +936,15 @@ const initializeSchema = (database) => {
   CREATE INDEX IF NOT EXISTS idx_consultation_requests_car_id
   ON consultation_requests (car_id, created_at);
 
+  CREATE INDEX IF NOT EXISTS idx_deposit_orders_status
+  ON deposit_orders (status, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_deposit_orders_user_id
+  ON deposit_orders (user_id, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_deposit_orders_car_id
+  ON deposit_orders (car_id, created_at);
+
   CREATE INDEX IF NOT EXISTS idx_car_buy_requests_status
   ON car_buy_requests (status, created_at);
 
@@ -491,6 +968,9 @@ const initializeSchema = (database) => {
 
   CREATE INDEX IF NOT EXISTS idx_user_notifications_user_id
   ON user_notifications (user_id, created_at);
+
+  CREATE INDEX IF NOT EXISTS idx_admin_notifications_visible
+  ON admin_notifications (deleted_at, created_at);
 
 `);
 
@@ -722,11 +1202,24 @@ const initializeSchema = (database) => {
     ['origin', 'Trong nước', ['trong nước', 'Trong Nước']],
     ['condition', 'Xe mới', ['xe mới', 'Xe Mới']],
     ['condition', 'Xe cũ', ['xe cũ', 'Xe Cũ', 'Xe đã qua sử dụng']],
-    ['action_text', 'Còn xe', ['mua ngay', 'Mua ngay', 'Mua Ngay', 'còn hàng', 'Còn hàng', 'Còn Hàng']],
-    ['action_text', 'Xe đã bán', ['hết hàng', 'Hết hàng', 'Hết Hàng', 'het hang', 'het xe', 'Hết xe', 'hết xe', 'xe da ban']],
+    ['action_text', carAvailableStatusText, ['mua ngay', 'Mua ngay', 'Mua Ngay', 'còn hàng', 'Còn hàng', 'Còn Hàng']],
+    ['action_text', carHeldStatusText, ['đang giữ', 'Đang giữ', 'dang giu', 'đang giữ chỗ', 'Dang giu cho', 'dang giu cho', 'giữ chỗ', 'giu cho']],
+    ['action_text', carSoldStatusText, ['hết hàng', 'Hết hàng', 'Hết Hàng', 'het hang', 'het xe', 'Hết xe', 'hết xe', 'xe da ban']],
   ].forEach(([columnName, canonicalValue, legacyValues]) => {
     normalizeCarOptionValue(columnName, canonicalValue, legacyValues);
   });
+
+  database.exec(`
+    UPDATE cars
+    SET action_text = '${carHeldStatusText}',
+        updated_at = CURRENT_TIMESTAMP
+    WHERE action_text = '${carAvailableStatusText}'
+      AND id IN (
+        SELECT car_id
+        FROM deposit_orders
+        WHERE status IN ('pending', 'confirmed')
+      )
+  `);
 
   database.exec(`
     UPDATE cars
@@ -774,6 +1267,222 @@ const initializeSchema = (database) => {
     WHERE status IS NULL
        OR status = ''
        OR status = 'new'
+  `);
+
+  const carSellRequestColumns = database.prepare('PRAGMA table_info(car_sell_requests)').all();
+  const carSellRequestColumnNames = new Set(carSellRequestColumns.map((column) => column.name));
+  const carSellRequestFinalPriceColumns = [
+    ['customer_deal_price_text', "ALTER TABLE car_sell_requests ADD COLUMN customer_deal_price_text TEXT NOT NULL DEFAULT ''"],
+    ['customer_deal_price_value', 'ALTER TABLE car_sell_requests ADD COLUMN customer_deal_price_value INTEGER NOT NULL DEFAULT 0'],
+    ['final_price_text', "ALTER TABLE car_sell_requests ADD COLUMN final_price_text TEXT NOT NULL DEFAULT ''"],
+    ['final_price_value', 'ALTER TABLE car_sell_requests ADD COLUMN final_price_value INTEGER NOT NULL DEFAULT 0'],
+  ];
+
+  carSellRequestFinalPriceColumns.forEach(([columnName, alterStatement]) => {
+    if (!carSellRequestColumnNames.has(columnName)) {
+      database.exec(alterStatement);
+    }
+  });
+
+  const depositOrderColumns = database.prepare('PRAGMA table_info(deposit_orders)').all();
+  const depositOrderColumnNames = new Set(depositOrderColumns.map((column) => column.name));
+  const depositOrderConfirmationColumns = [
+    ['payment_reference', "ALTER TABLE deposit_orders ADD COLUMN payment_reference TEXT NOT NULL DEFAULT ''"],
+    ['payment_received_at', "ALTER TABLE deposit_orders ADD COLUMN payment_received_at TEXT NOT NULL DEFAULT ''"],
+    ['payment_confirmation_note', "ALTER TABLE deposit_orders ADD COLUMN payment_confirmation_note TEXT NOT NULL DEFAULT ''"],
+    ['payment_confirmed_by_user_id', 'ALTER TABLE deposit_orders ADD COLUMN payment_confirmed_by_user_id INTEGER'],
+    ['payment_confirmed_by_name', "ALTER TABLE deposit_orders ADD COLUMN payment_confirmed_by_name TEXT NOT NULL DEFAULT ''"],
+    ['payment_confirmed_at', "ALTER TABLE deposit_orders ADD COLUMN payment_confirmed_at TEXT NOT NULL DEFAULT ''"],
+    ['expires_at', "ALTER TABLE deposit_orders ADD COLUMN expires_at TEXT NOT NULL DEFAULT ''"],
+    ['expired_at', "ALTER TABLE deposit_orders ADD COLUMN expired_at TEXT NOT NULL DEFAULT ''"],
+    ['transfer_proof_url', "ALTER TABLE deposit_orders ADD COLUMN transfer_proof_url TEXT NOT NULL DEFAULT ''"],
+    ['transfer_proof_file_name', "ALTER TABLE deposit_orders ADD COLUMN transfer_proof_file_name TEXT NOT NULL DEFAULT ''"],
+    ['transfer_proof_uploaded_at', "ALTER TABLE deposit_orders ADD COLUMN transfer_proof_uploaded_at TEXT NOT NULL DEFAULT ''"],
+    ['vnpay_txn_ref', "ALTER TABLE deposit_orders ADD COLUMN vnpay_txn_ref TEXT NOT NULL DEFAULT ''"],
+    ['vnpay_transaction_no', "ALTER TABLE deposit_orders ADD COLUMN vnpay_transaction_no TEXT NOT NULL DEFAULT ''"],
+    ['vnpay_response_code', "ALTER TABLE deposit_orders ADD COLUMN vnpay_response_code TEXT NOT NULL DEFAULT ''"],
+    ['vnpay_transaction_status', "ALTER TABLE deposit_orders ADD COLUMN vnpay_transaction_status TEXT NOT NULL DEFAULT ''"],
+    ['vnpay_bank_code', "ALTER TABLE deposit_orders ADD COLUMN vnpay_bank_code TEXT NOT NULL DEFAULT ''"],
+    ['vnpay_card_type', "ALTER TABLE deposit_orders ADD COLUMN vnpay_card_type TEXT NOT NULL DEFAULT ''"],
+    ['vnpay_pay_date', "ALTER TABLE deposit_orders ADD COLUMN vnpay_pay_date TEXT NOT NULL DEFAULT ''"],
+    ['vnpay_payment_url', "ALTER TABLE deposit_orders ADD COLUMN vnpay_payment_url TEXT NOT NULL DEFAULT ''"],
+    ['vnpay_confirmed_at', "ALTER TABLE deposit_orders ADD COLUMN vnpay_confirmed_at TEXT NOT NULL DEFAULT ''"],
+    ['refund_amount', 'ALTER TABLE deposit_orders ADD COLUMN refund_amount INTEGER NOT NULL DEFAULT 0'],
+    ['refund_reference', "ALTER TABLE deposit_orders ADD COLUMN refund_reference TEXT NOT NULL DEFAULT ''"],
+    ['refund_completed_at', "ALTER TABLE deposit_orders ADD COLUMN refund_completed_at TEXT NOT NULL DEFAULT ''"],
+    ['refund_note', "ALTER TABLE deposit_orders ADD COLUMN refund_note TEXT NOT NULL DEFAULT ''"],
+    ['refund_confirmed_by_user_id', 'ALTER TABLE deposit_orders ADD COLUMN refund_confirmed_by_user_id INTEGER'],
+    ['refund_confirmed_by_name', "ALTER TABLE deposit_orders ADD COLUMN refund_confirmed_by_name TEXT NOT NULL DEFAULT ''"],
+    ['refund_confirmed_at', "ALTER TABLE deposit_orders ADD COLUMN refund_confirmed_at TEXT NOT NULL DEFAULT ''"],
+    ['payment_reminder_sent_at', "ALTER TABLE deposit_orders ADD COLUMN payment_reminder_sent_at TEXT NOT NULL DEFAULT ''"],
+  ];
+
+  depositOrderConfirmationColumns.forEach(([columnName, alterStatement]) => {
+    if (!depositOrderColumnNames.has(columnName)) {
+      database.exec(alterStatement);
+    }
+  });
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS deposit_order_status_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      deposit_order_id INTEGER NOT NULL,
+      previous_status TEXT NOT NULL DEFAULT '',
+      next_status TEXT NOT NULL,
+      note TEXT NOT NULL DEFAULT '',
+      actor_user_id INTEGER,
+      actor_name TEXT NOT NULL DEFAULT '',
+      action_type TEXT NOT NULL DEFAULT 'status_update',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (deposit_order_id) REFERENCES deposit_orders(id) ON DELETE CASCADE,
+      FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_deposit_orders_expiry
+    ON deposit_orders (status, expires_at);
+
+    CREATE INDEX IF NOT EXISTS idx_deposit_order_status_history_order_id
+    ON deposit_order_status_history (deposit_order_id, created_at);
+
+    CREATE TABLE IF NOT EXISTS deposit_payment_settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      account_name TEXT NOT NULL DEFAULT '',
+      bank_name TEXT NOT NULL DEFAULT '',
+      account_number TEXT NOT NULL DEFAULT '',
+      branch TEXT NOT NULL DEFAULT '',
+      transfer_prefix TEXT NOT NULL DEFAULT 'OKXE COC',
+      deposit_amount_options_json TEXT NOT NULL DEFAULT '',
+      default_deposit_amount INTEGER NOT NULL DEFAULT 10000000,
+      min_deposit_amount INTEGER NOT NULL DEFAULT 1000000,
+      max_deposit_amount INTEGER NOT NULL DEFAULT 200000000,
+      hold_hours INTEGER NOT NULL DEFAULT 24,
+      require_transfer_proof INTEGER NOT NULL DEFAULT 0,
+      policy_text TEXT NOT NULL DEFAULT '',
+      updated_by_user_id INTEGER,
+      updated_by_name TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_deposit_orders_payment_reference
+    ON deposit_orders (payment_reference);
+
+    CREATE INDEX IF NOT EXISTS idx_deposit_orders_vnpay_txn_ref
+    ON deposit_orders (vnpay_txn_ref);
+  `);
+
+  const depositPaymentSettingsColumns = database.prepare('PRAGMA table_info(deposit_payment_settings)').all();
+  const depositPaymentSettingsColumnNames = new Set(depositPaymentSettingsColumns.map((column) => column.name));
+
+  if (!depositPaymentSettingsColumnNames.has('policy_text')) {
+    database.exec("ALTER TABLE deposit_payment_settings ADD COLUMN policy_text TEXT NOT NULL DEFAULT ''");
+  }
+
+  database.prepare(`
+    UPDATE deposit_payment_settings
+    SET policy_text = ?
+    WHERE policy_text IS NULL
+       OR trim(policy_text) = ''
+  `).run(depositPaymentSettingsDefaults.policyText);
+
+  database.prepare(`
+    INSERT OR IGNORE INTO deposit_payment_settings (
+      id, account_name, bank_name, account_number, branch, transfer_prefix,
+      deposit_amount_options_json, default_deposit_amount, min_deposit_amount,
+      max_deposit_amount, hold_hours, require_transfer_proof, policy_text
+    )
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    depositPaymentSettingsDefaults.accountName,
+    depositPaymentSettingsDefaults.bankName,
+    depositPaymentSettingsDefaults.accountNumber,
+    depositPaymentSettingsDefaults.branch,
+    depositPaymentSettingsDefaults.transferPrefix,
+    JSON.stringify(depositPaymentSettingsDefaults.depositAmountOptions),
+    depositPaymentSettingsDefaults.defaultDepositAmount,
+    depositPaymentSettingsDefaults.minDepositAmount,
+    depositPaymentSettingsDefaults.maxDepositAmount,
+    depositPaymentSettingsDefaults.holdHours,
+    depositPaymentSettingsDefaults.requireTransferProof ? 1 : 0,
+    depositPaymentSettingsDefaults.policyText
+  );
+
+  database.prepare(`
+    UPDATE deposit_orders
+    SET expires_at = datetime(COALESCE(NULLIF(created_at, ''), 'now'), ?)
+    WHERE status = 'pending'
+      AND (expires_at IS NULL OR expires_at = '')
+  `).run(`+${depositOrderDefaultHoldHours} hours`);
+
+  database.exec(`
+    INSERT INTO deposit_order_status_history (
+      deposit_order_id, previous_status, next_status, note, action_type, created_at
+    )
+    SELECT deposit_orders.id,
+           '',
+           deposit_orders.status,
+           'Ghi nhận trạng thái hiện có khi nâng cấp lịch sử xử lý.',
+           'migration',
+           COALESCE(NULLIF(deposit_orders.created_at, ''), CURRENT_TIMESTAMP)
+    FROM deposit_orders
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM deposit_order_status_history
+      WHERE deposit_order_status_history.deposit_order_id = deposit_orders.id
+    )
+  `);
+
+  const notificationColumns = database.prepare('PRAGMA table_info(user_notifications)').all();
+  const notificationColumnNames = new Set(notificationColumns.map((column) => column.name));
+
+  if (!notificationColumnNames.has('is_read')) {
+    database.exec('ALTER TABLE user_notifications ADD COLUMN is_read INTEGER NOT NULL DEFAULT 0');
+  }
+
+  if (!notificationColumnNames.has('updated_at')) {
+    database.exec('ALTER TABLE user_notifications ADD COLUMN updated_at TEXT');
+    database.exec(`
+      UPDATE user_notifications
+      SET updated_at = COALESCE(NULLIF(updated_at, ''), created_at, CURRENT_TIMESTAMP)
+      WHERE updated_at IS NULL
+         OR updated_at = ''
+    `);
+  }
+
+  if (!notificationColumnNames.has('deleted_at')) {
+    database.exec('ALTER TABLE user_notifications ADD COLUMN deleted_at TEXT');
+  }
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_user_notifications_visible
+    ON user_notifications (user_id, deleted_at, created_at);
+  `);
+
+  const adminNotificationColumns = database.prepare('PRAGMA table_info(admin_notifications)').all();
+  const adminNotificationColumnNames = new Set(adminNotificationColumns.map((column) => column.name));
+
+  if (!adminNotificationColumnNames.has('is_read')) {
+    database.exec('ALTER TABLE admin_notifications ADD COLUMN is_read INTEGER NOT NULL DEFAULT 0');
+  }
+
+  if (!adminNotificationColumnNames.has('updated_at')) {
+    database.exec('ALTER TABLE admin_notifications ADD COLUMN updated_at TEXT');
+    database.exec(`
+      UPDATE admin_notifications
+      SET updated_at = COALESCE(NULLIF(updated_at, ''), created_at, CURRENT_TIMESTAMP)
+      WHERE updated_at IS NULL
+         OR updated_at = ''
+    `);
+  }
+
+  if (!adminNotificationColumnNames.has('deleted_at')) {
+    database.exec('ALTER TABLE admin_notifications ADD COLUMN deleted_at TEXT');
+  }
+
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_admin_notifications_visible
+    ON admin_notifications (deleted_at, created_at);
   `);
 };
 
@@ -1442,6 +2151,279 @@ const deleteConsultationRequestStatement = db.prepare(`
   WHERE id = ?
 `);
 
+const findDepositPaymentSettingsStatement = db.prepare(`
+  SELECT *
+  FROM deposit_payment_settings
+  WHERE id = 1
+`);
+
+const upsertDepositPaymentSettingsStatement = db.prepare(`
+  INSERT INTO deposit_payment_settings (
+    id, account_name, bank_name, account_number, branch, transfer_prefix,
+    deposit_amount_options_json, default_deposit_amount, min_deposit_amount,
+    max_deposit_amount, hold_hours, require_transfer_proof, policy_text,
+    updated_by_user_id, updated_by_name, updated_at
+  )
+  VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  ON CONFLICT(id) DO UPDATE SET
+    account_name = excluded.account_name,
+    bank_name = excluded.bank_name,
+    account_number = excluded.account_number,
+    branch = excluded.branch,
+    transfer_prefix = excluded.transfer_prefix,
+    deposit_amount_options_json = excluded.deposit_amount_options_json,
+    default_deposit_amount = excluded.default_deposit_amount,
+    min_deposit_amount = excluded.min_deposit_amount,
+    max_deposit_amount = excluded.max_deposit_amount,
+    hold_hours = excluded.hold_hours,
+    require_transfer_proof = excluded.require_transfer_proof,
+    policy_text = excluded.policy_text,
+    updated_by_user_id = excluded.updated_by_user_id,
+    updated_by_name = excluded.updated_by_name,
+    updated_at = CURRENT_TIMESTAMP
+`);
+
+const insertDepositOrderStatement = db.prepare(`
+  INSERT INTO deposit_orders (
+    user_id, car_id, car_name, car_brand, car_price_text, car_price_value,
+    full_name, phone, email, province, note, deposit_amount, payment_method, bank_transfer_note,
+    expires_at
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+const findDepositOrderByIdStatement = db.prepare(`
+  SELECT deposit_orders.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM deposit_orders
+  LEFT JOIN users ON users.id = deposit_orders.user_id
+  WHERE deposit_orders.id = ?
+`);
+
+const listDepositOrdersStatement = db.prepare(`
+  SELECT deposit_orders.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM deposit_orders
+  LEFT JOIN users ON users.id = deposit_orders.user_id
+  ORDER BY
+    CASE deposit_orders.status
+      WHEN 'pending' THEN 0
+      WHEN 'confirmed' THEN 1
+      ELSE 2
+    END,
+    datetime(deposit_orders.created_at) DESC,
+    deposit_orders.id DESC
+`);
+
+const listDepositOrdersByUserStatement = db.prepare(`
+  SELECT deposit_orders.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM deposit_orders
+  LEFT JOIN users ON users.id = deposit_orders.user_id
+  WHERE deposit_orders.user_id = ?
+  ORDER BY datetime(deposit_orders.created_at) DESC,
+           deposit_orders.id DESC
+`);
+
+const findActiveDepositOrderByCarIdStatement = db.prepare(`
+  SELECT deposit_orders.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM deposit_orders
+  LEFT JOIN users ON users.id = deposit_orders.user_id
+  WHERE deposit_orders.car_id = ?
+    AND deposit_orders.status IN ('pending', 'confirmed')
+  ORDER BY
+    CASE deposit_orders.status
+      WHEN 'confirmed' THEN 0
+      WHEN 'pending' THEN 1
+      ELSE 2
+    END,
+    datetime(deposit_orders.created_at) ASC,
+    deposit_orders.id ASC
+  LIMIT 1
+`);
+
+const findOtherActiveDepositOrderByCarIdStatement = db.prepare(`
+  SELECT deposit_orders.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM deposit_orders
+  LEFT JOIN users ON users.id = deposit_orders.user_id
+  WHERE deposit_orders.car_id = ?
+    AND deposit_orders.id <> ?
+    AND deposit_orders.status IN ('pending', 'confirmed')
+  ORDER BY
+    CASE deposit_orders.status
+      WHEN 'confirmed' THEN 0
+      WHEN 'pending' THEN 1
+      ELSE 2
+    END,
+    datetime(deposit_orders.created_at) ASC,
+    deposit_orders.id ASC
+  LIMIT 1
+`);
+
+const findDepositOrderByPaymentReferenceStatement = db.prepare(`
+  SELECT deposit_orders.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM deposit_orders
+  LEFT JOIN users ON users.id = deposit_orders.user_id
+  WHERE lower(trim(deposit_orders.payment_reference)) = lower(trim(?))
+    AND deposit_orders.payment_reference <> ''
+    AND deposit_orders.id <> ?
+  ORDER BY datetime(deposit_orders.payment_confirmed_at) DESC,
+           datetime(deposit_orders.updated_at) DESC,
+           deposit_orders.id DESC
+  LIMIT 1
+`);
+
+const updateDepositOrderStatusStatement = db.prepare(`
+  UPDATE deposit_orders
+  SET status = ?,
+      status_note = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const updateDepositOrderPaymentConfirmationStatement = db.prepare(`
+  UPDATE deposit_orders
+  SET payment_reference = ?,
+      payment_received_at = ?,
+      payment_confirmation_note = ?,
+      payment_confirmed_by_user_id = ?,
+      payment_confirmed_by_name = ?,
+      payment_confirmed_at = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const updateDepositOrderVnpayPaymentStatement = db.prepare(`
+  UPDATE deposit_orders
+  SET vnpay_txn_ref = ?,
+      vnpay_transaction_no = ?,
+      vnpay_response_code = ?,
+      vnpay_transaction_status = ?,
+      vnpay_bank_code = ?,
+      vnpay_card_type = ?,
+      vnpay_pay_date = ?,
+      vnpay_payment_url = ?,
+      vnpay_confirmed_at = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const updateDepositOrderRefundStatement = db.prepare(`
+  UPDATE deposit_orders
+  SET refund_amount = ?,
+      refund_reference = ?,
+      refund_completed_at = ?,
+      refund_note = ?,
+      refund_confirmed_by_user_id = ?,
+      refund_confirmed_by_name = ?,
+      refund_confirmed_at = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const updateDepositOrderTransferProofStatement = db.prepare(`
+  UPDATE deposit_orders
+  SET transfer_proof_url = ?,
+      transfer_proof_file_name = ?,
+      transfer_proof_uploaded_at = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const updateDepositOrderExpiredAtStatement = db.prepare(`
+  UPDATE deposit_orders
+  SET expired_at = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const markDepositOrderPaymentReminderSentStatement = db.prepare(`
+  UPDATE deposit_orders
+  SET payment_reminder_sent_at = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
+const listDepositOrderPaymentReminderCandidatesStatement = db.prepare(`
+  SELECT deposit_orders.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM deposit_orders
+  LEFT JOIN users ON users.id = deposit_orders.user_id
+  WHERE deposit_orders.status = 'pending'
+    AND deposit_orders.expires_at IS NOT NULL
+    AND deposit_orders.expires_at <> ''
+    AND deposit_orders.payment_reminder_sent_at = ''
+    AND datetime(deposit_orders.expires_at) > datetime('now')
+    AND datetime(deposit_orders.expires_at) <= datetime('now', ?)
+    AND datetime(deposit_orders.created_at) <= datetime('now', '-15 minutes')
+  ORDER BY datetime(deposit_orders.expires_at) ASC,
+           deposit_orders.id ASC
+`);
+
+const listOverdueDepositOrdersStatement = db.prepare(`
+  SELECT deposit_orders.*,
+         users.email AS user_email,
+         users.avatar_url AS user_avatar_url
+  FROM deposit_orders
+  LEFT JOIN users ON users.id = deposit_orders.user_id
+  WHERE deposit_orders.status = 'pending'
+    AND deposit_orders.expires_at IS NOT NULL
+    AND deposit_orders.expires_at <> ''
+    AND datetime(deposit_orders.expires_at) <= datetime('now')
+  ORDER BY datetime(deposit_orders.expires_at) ASC,
+           deposit_orders.id ASC
+`);
+
+const insertDepositOrderStatusHistoryStatement = db.prepare(`
+  INSERT INTO deposit_order_status_history (
+    deposit_order_id, previous_status, next_status, note,
+    actor_user_id, actor_name, action_type
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?)
+`);
+
+const listDepositOrderStatusHistoryStatement = db.prepare(`
+  SELECT deposit_order_status_history.*
+  FROM deposit_order_status_history
+  WHERE deposit_order_status_history.deposit_order_id = ?
+  ORDER BY datetime(deposit_order_status_history.created_at) ASC,
+           deposit_order_status_history.id ASC
+`);
+
+const holdCarForDepositStatement = db.prepare(`
+  UPDATE cars
+  SET action_text = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+    AND action_text <> ?
+    AND action_text <> ?
+`);
+
+const releaseCarDepositHoldStatement = db.prepare(`
+  UPDATE cars
+  SET action_text = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+    AND action_text = ?
+`);
+
+const markCarSoldAfterDepositStatement = db.prepare(`
+  UPDATE cars
+  SET action_text = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+`);
+
 const insertCarBuyRequestStatement = db.prepare(`
   INSERT INTO car_buy_requests (
     user_id, budget_range, title, content, full_name, phone, email, province, address
@@ -1612,6 +2594,10 @@ const updateCarSellRequestApprovedStatement = db.prepare(`
   UPDATE car_sell_requests
   SET status = 'approved',
       status_note = ?,
+      customer_deal_price_text = ?,
+      customer_deal_price_value = ?,
+      final_price_text = ?,
+      final_price_value = ?,
       approved_car_id = ?,
       updated_at = CURRENT_TIMESTAMP
   WHERE id = ?
@@ -1622,6 +2608,123 @@ const deleteCarSellRequestStatement = db.prepare(`
   WHERE id = ?
 `);
 
+const findApprovedCarSellRequestByCarIdStatement = db.prepare(`
+  SELECT *
+  FROM car_sell_requests
+  WHERE approved_car_id = ?
+    AND status = 'approved'
+  ORDER BY datetime(updated_at) DESC, id DESC
+  LIMIT 1
+`);
+
+const listSalesKpiRecordsStatement = db.prepare(`
+  SELECT sales_kpi_records.*,
+         users.email AS sale_email,
+         users.avatar_url AS sale_avatar_url
+  FROM sales_kpi_records
+  LEFT JOIN users ON users.id = sales_kpi_records.sale_user_id
+  ORDER BY
+    CASE sales_kpi_records.record_status WHEN 'active' THEN 0 ELSE 1 END,
+    datetime(sales_kpi_records.recorded_at) DESC,
+    sales_kpi_records.id DESC
+`);
+
+const findSalesKpiRecordByIdStatement = db.prepare(`
+  SELECT sales_kpi_records.*,
+         users.email AS sale_email,
+         users.avatar_url AS sale_avatar_url
+  FROM sales_kpi_records
+  LEFT JOIN users ON users.id = sales_kpi_records.sale_user_id
+  WHERE sales_kpi_records.id = ?
+`);
+
+const listAvailableAcquisitionKpiSourcesStatement = db.prepare(`
+  SELECT car_sell_requests.*
+  FROM car_sell_requests
+  LEFT JOIN sales_kpi_records
+    ON sales_kpi_records.kpi_type = 'acquisition'
+   AND sales_kpi_records.source_id = car_sell_requests.id
+  WHERE car_sell_requests.status = 'approved'
+    AND car_sell_requests.approved_car_id IS NOT NULL
+    AND car_sell_requests.customer_deal_price_value > 0
+    AND sales_kpi_records.id IS NULL
+  ORDER BY datetime(car_sell_requests.updated_at) DESC, car_sell_requests.id DESC
+`);
+
+const listAvailableSaleKpiSourcesStatement = db.prepare(`
+  SELECT deposit_orders.*
+  FROM deposit_orders
+  LEFT JOIN sales_kpi_records
+    ON sales_kpi_records.kpi_type = 'sale'
+   AND sales_kpi_records.source_id = deposit_orders.id
+  WHERE deposit_orders.status = 'completed'
+    AND deposit_orders.car_id IS NOT NULL
+    AND sales_kpi_records.id IS NULL
+  ORDER BY datetime(deposit_orders.updated_at) DESC, deposit_orders.id DESC
+`);
+
+const listAvailableDirectSaleKpiSourcesStatement = db.prepare(`
+  SELECT direct_car_sales.*
+  FROM direct_car_sales
+  LEFT JOIN sales_kpi_records
+    ON sales_kpi_records.kpi_type = 'direct_sale'
+   AND sales_kpi_records.source_id = direct_car_sales.id
+  WHERE sales_kpi_records.id IS NULL
+  ORDER BY datetime(direct_car_sales.sold_at) DESC, direct_car_sales.id DESC
+`);
+
+const findDirectCarSaleByIdStatement = db.prepare(`
+  SELECT *
+  FROM direct_car_sales
+  WHERE id = ?
+`);
+
+const findDirectCarSaleByCarIdStatement = db.prepare(`
+  SELECT *
+  FROM direct_car_sales
+  WHERE car_id = ?
+`);
+
+const insertDirectCarSaleStatement = db.prepare(`
+  INSERT INTO direct_car_sales (
+    car_id, car_name, car_brand, sale_price_value, sold_by_user_id, sold_by_name
+  )
+  VALUES (?, ?, ?, ?, ?, ?)
+`);
+
+const insertSalesKpiRecordStatement = db.prepare(`
+  INSERT INTO sales_kpi_records (
+    kpi_type, source_id, sale_user_id, sale_name, car_id, car_name, car_brand,
+    source_code, transaction_value, purchase_price_value, sale_price_value,
+    reward_amount, reward_status, note, recorded_by_user_id, recorded_by_name
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+const updateSalesKpiRecordStatement = db.prepare(`
+  UPDATE sales_kpi_records
+  SET sale_user_id = ?,
+      sale_name = ?,
+      reward_amount = ?,
+      reward_status = ?,
+      note = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+    AND record_status = 'active'
+`);
+
+const cancelSalesKpiRecordStatement = db.prepare(`
+  UPDATE sales_kpi_records
+  SET record_status = 'cancelled',
+      cancelled_at = CURRENT_TIMESTAMP,
+      cancelled_by_user_id = ?,
+      cancelled_by_name = ?,
+      cancellation_note = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+    AND record_status = 'active'
+`);
+
 const insertUserNotificationStatement = db.prepare(`
   INSERT INTO user_notifications (
     user_id, type, title, message, entity_type, entity_id, status
@@ -1629,13 +2732,121 @@ const insertUserNotificationStatement = db.prepare(`
   VALUES (?, ?, ?, ?, ?, ?, ?)
 `);
 
+const findUserNotificationByIdForUserStatement = db.prepare(`
+  SELECT *
+  FROM user_notifications
+  WHERE id = ?
+    AND user_id = ?
+    AND deleted_at IS NULL
+`);
+
+const findUserNotificationForEntityStatement = db.prepare(`
+  SELECT *
+  FROM user_notifications
+  WHERE user_id = ?
+    AND type = ?
+    AND entity_type = ?
+    AND entity_id IS ?
+    AND status = ?
+  ORDER BY datetime(created_at) DESC,
+           id DESC
+  LIMIT 1
+`);
+
 const listUserNotificationsStatement = db.prepare(`
   SELECT *
   FROM user_notifications
   WHERE user_id = ?
+    AND deleted_at IS NULL
   ORDER BY datetime(created_at) DESC,
            id DESC
   LIMIT 80
+`);
+
+const markUserNotificationReadStatement = db.prepare(`
+  UPDATE user_notifications
+  SET is_read = 1,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+    AND user_id = ?
+    AND deleted_at IS NULL
+`);
+
+const markAllUserNotificationsReadStatement = db.prepare(`
+  UPDATE user_notifications
+  SET is_read = 1,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE user_id = ?
+    AND deleted_at IS NULL
+    AND is_read = 0
+`);
+
+const softDeleteUserNotificationStatement = db.prepare(`
+  UPDATE user_notifications
+  SET deleted_at = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+    AND user_id = ?
+    AND deleted_at IS NULL
+`);
+
+const insertAdminNotificationStatement = db.prepare(`
+  INSERT INTO admin_notifications (
+    type, title, message, entity_type, entity_id, status
+  )
+  VALUES (?, ?, ?, ?, ?, ?)
+`);
+
+const findAdminNotificationByIdStatement = db.prepare(`
+  SELECT *
+  FROM admin_notifications
+  WHERE id = ?
+    AND deleted_at IS NULL
+`);
+
+const findAdminNotificationForEntityStatement = db.prepare(`
+  SELECT *
+  FROM admin_notifications
+  WHERE type = ?
+    AND entity_type = ?
+    AND entity_id IS ?
+    AND status = ?
+  ORDER BY datetime(created_at) DESC,
+           id DESC
+  LIMIT 1
+`);
+
+const listAdminNotificationsStatement = db.prepare(`
+  SELECT *
+  FROM admin_notifications
+  WHERE deleted_at IS NULL
+  ORDER BY datetime(created_at) DESC,
+           id DESC
+  LIMIT 100
+`);
+
+const markAdminNotificationReadStatement = db.prepare(`
+  UPDATE admin_notifications
+  SET is_read = 1,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+    AND deleted_at IS NULL
+`);
+
+const markAllAdminNotificationsReadStatement = db.prepare(`
+  UPDATE admin_notifications
+  SET is_read = 1,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE deleted_at IS NULL
+    AND is_read = 0
+`);
+
+const softDeleteAdminNotificationStatement = db.prepare(`
+  UPDATE admin_notifications
+  SET deleted_at = CURRENT_TIMESTAMP,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ?
+    AND deleted_at IS NULL
 `);
 
 const seedCars = [
@@ -2056,7 +3267,7 @@ const normalizeCarPayload = (car = {}) => {
     origin: String(car.origin || '').trim(),
     condition: String(car.condition || '').trim(),
     color: String(car.color || '').trim(),
-    actionText: String(car.actionText || 'Còn xe').trim() || 'Còn xe'
+    actionText: String(car.actionText || carAvailableStatusText).trim() || carAvailableStatusText
   };
 };
 
@@ -2214,6 +3425,167 @@ const sanitizeConsultationRequest = (requestRow) => {
   };
 };
 
+const sanitizeDepositOrderStatusHistory = (historyRow) => {
+  if (!historyRow) {
+    return null;
+  }
+
+  return {
+    id: historyRow.id,
+    depositOrderId: historyRow.deposit_order_id,
+    previousStatus: historyRow.previous_status
+      ? normalizeDepositOrderStatus(historyRow.previous_status)
+      : '',
+    nextStatus: normalizeDepositOrderStatus(historyRow.next_status),
+    note: historyRow.note || '',
+    actorUserId: historyRow.actor_user_id || null,
+    actorName: historyRow.actor_name || '',
+    actionType: historyRow.action_type || 'status_update',
+    createdAt: historyRow.created_at || '',
+  };
+};
+
+const listDepositOrderStatusHistoryByOrderId = (orderId) => {
+  const normalizedOrderId = Number(orderId || 0);
+
+  if (!Number.isInteger(normalizedOrderId) || normalizedOrderId <= 0) {
+    return [];
+  }
+
+  return listDepositOrderStatusHistoryStatement
+    .all(normalizedOrderId)
+    .map(sanitizeDepositOrderStatusHistory)
+    .filter(Boolean);
+};
+
+const sanitizeDepositPaymentSettings = (settingsRow) => {
+  if (!settingsRow) {
+    return {
+      ...depositPaymentSettingsDefaults,
+      id: 1,
+      updatedByUserId: null,
+      updatedByName: '',
+      createdAt: '',
+      updatedAt: '',
+    };
+  }
+
+  return normalizeDepositPaymentSettingsData(settingsRow);
+};
+
+const getDepositPaymentSettings = () =>
+  sanitizeDepositPaymentSettings(findDepositPaymentSettingsStatement.get());
+
+const updateDepositPaymentSettings = (settings = {}, actorUser = null) => {
+  const existingSettings = getDepositPaymentSettings();
+  const normalizedSettings = normalizeDepositPaymentSettingsData({
+    ...existingSettings,
+    ...settings,
+    updatedByUserId: Number(actorUser?.id || 0) || null,
+    updatedByName: normalizeFullName(actorUser?.fullName || actorUser?.email || ''),
+  });
+  const actorUserId = Number(normalizedSettings.updatedByUserId || 0);
+
+  upsertDepositPaymentSettingsStatement.run(
+    normalizedSettings.accountName,
+    normalizedSettings.bankName,
+    normalizedSettings.accountNumber,
+    normalizedSettings.branch,
+    normalizedSettings.transferPrefix,
+    JSON.stringify(normalizedSettings.depositAmountOptions),
+    normalizedSettings.defaultDepositAmount,
+    normalizedSettings.minDepositAmount,
+    normalizedSettings.maxDepositAmount,
+    normalizedSettings.holdHours,
+    normalizedSettings.requireTransferProof ? 1 : 0,
+    normalizedSettings.policyText,
+    Number.isInteger(actorUserId) && actorUserId > 0 ? actorUserId : null,
+    normalizedSettings.updatedByName
+  );
+
+  return getDepositPaymentSettings();
+};
+
+const sanitizeDepositOrder = (orderRow) => {
+  if (!orderRow) {
+    return null;
+  }
+
+  const normalizedStatus = normalizeDepositOrderStatus(orderRow.status);
+  const expiresAt = orderRow.expires_at || '';
+
+  return {
+    id: orderRow.id,
+    code: `DC-${String(orderRow.id).padStart(6, '0')}`,
+    userId: orderRow.user_id,
+    userEmail: orderRow.user_email || '',
+    userAvatarUrl: orderRow.user_avatar_url || '',
+    carId: orderRow.car_id,
+    carName: orderRow.car_name || '',
+    carBrand: orderRow.car_brand || '',
+    carPrice: orderRow.car_price_text || '',
+    carPriceValue: Number(orderRow.car_price_value || 0),
+    fullName: orderRow.full_name || '',
+    phone: orderRow.phone || '',
+    email: orderRow.email || '',
+    province: orderRow.province || '',
+    note: orderRow.note || '',
+    depositAmount: Number(orderRow.deposit_amount || 0),
+    paymentMethod: normalizeDepositPaymentMethod(orderRow.payment_method),
+    bankTransferNote: orderRow.bank_transfer_note || '',
+    vnpayTxnRef: orderRow.vnpay_txn_ref || '',
+    vnpayTransactionNo: orderRow.vnpay_transaction_no || '',
+    vnpayResponseCode: orderRow.vnpay_response_code || '',
+    vnpayTransactionStatus: orderRow.vnpay_transaction_status || '',
+    vnpayBankCode: orderRow.vnpay_bank_code || '',
+    vnpayCardType: orderRow.vnpay_card_type || '',
+    vnpayPayDate: orderRow.vnpay_pay_date || '',
+    vnpayPaymentUrl: orderRow.vnpay_payment_url || '',
+    vnpayConfirmedAt: orderRow.vnpay_confirmed_at || '',
+    transferProofUrl: orderRow.transfer_proof_url || '',
+    transferProofFileName: orderRow.transfer_proof_file_name || '',
+    transferProofUploadedAt: orderRow.transfer_proof_uploaded_at || '',
+    status: normalizedStatus,
+    statusNote: orderRow.status_note || '',
+    paymentReference: orderRow.payment_reference || '',
+    paymentReceivedAt: orderRow.payment_received_at || '',
+    paymentConfirmationNote: orderRow.payment_confirmation_note || '',
+    paymentConfirmedByUserId: orderRow.payment_confirmed_by_user_id || null,
+    paymentConfirmedByName: orderRow.payment_confirmed_by_name || '',
+    paymentConfirmedAt: orderRow.payment_confirmed_at || '',
+    refundAmount: Number(orderRow.refund_amount || 0),
+    refundReference: orderRow.refund_reference || '',
+    refundCompletedAt: orderRow.refund_completed_at || '',
+    refundNote: orderRow.refund_note || '',
+    refundConfirmedByUserId: orderRow.refund_confirmed_by_user_id || null,
+    refundConfirmedByName: orderRow.refund_confirmed_by_name || '',
+    refundConfirmedAt: orderRow.refund_confirmed_at || '',
+    expiresAt,
+    expiredAt: orderRow.expired_at || '',
+    paymentReminderSentAt: orderRow.payment_reminder_sent_at || '',
+    isOverdue: isDepositOrderOverdue({
+      status: normalizedStatus,
+      expiresAt,
+    }),
+    history: listDepositOrderStatusHistoryByOrderId(orderRow.id),
+    createdAt: orderRow.created_at || '',
+    updatedAt: orderRow.updated_at || '',
+  };
+};
+
+const normalizeDepositOrderPayload = (order = {}) => ({
+  userId: order.userId ? Number(order.userId) : null,
+  carId: Number(order.carId || order.car_id || 0),
+  fullName: normalizeFullName(order.fullName || order.full_name),
+  phone: String(order.phone || '').trim(),
+  email: normalizeEmail(order.email),
+  province: String(order.province || '').trim().replace(/\s+/g, ' '),
+  note: String(order.note || '').trim(),
+  depositAmount: Number(order.depositAmount || order.deposit_amount || 0),
+  paymentMethod: normalizeDepositPaymentMethod(order.paymentMethod || order.payment_method),
+  bankTransferNote: String(order.bankTransferNote || order.bank_transfer_note || '').trim().replace(/\s+/g, ' '),
+});
+
 const normalizeCarBuyRequestPayload = (request = {}) => ({
   userId: request.userId ? Number(request.userId) : null,
   budgetRange: String(request.budgetRange || request.budget_range || '').trim(),
@@ -2348,6 +3720,10 @@ const sanitizeCarSellRequest = (requestRow) => {
     type: requestRow.type || '',
     price: requestRow.price_text || '',
     priceValue: Number(requestRow.price_value || 0),
+    customerDealPrice: requestRow.customer_deal_price_text || '',
+    customerDealPriceValue: Number(requestRow.customer_deal_price_value || 0),
+    finalPrice: requestRow.final_price_text || '',
+    finalPriceValue: Number(requestRow.final_price_value || 0),
     image: images[0] || requestRow.image || '',
     images,
     year: Number(requestRow.year || 0),
@@ -2369,6 +3745,60 @@ const sanitizeCarSellRequest = (requestRow) => {
   };
 };
 
+const sanitizeSalesKpiRecord = (recordRow) => {
+  if (!recordRow) {
+    return null;
+  }
+
+  return {
+    id: recordRow.id,
+    kpiType: recordRow.kpi_type || '',
+    sourceId: Number(recordRow.source_id || 0),
+    saleUserId: Number(recordRow.sale_user_id || 0),
+    saleName: recordRow.sale_name || '',
+    saleEmail: recordRow.sale_email || '',
+    saleAvatarUrl: recordRow.sale_avatar_url || '',
+    carId: Number(recordRow.car_id || 0) || null,
+    carName: recordRow.car_name || '',
+    carBrand: recordRow.car_brand || '',
+    sourceCode: recordRow.source_code || '',
+    transactionValue: Number(recordRow.transaction_value || 0),
+    purchasePriceValue: Number(recordRow.purchase_price_value || 0),
+    salePriceValue: Number(recordRow.sale_price_value || 0),
+    rewardAmount: Number(recordRow.reward_amount || 0),
+    rewardStatus: recordRow.reward_status || 'pending',
+    recordStatus: recordRow.record_status || 'active',
+    note: recordRow.note || '',
+    recordedByUserId: Number(recordRow.recorded_by_user_id || 0) || null,
+    recordedByName: recordRow.recorded_by_name || '',
+    recordedAt: recordRow.recorded_at || '',
+    updatedAt: recordRow.updated_at || '',
+    cancelledAt: recordRow.cancelled_at || '',
+    cancelledByUserId: Number(recordRow.cancelled_by_user_id || 0) || null,
+    cancelledByName: recordRow.cancelled_by_name || '',
+    cancellationNote: recordRow.cancellation_note || '',
+  };
+};
+
+const sanitizeDirectCarSale = (saleRow) => {
+  if (!saleRow) {
+    return null;
+  }
+
+  return {
+    id: saleRow.id,
+    code: `BH-CH-${String(saleRow.id).padStart(6, '0')}`,
+    carId: Number(saleRow.car_id || 0),
+    carName: saleRow.car_name || '',
+    carBrand: saleRow.car_brand || '',
+    salePriceValue: Number(saleRow.sale_price_value || 0),
+    soldByUserId: Number(saleRow.sold_by_user_id || 0) || null,
+    soldByName: saleRow.sold_by_name || '',
+    soldAt: saleRow.sold_at || '',
+    createdAt: saleRow.created_at || '',
+  };
+};
+
 const sanitizeUserNotification = (notificationRow) => {
   if (!notificationRow) {
     return null;
@@ -2383,15 +3813,175 @@ const sanitizeUserNotification = (notificationRow) => {
     entityType: notificationRow.entity_type || '',
     entityId: notificationRow.entity_id,
     status: notificationRow.status || '',
+    isRead: Boolean(notificationRow.is_read),
     createdAt: notificationRow.created_at || '',
+    updatedAt: notificationRow.updated_at || '',
+    deletedAt: notificationRow.deleted_at || '',
+  };
+};
+
+const sanitizeAdminNotification = (notificationRow) => {
+  if (!notificationRow) {
+    return null;
+  }
+
+  return {
+    id: notificationRow.id,
+    type: notificationRow.type || '',
+    title: notificationRow.title || '',
+    message: notificationRow.message || '',
+    entityType: notificationRow.entity_type || '',
+    entityId: notificationRow.entity_id,
+    status: notificationRow.status || '',
+    isRead: Boolean(notificationRow.is_read),
+    createdAt: notificationRow.created_at || '',
+    updatedAt: notificationRow.updated_at || '',
+    deletedAt: notificationRow.deleted_at || '',
   };
 };
 
 const isCarAvailableForTestDrive = (car) =>
-  String(car?.actionText || '').trim().toLocaleLowerCase('vi-VN') === 'còn xe';
+  String(car?.actionText || '').trim().toLocaleLowerCase('vi-VN') ===
+    carAvailableStatusText.toLocaleLowerCase('vi-VN');
+
+const isActiveDepositOrderStatus = (status) =>
+  ['pending', 'confirmed'].includes(String(status || '').trim().toLowerCase());
+
+const getActiveDepositOrderForCar = (carId, excludeOrderId = null) => {
+  const normalizedCarId = Number(carId || 0);
+
+  if (!Number.isInteger(normalizedCarId) || normalizedCarId <= 0) {
+    return null;
+  }
+
+  const normalizedExcludeOrderId = Number(excludeOrderId || 0);
+  const row = Number.isInteger(normalizedExcludeOrderId) && normalizedExcludeOrderId > 0
+    ? findOtherActiveDepositOrderByCarIdStatement.get(normalizedCarId, normalizedExcludeOrderId)
+    : findActiveDepositOrderByCarIdStatement.get(normalizedCarId);
+
+  return sanitizeDepositOrder(row);
+};
+
+const getDepositOrderByPaymentReference = (paymentReference, excludeOrderId = null) => {
+  const normalizedPaymentReference = String(paymentReference || '').trim();
+  const normalizedExcludeOrderId = Number(excludeOrderId || 0);
+
+  if (!normalizedPaymentReference) {
+    return null;
+  }
+
+  return sanitizeDepositOrder(findDepositOrderByPaymentReferenceStatement.get(
+    normalizedPaymentReference,
+    Number.isInteger(normalizedExcludeOrderId) && normalizedExcludeOrderId > 0
+      ? normalizedExcludeOrderId
+      : 0
+  ));
+};
+
+const createDepositCarHeldError = (activeOrder) => {
+  const error = new Error('Xe này đang có đơn đặt cọc giữ chỗ.');
+  error.code = 'DEPOSIT_CAR_ALREADY_HELD';
+  error.order = activeOrder || null;
+
+  return error;
+};
+
+const holdCarForDeposit = (carId) => {
+  const normalizedCarId = Number(carId || 0);
+
+  if (!Number.isInteger(normalizedCarId) || normalizedCarId <= 0) {
+    return null;
+  }
+
+  holdCarForDepositStatement.run(
+    carHeldStatusText,
+    normalizedCarId,
+    carHeldStatusText,
+    carSoldStatusText
+  );
+
+  return getCarById(normalizedCarId);
+};
+
+const releaseCarDepositHoldIfClear = (carId, excludeOrderId = null) => {
+  const normalizedCarId = Number(carId || 0);
+
+  if (!Number.isInteger(normalizedCarId) || normalizedCarId <= 0) {
+    return null;
+  }
+
+  if (!getActiveDepositOrderForCar(normalizedCarId, excludeOrderId)) {
+    releaseCarDepositHoldStatement.run(
+      carAvailableStatusText,
+      normalizedCarId,
+      carHeldStatusText
+    );
+  }
+
+  return getCarById(normalizedCarId);
+};
+
+const markCarSoldAfterDeposit = (carId) => {
+  const normalizedCarId = Number(carId || 0);
+
+  if (!Number.isInteger(normalizedCarId) || normalizedCarId <= 0) {
+    return null;
+  }
+
+  markCarSoldAfterDepositStatement.run(carSoldStatusText, normalizedCarId);
+
+  return getCarById(normalizedCarId);
+};
+
+const createDepositOrderStatusHistory = (orderId, {
+  previousStatus = '',
+  nextStatus = 'pending',
+  note = '',
+  actorUserId = null,
+  actorName = '',
+  actionType = 'status_update',
+} = {}) => {
+  const normalizedOrderId = Number(orderId || 0);
+  const normalizedActorUserId = Number(actorUserId || 0);
+
+  if (!Number.isInteger(normalizedOrderId) || normalizedOrderId <= 0) {
+    return null;
+  }
+
+  insertDepositOrderStatusHistoryStatement.run(
+    normalizedOrderId,
+    previousStatus ? normalizeDepositOrderStatus(previousStatus) : '',
+    normalizeDepositOrderStatus(nextStatus),
+    String(note || '').trim().slice(0, 700),
+    Number.isInteger(normalizedActorUserId) && normalizedActorUserId > 0
+      ? normalizedActorUserId
+      : null,
+    normalizeFullName(actorName || '').slice(0, 160),
+    String(actionType || 'status_update').trim().slice(0, 60) || 'status_update'
+  );
+
+  return listDepositOrderStatusHistoryByOrderId(normalizedOrderId).at(-1) || null;
+};
+
+const getEffectiveCarActionText = (carId, requestedActionText) => {
+  const normalizedActionText = String(requestedActionText || carAvailableStatusText).trim()
+    || carAvailableStatusText;
+
+  if (
+    normalizedActionText !== carSoldStatusText
+    && getActiveDepositOrderForCar(carId)
+  ) {
+    return carHeldStatusText;
+  }
+
+  return normalizedActionText;
+};
 
 const upsertCar = (car, existingId = null) => {
   const normalizedCar = normalizeCarPayload(car);
+  const actionText = existingId
+    ? getEffectiveCarActionText(existingId, normalizedCar.actionText)
+    : normalizedCar.actionText;
 
   if (existingId) {
     updateCarStatement.run(
@@ -2414,7 +4004,7 @@ const upsertCar = (car, existingId = null) => {
       normalizedCar.origin,
       normalizedCar.condition,
       normalizedCar.color,
-      normalizedCar.actionText,
+      actionText,
       existingId
     );
 
@@ -2441,7 +4031,7 @@ const upsertCar = (car, existingId = null) => {
     normalizedCar.origin,
     normalizedCar.condition,
     normalizedCar.color,
-    normalizedCar.actionText
+    actionText
   );
 
   return sanitizeCar(findCarByIdStatement.get(result.lastInsertRowid));
@@ -3013,6 +4603,278 @@ const listConsultationRequests = () =>
 const getConsultationRequestById = (requestId) =>
   sanitizeConsultationRequest(findConsultationRequestByIdStatement.get(requestId));
 
+const listDepositOrders = () =>
+  listDepositOrdersStatement.all().map(sanitizeDepositOrder);
+
+const listDepositOrdersByUser = (userId) =>
+  listDepositOrdersByUserStatement.all(userId).map(sanitizeDepositOrder);
+
+const getDepositOrderById = (orderId) =>
+  sanitizeDepositOrder(findDepositOrderByIdStatement.get(orderId));
+
+const normalizeSalesKpiType = (value) => {
+  const normalizedValue = String(value || '').trim().toLowerCase();
+  return salesKpiTypes.has(normalizedValue) ? normalizedValue : '';
+};
+
+const normalizeSalesKpiRewardStatus = (value) => {
+  const normalizedValue = String(value || '').trim().toLowerCase();
+  return salesKpiRewardStatuses.has(normalizedValue) ? normalizedValue : 'pending';
+};
+
+const listSalesKpiRecords = () =>
+  listSalesKpiRecordsStatement.all().map(sanitizeSalesKpiRecord);
+
+const getSalesKpiRecordById = (recordId) =>
+  sanitizeSalesKpiRecord(findSalesKpiRecordByIdStatement.get(recordId));
+
+const listAvailableSalesKpiSources = () => ({
+  acquisitions: listAvailableAcquisitionKpiSourcesStatement.all().map(sanitizeCarSellRequest),
+  sales: listAvailableSaleKpiSourcesStatement.all().map(sanitizeDepositOrder),
+  directSales: listAvailableDirectSaleKpiSourcesStatement.all().map(sanitizeDirectCarSale),
+});
+
+const createDirectCarSaleRecord = (car, actorUser = null) => {
+  const existingSale = sanitizeDirectCarSale(findDirectCarSaleByCarIdStatement.get(car.id));
+
+  if (existingSale) {
+    return existingSale;
+  }
+
+  const actorUserId = Number(actorUser?.id || 0);
+  const actorName = normalizeFullName(actorUser?.fullName || actorUser?.email || '');
+  const result = insertDirectCarSaleStatement.run(
+    car.id,
+    String(car.name || '').trim(),
+    String(car.brand || '').trim(),
+    Math.max(0, Math.trunc(Number(car.priceValue || 0))),
+    Number.isInteger(actorUserId) && actorUserId > 0 ? actorUserId : null,
+    actorName.slice(0, 160)
+  );
+
+  return sanitizeDirectCarSale(findDirectCarSaleByIdStatement.get(result.lastInsertRowid));
+};
+
+const getSalesKpiStats = () => {
+  const records = listSalesKpiRecords();
+  const activeRecords = records.filter((record) => record.recordStatus === 'active');
+
+  return {
+    total: activeRecords.length,
+    acquisitionCount: activeRecords.filter((record) => record.kpiType === 'acquisition').length,
+    saleCount: activeRecords.filter((record) => record.kpiType === 'sale').length,
+    salesValue: activeRecords
+      .filter((record) => record.kpiType === 'sale')
+      .reduce((total, record) => total + Number(record.transactionValue || 0), 0),
+    rewardAmount: activeRecords.reduce((total, record) => total + Number(record.rewardAmount || 0), 0),
+    paidRewardAmount: activeRecords
+      .filter((record) => record.rewardStatus === 'paid')
+      .reduce((total, record) => total + Number(record.rewardAmount || 0), 0),
+  };
+};
+
+const getSalesKpiSourceSnapshot = (kpiType, sourceId) => {
+  if (kpiType === 'acquisition') {
+    const request = getCarSellRequestById(sourceId);
+
+    if (
+      !request
+      || request.status !== 'approved'
+      || !request.approvedCarId
+      || Number(request.customerDealPriceValue || 0) <= 0
+    ) {
+      return null;
+    }
+
+    return {
+      sourceCode: request.code,
+      carId: request.approvedCarId,
+      carName: request.name || '',
+      carBrand: request.brand || '',
+      transactionValue: Number(request.customerDealPriceValue || 0),
+      purchasePriceValue: Number(request.customerDealPriceValue || 0),
+      salePriceValue: Number(request.finalPriceValue || 0),
+    };
+  }
+
+  if (kpiType === 'direct_sale') {
+    const directSale = sanitizeDirectCarSale(findDirectCarSaleByIdStatement.get(sourceId));
+
+    if (!directSale || !directSale.carId) {
+      return null;
+    }
+
+    const acquisitionRequest = sanitizeCarSellRequest(
+      findApprovedCarSellRequestByCarIdStatement.get(directSale.carId)
+    );
+
+    return {
+      sourceCode: directSale.code,
+      carId: directSale.carId,
+      carName: directSale.carName,
+      carBrand: directSale.carBrand,
+      transactionValue: Number(directSale.salePriceValue || 0),
+      purchasePriceValue: Number(acquisitionRequest?.customerDealPriceValue || 0),
+      salePriceValue: Number(directSale.salePriceValue || 0),
+    };
+  }
+
+  const order = getDepositOrderById(sourceId);
+
+  if (!order || order.status !== 'completed' || !order.carId) {
+    return null;
+  }
+
+  const acquisitionRequest = sanitizeCarSellRequest(
+    findApprovedCarSellRequestByCarIdStatement.get(order.carId)
+  );
+
+  return {
+    sourceCode: order.code,
+    carId: order.carId,
+    carName: order.carName || '',
+    carBrand: order.carBrand || '',
+    transactionValue: Number(order.carPriceValue || 0),
+    purchasePriceValue: Number(acquisitionRequest?.customerDealPriceValue || 0),
+    salePriceValue: Number(order.carPriceValue || 0),
+  };
+};
+
+const createSalesKpiRecord = ({
+  kpiType,
+  sourceId,
+  saleUserId,
+  rewardAmount = 0,
+  rewardStatus = 'pending',
+  note = '',
+  recordedByUser = null,
+} = {}) => {
+  const normalizedType = normalizeSalesKpiType(kpiType);
+  const normalizedSourceId = Number(sourceId || 0);
+  const normalizedSaleUserId = Number(saleUserId || 0);
+
+  if (!normalizedType || !Number.isInteger(normalizedSourceId) || normalizedSourceId <= 0) {
+    const error = new Error('Nguồn giao dịch KPI không hợp lệ.');
+    error.code = 'SALES_KPI_SOURCE_INVALID';
+    throw error;
+  }
+
+  const saleUser = getUserById(normalizedSaleUserId);
+
+  if (!saleUser || saleUser.role !== 'staff') {
+    const error = new Error('Vui lòng chọn tài khoản nhân viên sale hợp lệ.');
+    error.code = 'SALES_KPI_SALE_INVALID';
+    throw error;
+  }
+
+  const source = getSalesKpiSourceSnapshot(normalizedType, normalizedSourceId);
+
+  if (!source) {
+    const error = new Error('Giao dịch này chưa đủ điều kiện ghi nhận KPI.');
+    error.code = 'SALES_KPI_SOURCE_NOT_COMPLETED';
+    throw error;
+  }
+
+  const normalizedRewardAmount = Number(rewardAmount || 0);
+  const safeRewardAmount = Number.isFinite(normalizedRewardAmount) && normalizedRewardAmount > 0
+    ? Math.trunc(normalizedRewardAmount)
+    : 0;
+  const recorderId = Number(recordedByUser?.id || 0);
+  const recorderName = normalizeFullName(recordedByUser?.fullName || recordedByUser?.email || '');
+
+  try {
+    const result = insertSalesKpiRecordStatement.run(
+      normalizedType,
+      normalizedSourceId,
+      saleUser.id,
+      saleUser.fullName,
+      source.carId,
+      source.carName,
+      source.carBrand,
+      source.sourceCode,
+      Math.trunc(source.transactionValue || 0),
+      Math.trunc(source.purchasePriceValue || 0),
+      Math.trunc(source.salePriceValue || 0),
+      safeRewardAmount,
+      normalizeSalesKpiRewardStatus(rewardStatus),
+      String(note || '').trim().slice(0, 500),
+      Number.isInteger(recorderId) && recorderId > 0 ? recorderId : null,
+      recorderName.slice(0, 160)
+    );
+
+    return getSalesKpiRecordById(result.lastInsertRowid);
+  } catch (error) {
+    if (String(error.message || '').includes('UNIQUE constraint failed: sales_kpi_records.kpi_type, sales_kpi_records.source_id')) {
+      error.code = 'SALES_KPI_DUPLICATED';
+    }
+    throw error;
+  }
+};
+
+const updateSalesKpiRecord = (recordId, {
+  saleUserId,
+  rewardAmount = 0,
+  rewardStatus = 'pending',
+  note = '',
+} = {}) => {
+  const existingRecord = getSalesKpiRecordById(recordId);
+
+  if (!existingRecord || existingRecord.recordStatus !== 'active') {
+    return null;
+  }
+
+  const saleUser = getUserById(Number(saleUserId || 0));
+
+  if (!saleUser || saleUser.role !== 'staff') {
+    const error = new Error('Vui lòng chọn tài khoản nhân viên sale hợp lệ.');
+    error.code = 'SALES_KPI_SALE_INVALID';
+    throw error;
+  }
+
+  const normalizedRewardAmount = Number(rewardAmount || 0);
+  const safeRewardAmount = Number.isFinite(normalizedRewardAmount) && normalizedRewardAmount > 0
+    ? Math.trunc(normalizedRewardAmount)
+    : 0;
+
+  updateSalesKpiRecordStatement.run(
+    saleUser.id,
+    saleUser.fullName,
+    safeRewardAmount,
+    normalizeSalesKpiRewardStatus(rewardStatus),
+    String(note || '').trim().slice(0, 500),
+    recordId
+  );
+
+  return getSalesKpiRecordById(recordId);
+};
+
+const cancelSalesKpiRecord = (recordId, { cancellationNote = '', cancelledByUser = null } = {}) => {
+  const existingRecord = getSalesKpiRecordById(recordId);
+
+  if (!existingRecord || existingRecord.recordStatus !== 'active') {
+    return null;
+  }
+
+  const cancellerId = Number(cancelledByUser?.id || 0);
+  const cancellerName = normalizeFullName(cancelledByUser?.fullName || cancelledByUser?.email || '');
+  const normalizedNote = String(cancellationNote || '').trim().slice(0, 500);
+
+  if (normalizedNote.length < 3) {
+    const error = new Error('Vui lòng nhập lý do hủy ghi nhận KPI.');
+    error.code = 'SALES_KPI_CANCELLATION_NOTE_REQUIRED';
+    throw error;
+  }
+
+  cancelSalesKpiRecordStatement.run(
+    Number.isInteger(cancellerId) && cancellerId > 0 ? cancellerId : null,
+    cancellerName.slice(0, 160),
+    normalizedNote,
+    recordId
+  );
+
+  return getSalesKpiRecordById(recordId);
+};
+
 const getApprovedTestDriveScheduleConflict = ({
   appointmentId = 0,
   carId,
@@ -3092,7 +4954,10 @@ const updateTestDriveAppointmentStatus = (appointmentId, {
       appointmentId
     );
 
-    return getTestDriveAppointmentById(appointmentId);
+    const updatedAppointment = getTestDriveAppointmentById(appointmentId);
+    createTestDriveUserNotification(updatedAppointment);
+
+    return updatedAppointment;
   }
 
   updateTestDriveAppointmentStatusStatement.run(
@@ -3101,7 +4966,10 @@ const updateTestDriveAppointmentStatus = (appointmentId, {
     appointmentId
   );
 
-  return getTestDriveAppointmentById(appointmentId);
+  const updatedAppointment = getTestDriveAppointmentById(appointmentId);
+  createTestDriveUserNotification(updatedAppointment);
+
+  return updatedAppointment;
 };
 
 const deleteTestDriveAppointment = (appointmentId) => {
@@ -3155,7 +5023,10 @@ const createConsultationRequest = ({
     savedNote
   );
 
-  return getConsultationRequestById(result.lastInsertRowid);
+  const createdRequest = getConsultationRequestById(result.lastInsertRowid);
+  createAdminNotificationForConsultation(createdRequest);
+
+  return createdRequest;
 };
 
 const updateConsultationRequestStatus = (requestId, {
@@ -3175,6 +5046,448 @@ const updateConsultationRequestStatus = (requestId, {
   );
 
   return getConsultationRequestById(requestId);
+};
+
+const createDepositOrder = (order) => {
+  const normalizedOrder = normalizeDepositOrderPayload(order);
+
+  expireOverdueDepositOrders();
+
+  db.exec('BEGIN IMMEDIATE');
+
+  try {
+    const selectedCar = getCarById(normalizedOrder.carId);
+
+    if (!selectedCar) {
+      db.exec('COMMIT');
+      return null;
+    }
+
+    const activeOrder = getActiveDepositOrderForCar(selectedCar.id);
+
+    if (activeOrder) {
+      holdCarForDeposit(selectedCar.id);
+      throw createDepositCarHeldError(activeOrder);
+    }
+
+    if (!isCarAvailableForTestDrive(selectedCar)) {
+      db.exec('COMMIT');
+      return null;
+    }
+
+    const depositSettings = getDepositPaymentSettings();
+    const normalizedUserId = Number(normalizedOrder.userId || 0);
+    const bankTransferNote = normalizedOrder.bankTransferNote
+      || `${depositSettings.transferPrefix || 'OKXE COC'} XE${selectedCar.id}`;
+    const expiresAt = getDepositOrderExpiresAt(new Date(), depositSettings.holdHours);
+    const result = insertDepositOrderStatement.run(
+      Number.isInteger(normalizedUserId) && normalizedUserId > 0 ? normalizedUserId : null,
+      selectedCar.id,
+      selectedCar.name,
+      selectedCar.brand,
+      selectedCar.price,
+      Number(selectedCar.priceValue || 0),
+      normalizedOrder.fullName,
+      normalizedOrder.phone,
+      normalizedOrder.email,
+      normalizedOrder.province,
+      normalizedOrder.note.slice(0, 700),
+      normalizedOrder.depositAmount,
+      normalizedOrder.paymentMethod,
+      bankTransferNote.slice(0, 120),
+      expiresAt
+    );
+
+    holdCarForDeposit(selectedCar.id);
+
+    const createdOrder = getDepositOrderById(result.lastInsertRowid);
+    createDepositOrderStatusHistory(createdOrder.id, {
+      nextStatus: 'pending',
+      note: `Khách tạo đơn đặt cọc. Hạn giữ chỗ đến ${expiresAt}.`,
+      actorUserId: normalizedUserId,
+      actorName: normalizedOrder.fullName,
+      actionType: 'created',
+    });
+    const createdOrderWithHistory = getDepositOrderById(result.lastInsertRowid);
+    createAdminNotificationForDepositOrder(createdOrderWithHistory);
+    createDepositOrderUserNotification(createdOrderWithHistory);
+
+    db.exec('COMMIT');
+    return createdOrderWithHistory;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+};
+
+const updateDepositOrderTransferProof = (orderId, {
+  transferProofUrl = '',
+  transferProofFileName = '',
+  actorUserId = undefined,
+  actorName = '',
+  actorLabel = 'Khách hàng',
+  note = '',
+} = {}) => {
+  const existingOrder = getDepositOrderById(orderId);
+
+  if (!existingOrder) {
+    return null;
+  }
+
+  const normalizedProofUrl = String(transferProofUrl || '').trim().slice(0, 500);
+  const normalizedProofFileName = String(transferProofFileName || '').trim().slice(0, 180);
+  const normalizedActorUserId = actorUserId === undefined
+    ? existingOrder.userId
+    : (Number.isInteger(Number(actorUserId)) && Number(actorUserId) > 0 ? Number(actorUserId) : null);
+  const normalizedActorLabel = String(actorLabel || 'Khách hàng').trim().slice(0, 120);
+  const normalizedNote = String(note || '').trim().slice(0, 500);
+
+  if (!normalizedProofUrl) {
+    const error = new Error('Đường dẫn chứng từ chuyển khoản không hợp lệ.');
+    error.code = 'DEPOSIT_TRANSFER_PROOF_INVALID';
+    throw error;
+  }
+
+  db.exec('BEGIN IMMEDIATE');
+
+  try {
+    updateDepositOrderTransferProofStatement.run(
+      normalizedProofUrl,
+      normalizedProofFileName,
+      orderId
+    );
+
+    createDepositOrderStatusHistory(orderId, {
+      previousStatus: existingOrder.status,
+      nextStatus: existingOrder.status,
+      note: normalizedNote || (normalizedProofFileName
+        ? `${normalizedActorLabel} đã tải lên chứng từ chuyển khoản: ${normalizedProofFileName}.`
+        : `${normalizedActorLabel} đã tải lên chứng từ chuyển khoản.`),
+      actorUserId: normalizedActorUserId,
+      actorName: actorName || existingOrder.fullName || 'Khách hàng',
+      actionType: 'transfer_proof_uploaded',
+    });
+
+    const updatedOrder = getDepositOrderById(orderId);
+    db.exec('COMMIT');
+    return updatedOrder;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+};
+
+const updateDepositOrderVnpayPayment = (orderId, {
+  txnRef = undefined,
+  transactionNo = undefined,
+  responseCode = undefined,
+  transactionStatus = undefined,
+  bankCode = undefined,
+  cardType = undefined,
+  payDate = undefined,
+  paymentUrl = undefined,
+  confirmedAt = undefined,
+  historyNote = '',
+  actionType = 'vnpay_payment_update',
+} = {}) => {
+  const existingOrder = getDepositOrderById(orderId);
+
+  if (!existingOrder) {
+    return null;
+  }
+
+  const nextValue = (value, fallback, maxLength = 500) => {
+    if (value === undefined) {
+      return fallback || '';
+    }
+
+    return String(value || '').trim().slice(0, maxLength);
+  };
+
+  updateDepositOrderVnpayPaymentStatement.run(
+    nextValue(txnRef, existingOrder.vnpayTxnRef, 120),
+    nextValue(transactionNo, existingOrder.vnpayTransactionNo, 120),
+    nextValue(responseCode, existingOrder.vnpayResponseCode, 30),
+    nextValue(transactionStatus, existingOrder.vnpayTransactionStatus, 30),
+    nextValue(bankCode, existingOrder.vnpayBankCode, 60),
+    nextValue(cardType, existingOrder.vnpayCardType, 60),
+    nextValue(payDate, existingOrder.vnpayPayDate, 40),
+    nextValue(paymentUrl, existingOrder.vnpayPaymentUrl, 1000),
+    nextValue(confirmedAt, existingOrder.vnpayConfirmedAt, 40),
+    orderId
+  );
+
+  const normalizedHistoryNote = String(historyNote || '').trim().slice(0, 500);
+
+  if (normalizedHistoryNote) {
+    createDepositOrderStatusHistory(orderId, {
+      previousStatus: existingOrder.status,
+      nextStatus: existingOrder.status,
+      note: normalizedHistoryNote,
+      actorUserId: null,
+      actorName: 'VNPay sandbox',
+      actionType,
+    });
+  }
+
+  return getDepositOrderById(orderId);
+};
+
+const updateDepositOrderStatus = (orderId, {
+  status,
+  statusNote = '',
+  paymentReference = '',
+  paymentReceivedAt = '',
+  paymentConfirmationNote = '',
+  refundAmount = 0,
+  refundReference = '',
+  refundCompletedAt = '',
+  refundNote = '',
+  confirmedByUser = null,
+  actorUser = null,
+  actionType = 'status_update',
+}) => {
+  const existingOrder = getDepositOrderById(orderId);
+
+  if (!existingOrder) {
+    return null;
+  }
+
+  const nextStatus = normalizeDepositOrderStatus(status);
+  const activeDepositSettings = getDepositPaymentSettings();
+  const normalizedStatusNote = String(statusNote || '').trim().slice(0, 500)
+    || (nextStatus === 'expired'
+      ? `Đơn đặt cọc đã quá hạn giữ chỗ ${activeDepositSettings.holdHours} giờ.`
+      : nextStatus === 'completed'
+        ? 'Giao dịch mua xe đã hoàn tất. Xe đã được chuyển sang trạng thái đã bán.'
+      : '');
+  const actingUser = actorUser || confirmedByUser || null;
+  const actorUserId = Number(actingUser?.id || 0);
+  const actorName = normalizeFullName(actingUser?.fullName || actingUser?.email || '');
+  let refundHistoryNote = '';
+
+  if (!isAllowedDepositOrderStatusTransition(existingOrder.status, nextStatus)) {
+    const error = new Error('Không thể chuyển trạng thái đơn đặt cọc theo luồng này.');
+    error.code = 'DEPOSIT_ORDER_STATUS_TRANSITION_INVALID';
+    error.currentStatus = existingOrder.status;
+    error.nextStatus = nextStatus;
+    throw error;
+  }
+
+  db.exec('BEGIN IMMEDIATE');
+
+  try {
+    if (
+      ['completed', 'cancelled_after_deposit'].includes(nextStatus)
+      && existingOrder.status !== 'confirmed'
+      && existingOrder.status !== nextStatus
+    ) {
+      const error = new Error('Chỉ có thể chốt hoặc hủy sau đặt cọc khi đơn đã được xác nhận nhận tiền.');
+      error.code = 'DEPOSIT_ORDER_PAYMENT_NOT_CONFIRMED';
+      throw error;
+    }
+
+    if (isActiveDepositOrderStatus(nextStatus)) {
+      const activeOrder = getActiveDepositOrderForCar(existingOrder.carId, existingOrder.id);
+
+      if (activeOrder) {
+        holdCarForDeposit(existingOrder.carId);
+        throw createDepositCarHeldError(activeOrder);
+      }
+    }
+
+    updateDepositOrderStatusStatement.run(
+      nextStatus,
+      normalizedStatusNote,
+      orderId
+    );
+
+    if (nextStatus === 'confirmed') {
+      const normalizedPaymentReference = String(paymentReference || '').trim().slice(0, 120);
+      const duplicateReferenceOrder = getDepositOrderByPaymentReference(
+        normalizedPaymentReference,
+        existingOrder.id
+      );
+
+      if (duplicateReferenceOrder) {
+        const error = new Error('Mã giao dịch này đã được dùng cho một đơn đặt cọc khác.');
+        error.code = 'DEPOSIT_PAYMENT_REFERENCE_DUPLICATED';
+        error.order = duplicateReferenceOrder;
+        throw error;
+      }
+
+      const confirmedByUserId = Number(confirmedByUser?.id || 0);
+      const confirmedByName = normalizeFullName(confirmedByUser?.fullName || confirmedByUser?.email || '');
+
+      updateDepositOrderPaymentConfirmationStatement.run(
+        normalizedPaymentReference,
+        String(paymentReceivedAt || '').trim().slice(0, 40),
+        String(paymentConfirmationNote || '').trim().slice(0, 500),
+        Number.isInteger(confirmedByUserId) && confirmedByUserId > 0 ? confirmedByUserId : null,
+        confirmedByName.slice(0, 160),
+        orderId
+      );
+    }
+
+    if (nextStatus === 'cancelled_after_deposit') {
+      const normalizedRefundAmount = Number(refundAmount || 0);
+      const safeRefundAmount = Number.isFinite(normalizedRefundAmount) && normalizedRefundAmount > 0
+        ? Math.trunc(normalizedRefundAmount)
+        : 0;
+
+      if (safeRefundAmount > Number(existingOrder.depositAmount || 0)) {
+        const error = new Error('Số tiền hoàn cọc không được lớn hơn số tiền đặt cọc đã nhận.');
+        error.code = 'DEPOSIT_REFUND_AMOUNT_EXCEEDED';
+        throw error;
+      }
+
+      const refundByUserId = Number(actingUser?.id || 0);
+      const refundByName = normalizeFullName(actingUser?.fullName || actingUser?.email || '');
+
+      updateDepositOrderRefundStatement.run(
+        safeRefundAmount,
+        String(refundReference || '').trim().slice(0, 120),
+        String(refundCompletedAt || '').trim().slice(0, 40),
+        String(refundNote || '').trim().slice(0, 500),
+        Number.isInteger(refundByUserId) && refundByUserId > 0 ? refundByUserId : null,
+        refundByName.slice(0, 160),
+        orderId
+      );
+
+      const refundChanged =
+        safeRefundAmount !== Number(existingOrder.refundAmount || 0)
+        || String(refundReference || '').trim() !== String(existingOrder.refundReference || '').trim()
+        || String(refundCompletedAt || '').trim() !== String(existingOrder.refundCompletedAt || '').trim()
+        || String(refundNote || '').trim() !== String(existingOrder.refundNote || '').trim();
+
+      if (refundChanged) {
+        const refundAmountText = safeRefundAmount.toLocaleString('vi-VN');
+        refundHistoryNote = safeRefundAmount > 0
+          ? `Ghi nhận hoàn cọc ${refundAmountText} VNĐ${refundReference ? `, mã giao dịch ${String(refundReference).trim()}` : ''}${refundCompletedAt ? `, thời gian hoàn ${String(refundCompletedAt).trim()}` : ''}.`
+          : 'Ghi nhận hủy sau đặt cọc không phát sinh số tiền hoàn cọc.';
+      }
+    }
+
+    if (nextStatus === 'expired') {
+      updateDepositOrderExpiredAtStatement.run(orderId);
+    }
+
+    if (nextStatus === 'completed') {
+      markCarSoldAfterDeposit(existingOrder.carId);
+    } else if (isActiveDepositOrderStatus(nextStatus)) {
+      holdCarForDeposit(existingOrder.carId);
+    } else {
+      releaseCarDepositHoldIfClear(existingOrder.carId, existingOrder.id);
+    }
+
+    if (existingOrder.status !== nextStatus || existingOrder.statusNote !== normalizedStatusNote) {
+      createDepositOrderStatusHistory(orderId, {
+        previousStatus: existingOrder.status,
+        nextStatus,
+        note: normalizedStatusNote,
+        actorUserId,
+        actorName,
+        actionType,
+      });
+    }
+
+    if (refundHistoryNote) {
+      createDepositOrderStatusHistory(orderId, {
+        previousStatus: existingOrder.status,
+        nextStatus,
+        note: refundHistoryNote,
+        actorUserId,
+        actorName,
+        actionType: 'refund_recorded',
+      });
+    }
+
+    const updatedOrder = getDepositOrderById(orderId);
+    createDepositOrderUserNotification(updatedOrder);
+
+    db.exec('COMMIT');
+    return updatedOrder;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+};
+
+const remindPendingDepositOrders = () => {
+  const reminderWindow = `+${depositOrderReminderHoursBeforeExpiry} hours`;
+  const reminderCandidates = listDepositOrderPaymentReminderCandidatesStatement
+    .all(reminderWindow)
+    .map(sanitizeDepositOrder)
+    .filter(Boolean);
+  const remindedOrders = [];
+
+  reminderCandidates.forEach((order) => {
+    db.exec('BEGIN IMMEDIATE');
+
+    try {
+      const freshOrder = getDepositOrderById(order.id);
+
+      if (
+        !freshOrder
+        || freshOrder.status !== 'pending'
+        || freshOrder.paymentReminderSentAt
+        || !freshOrder.expiresAt
+        || isDepositOrderOverdue(freshOrder)
+      ) {
+        db.exec('COMMIT');
+        return;
+      }
+
+      markDepositOrderPaymentReminderSentStatement.run(freshOrder.id);
+      createDepositOrderStatusHistory(freshOrder.id, {
+        previousStatus: freshOrder.status,
+        nextStatus: freshOrder.status,
+        note: `Hệ thống đã nhắc khách chuyển khoản trước khi hết hạn giữ chỗ ${freshOrder.expiresAt}.`,
+        actorUserId: null,
+        actorName: 'Hệ thống OkXe',
+        actionType: 'payment_reminder_sent',
+      });
+
+      const remindedOrder = getDepositOrderById(freshOrder.id);
+      createDepositOrderPaymentReminderNotification(remindedOrder);
+      db.exec('COMMIT');
+
+      if (remindedOrder) {
+        remindedOrders.push(remindedOrder);
+      }
+    } catch (error) {
+      db.exec('ROLLBACK');
+      throw error;
+    }
+  });
+
+  return remindedOrders;
+};
+
+const expireOverdueDepositOrders = () => {
+  const overdueOrders = listOverdueDepositOrdersStatement
+    .all()
+    .map(sanitizeDepositOrder)
+    .filter(Boolean);
+  const expiredOrders = [];
+
+  overdueOrders.forEach((order) => {
+    const updatedOrder = updateDepositOrderStatus(order.id, {
+      status: 'expired',
+      statusNote: `Đơn đặt cọc ${order.code} đã quá hạn giữ chỗ ${depositOrderDefaultHoldHours} giờ và được hệ thống tự động kết thúc.`,
+      actorUser: {
+        id: null,
+        fullName: 'Hệ thống OkXe',
+      },
+      actionType: 'auto_expired',
+    });
+
+    if (updatedOrder) {
+      expiredOrders.push(updatedOrder);
+    }
+  });
+
+  return expiredOrders;
 };
 
 const deleteConsultationRequest = (requestId) => {
@@ -3203,7 +5516,11 @@ const createCarBuyRequest = (request) => {
     normalizedRequest.address
   );
 
-  return getCarBuyRequestById(result.lastInsertRowid);
+  const createdRequest = getCarBuyRequestById(result.lastInsertRowid);
+  createAdminNotificationForCarBuyRequest(createdRequest);
+  createCarBuyRequestUserNotification(createdRequest);
+
+  return createdRequest;
 };
 
 const createCarBuyRequestOffer = (requestId, offer) => {
@@ -3229,7 +5546,11 @@ const createCarBuyRequestOffer = (requestId, offer) => {
     normalizedOffer.contactPreference
   );
 
-  return getCarBuyRequestOfferById(result.lastInsertRowid);
+  const createdOffer = getCarBuyRequestOfferById(result.lastInsertRowid);
+  createAdminNotificationForCarBuyRequestOffer(existingRequest, createdOffer);
+  createCarBuyRequestOfferUserNotification(existingRequest, createdOffer);
+
+  return createdOffer;
 };
 
 const updateCarBuyRequestStatus = (requestId, {
@@ -3259,7 +5580,10 @@ const updateCarBuyRequestStatus = (requestId, {
     requestId
   );
 
-  return getCarBuyRequestById(requestId);
+  const updatedRequest = getCarBuyRequestById(requestId);
+  createCarBuyRequestUserNotification(updatedRequest);
+
+  return updatedRequest;
 };
 
 const updateCarBuyRequestOfferStatus = (offerId, {
@@ -3278,7 +5602,11 @@ const updateCarBuyRequestOfferStatus = (offerId, {
     offerId
   );
 
-  return getCarBuyRequestOfferById(offerId);
+  const updatedOffer = getCarBuyRequestOfferById(offerId);
+  const ownerRequest = getCarBuyRequestById(existingOffer.requestId);
+  createCarBuyRequestOfferUserNotification(ownerRequest, updatedOffer);
+
+  return updatedOffer;
 };
 
 const createUserNotification = ({
@@ -3291,32 +5619,671 @@ const createUserNotification = ({
   status = '',
 }) => {
   const normalizedUserId = Number(userId || 0);
+  const normalizedType = String(type || '').trim();
+  const normalizedTitle = String(title || '').trim().slice(0, 180);
 
-  if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
+  if (
+    !Number.isInteger(normalizedUserId)
+    || normalizedUserId <= 0
+    || !normalizedType
+    || !normalizedTitle
+  ) {
     return null;
   }
 
+  const normalizedMessage = String(message || '').trim().slice(0, 700);
+  const normalizedEntityType = String(entityType || '').trim().slice(0, 80);
+  const normalizedEntityId = Number.isInteger(Number(entityId)) && Number(entityId) > 0
+    ? Number(entityId)
+    : null;
+  const normalizedStatus = String(status || '').trim().slice(0, 40);
   const result = insertUserNotificationStatement.run(
     normalizedUserId,
-    String(type || '').trim(),
-    String(title || '').trim().slice(0, 180),
-    String(message || '').trim().slice(0, 700),
-    String(entityType || '').trim().slice(0, 80),
-    Number.isInteger(Number(entityId)) && Number(entityId) > 0 ? Number(entityId) : null,
-    String(status || '').trim().slice(0, 40)
+    normalizedType,
+    normalizedTitle,
+    normalizedMessage,
+    normalizedEntityType,
+    normalizedEntityId,
+    normalizedStatus
   );
 
   return sanitizeUserNotification({
     id: result.lastInsertRowid,
     user_id: normalizedUserId,
-    type,
-    title,
-    message,
-    entity_type: entityType,
-    entity_id: entityId,
-    status,
+    type: normalizedType,
+    title: normalizedTitle,
+    message: normalizedMessage,
+    entity_type: normalizedEntityType,
+    entity_id: normalizedEntityId,
+    status: normalizedStatus,
+    is_read: 0,
     created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    deleted_at: null,
   });
+};
+
+const createEntityUserNotification = (notification) => {
+  const normalizedUserId = Number(notification?.userId || 0);
+  const normalizedType = String(notification?.type || '').trim();
+  const normalizedEntityType = String(notification?.entityType || '').trim();
+  const normalizedEntityId = Number.isInteger(Number(notification?.entityId)) && Number(notification.entityId) > 0
+    ? Number(notification.entityId)
+    : null;
+  const normalizedStatus = String(notification?.status || '').trim().slice(0, 40);
+
+  if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0 || !normalizedType) {
+    return null;
+  }
+
+  const existingNotification = findUserNotificationForEntityStatement.get(
+    normalizedUserId,
+    normalizedType,
+    normalizedEntityType,
+    normalizedEntityId,
+    normalizedStatus
+  );
+
+  if (existingNotification) {
+    return sanitizeUserNotification(existingNotification);
+  }
+
+  return createUserNotification({
+    ...notification,
+    userId: normalizedUserId,
+    type: normalizedType,
+    entityType: normalizedEntityType,
+    entityId: normalizedEntityId,
+    status: normalizedStatus,
+  });
+};
+
+const getDisplayDateTime = (dateValue = '', timeValue = '') =>
+  [String(dateValue || '').trim(), String(timeValue || '').trim()]
+    .filter(Boolean)
+    .join(', khung giờ ');
+
+const getTestDriveNotificationStatus = (appointment = {}) => {
+  const normalizedStatus = normalizeTestDriveAppointmentStatus(appointment.status);
+
+  if (normalizedStatus === 'approved' || normalizedStatus === 'cancelled') {
+    return normalizedStatus;
+  }
+
+  return String(appointment.statusNote || '').trim()
+    ? 'pending_conflict'
+    : 'registered';
+};
+
+const createTestDriveUserNotification = (appointment) => {
+  if (!appointment?.userId) {
+    return null;
+  }
+
+  const notificationStatus = getTestDriveNotificationStatus(appointment);
+  const carTitle = [appointment.carBrand, appointment.carName].filter(Boolean).join(' ') || 'xe đã chọn';
+  const scheduleText = getDisplayDateTime(appointment.preferredDate, appointment.preferredTimeSlot) || 'lịch đã chọn';
+  const statusNote = String(appointment.statusNote || '').trim();
+  const notificationByStatus = {
+    registered: {
+      title: 'Đã nhận đăng ký lái thử',
+      message: `OkXe đã nhận đăng ký lái thử ${carTitle} vào ${scheduleText}. Lịch hẹn đang chờ nhân viên xác nhận.`,
+    },
+    pending_conflict: {
+      title: 'Cần đổi khung giờ lái thử',
+      message: `${statusNote || `Khung giờ ${scheduleText} cần được sắp xếp lại.`} Nhân viên OkXe sẽ hỗ trợ đổi lịch phù hợp.`,
+    },
+    approved: {
+      title: 'Đồng ý cho phép lái thử',
+      message: statusNote || `OkXe đã xác nhận lịch lái thử ${carTitle} vào ${scheduleText}.`,
+    },
+    cancelled: {
+      title: 'Hủy lịch hẹn lái thử',
+      message: statusNote || `Lịch lái thử ${carTitle} vào ${scheduleText} đã được hủy.`,
+    },
+  };
+  const notificationContent = notificationByStatus[notificationStatus] || notificationByStatus.registered;
+
+  return createEntityUserNotification({
+    userId: appointment.userId,
+    type: 'test-drive',
+    title: notificationContent.title,
+    message: notificationContent.message,
+    entityType: 'test_drive_appointment',
+    entityId: appointment.id,
+    status: notificationStatus,
+  });
+};
+
+const createDepositOrderUserNotification = (order) => {
+  if (!order?.userId) {
+    return null;
+  }
+
+  const status = normalizeDepositOrderStatus(order.status);
+  const carTitle = [order.carBrand, order.carName].filter(Boolean).join(' ') || 'xe đã chọn';
+  const statusNote = String(order.statusNote || '').trim();
+  const depositAmountText = Number(order.depositAmount || 0).toLocaleString('vi-VN');
+  const paymentMethod = normalizeDepositPaymentMethod(order.paymentMethod);
+  const isBankTransfer = paymentMethod === 'bank';
+  const isVnpayPayment = paymentMethod === 'vnpay';
+  const orderCode = order.code || `DC-${String(order.id || '').padStart(6, '0')}`;
+  const expiresText = order.expiresAt
+    ? ` Hạn giữ chỗ đến ${order.expiresAt}.`
+    : '';
+  const transferNoteText = order.bankTransferNote
+    ? ` Nội dung chuyển khoản: ${order.bankTransferNote}.`
+    : '';
+  const paymentReferenceText = order.paymentReference
+    ? ` Mã giao dịch: ${order.paymentReference}.`
+    : '';
+  const refundAmountText = Number(order.refundAmount || 0).toLocaleString('vi-VN');
+  const refundReferenceText = order.refundReference
+    ? ` Mã hoàn tiền: ${order.refundReference}.`
+    : '';
+  const refundCompletedText = order.refundCompletedAt
+    ? ` Thời gian hoàn: ${order.refundCompletedAt}.`
+    : '';
+  const refundText = Number(order.refundAmount || 0) > 0
+    ? ` OkXe đã ghi nhận hoàn cọc ${refundAmountText} VNĐ.${refundReferenceText}${refundCompletedText}`
+    : '';
+  const contentByStatus = {
+    pending: {
+      title: isBankTransfer
+        ? 'Đang chờ xác nhận chuyển khoản'
+        : isVnpayPayment
+          ? 'Đang chờ thanh toán VNPay'
+          : 'Đã nhận yêu cầu đặt cọc',
+      message: isBankTransfer
+        ? `OkXe đã tạo đơn đặt cọc ${orderCode} cho ${carTitle} với số tiền ${depositAmountText} VNĐ.${transferNoteText}${expiresText} Vui lòng chuyển khoản đúng nội dung và chờ nhân viên xác nhận.`
+        : isVnpayPayment
+          ? `OkXe đã tạo đơn đặt cọc ${orderCode} cho ${carTitle} với số tiền ${depositAmountText} VNĐ.${expiresText} Vui lòng hoàn tất thanh toán trên cổng VNPay sandbox để hệ thống tự xác nhận.`
+          : `OkXe đã nhận yêu cầu đặt cọc ${orderCode} cho ${carTitle} với số tiền ${depositAmountText} VNĐ.${expiresText} Nhân viên sẽ kiểm tra và xác nhận sớm.`,
+    },
+    confirmed: {
+      title: 'Đã nhận tiền đặt cọc',
+      message: statusNote || `OkXe đã xác nhận nhận tiền đặt cọc ${orderCode} cho ${carTitle}.${paymentReferenceText} Bạn có thể xem/in biên nhận trong mục Quản lý đặt cọc.`,
+    },
+    completed: {
+      title: 'Giao dịch mua xe đã hoàn tất',
+      message: statusNote || `Đơn đặt cọc ${orderCode} cho ${carTitle} đã được chốt hoàn tất. Xe đã chuyển sang trạng thái đã bán.`,
+    },
+    cancelled_after_deposit: {
+      title: 'Giao dịch sau đặt cọc đã hủy',
+      message: statusNote
+        ? `${statusNote}${refundText}`
+        : `Đơn đặt cọc ${orderCode} cho ${carTitle} đã được hủy sau khi xác nhận tiền.${refundText || ' Vui lòng liên hệ OkXe để được hỗ trợ chính sách hoàn cọc hoặc xử lý tiếp.'}`,
+    },
+    cancelled: {
+      title: 'Đơn đặt cọc đã bị hủy',
+      message: statusNote || `Đơn đặt cọc ${orderCode} cho ${carTitle} đã bị hủy. Vui lòng liên hệ OkXe nếu bạn cần hỗ trợ thêm.`,
+    },
+    expired: {
+      title: 'Đơn đặt cọc đã quá hạn',
+      message: statusNote || `Đơn đặt cọc ${orderCode} cho ${carTitle} đã quá hạn giữ chỗ. Xe có thể được mở lại để khách khác đặt cọc.`,
+    },
+  };
+  const notificationContent = contentByStatus[status] || contentByStatus.pending;
+
+  return createEntityUserNotification({
+    userId: order.userId,
+    type: 'deposit-order',
+    title: notificationContent.title,
+    message: notificationContent.message,
+    entityType: 'deposit_order',
+    entityId: order.id,
+    status,
+  });
+};
+
+const createDepositOrderPaymentReminderNotification = (order) => {
+  if (!order?.userId) {
+    return null;
+  }
+
+  const carTitle = [order.carBrand, order.carName].filter(Boolean).join(' ') || 'xe đã chọn';
+  const orderCode = order.code || `DC-${String(order.id || '').padStart(6, '0')}`;
+  const depositAmountText = Number(order.depositAmount || 0).toLocaleString('vi-VN');
+  const expiresText = order.expiresAt
+    ? ` trước hạn giữ chỗ ${order.expiresAt}`
+    : '';
+  const transferNoteText = order.bankTransferNote
+    ? ` Nội dung chuyển khoản: ${order.bankTransferNote}.`
+    : '';
+
+  return createEntityUserNotification({
+    userId: order.userId,
+    type: 'deposit-order',
+    title: 'Nhắc chuyển khoản đặt cọc',
+    message: `Đơn đặt cọc ${orderCode} cho ${carTitle} vẫn đang chờ xác nhận. Vui lòng chuyển khoản ${depositAmountText} VNĐ${expiresText} để OkXe tiếp tục giữ xe.${transferNoteText}`,
+    entityType: 'deposit_order',
+    entityId: order.id,
+    status: 'payment_reminder',
+  });
+};
+
+const createCarBuyRequestUserNotification = (request) => {
+  if (!request?.userId) {
+    return null;
+  }
+
+  const status = normalizeCarBuyRequestStatus(request.status);
+  const titleText = request.title || 'Tin mua ô tô của bạn';
+  const statusNote = String(request.statusNote || '').trim();
+  const contentByStatus = {
+    pending: {
+      title: 'Đã nhận tin mua ô tô',
+      message: `OkXe đã nhận tin "${titleText}". Tin đang chờ nhân viên duyệt trước khi hiển thị công khai.`,
+    },
+    approved: {
+      title: 'Tin mua ô tô đã được duyệt',
+      message: statusNote || `Tin "${titleText}" đã được duyệt và hiển thị trên mục Tin mua ô tô.`,
+    },
+    rejected: {
+      title: 'Tin mua ô tô bị từ chối',
+      message: statusNote || `Tin "${titleText}" chưa được duyệt. Bạn có thể đăng lại với nội dung phù hợp hơn.`,
+    },
+  };
+  const notificationContent = contentByStatus[status] || contentByStatus.pending;
+
+  return createEntityUserNotification({
+    userId: request.userId,
+    type: 'car-buy-request',
+    title: notificationContent.title,
+    message: notificationContent.message,
+    entityType: 'car_buy_request',
+    entityId: request.id,
+    status,
+  });
+};
+
+const createCarBuyRequestOfferUserNotification = (request, offer) => {
+  if (!request?.userId || !offer?.id) {
+    return null;
+  }
+
+  const status = normalizeCarBuyRequestOfferStatus(offer.status);
+  const carTitle = [offer.carBrand, offer.carModel, offer.carYear].filter(Boolean).join(' ') || 'một xe phù hợp';
+  const offerDetails = [offer.carVersion, offer.expectedPrice, offer.mileage].filter(Boolean).join(' - ');
+  const titleText = request.title || 'tin mua ô tô của bạn';
+  const contentByStatus = {
+    new: {
+      title: 'Có xe phù hợp mới',
+      message: `Có người vừa đề xuất ${carTitle}${offerDetails ? ` (${offerDetails})` : ''} cho "${titleText}". OkXe sẽ kiểm tra trước khi kết nối hai bên.`,
+    },
+    contacted: {
+      title: 'OkXe đang xác minh xe phù hợp',
+      message: `OkXe đã liên hệ người có ${carTitle}${offerDetails ? ` (${offerDetails})` : ''} để xác minh thông tin.`,
+    },
+    matched: {
+      title: 'Xe phù hợp đã sẵn sàng kết nối',
+      message: `Đề xuất ${carTitle}${offerDetails ? ` (${offerDetails})` : ''} phù hợp với "${titleText}". OkXe sẽ hỗ trợ kết nối nhu cầu mua bán.`,
+    },
+    rejected: {
+      title: 'Một đề xuất xe chưa phù hợp',
+      message: String(offer.statusNote || '').trim() || `Đề xuất ${carTitle} chưa phù hợp với nhu cầu "${titleText}".`,
+    },
+  };
+  const notificationContent = contentByStatus[status] || contentByStatus.new;
+
+  return createEntityUserNotification({
+    userId: request.userId,
+    type: 'car-buy-request-offer',
+    title: notificationContent.title,
+    message: notificationContent.message,
+    entityType: 'car_buy_request_offer',
+    entityId: offer.id,
+    status,
+  });
+};
+
+const createPromotionUserNotification = (userId, promotion) => {
+  if (!promotion?.id || promotion.showOnHome === false) {
+    return null;
+  }
+
+  return createEntityUserNotification({
+    userId,
+    type: 'promotion',
+    title: promotion.title || 'Ưu đãi mới từ OkXe',
+    message: promotion.summary || 'OkXe vừa cập nhật một chương trình ưu đãi mới dành cho khách hàng.',
+    entityType: 'promotion',
+    entityId: promotion.id,
+    status: 'active',
+  });
+};
+
+const syncUserNotificationsForUser = (userId) => {
+  const normalizedUserId = Number(userId || 0);
+
+  if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
+    return;
+  }
+
+  listHomepagePromotions().forEach((promotion) => {
+    createPromotionUserNotification(normalizedUserId, promotion);
+  });
+
+  listTestDriveAppointmentsByUser(normalizedUserId).forEach(createTestDriveUserNotification);
+
+  listDepositOrdersByUser(normalizedUserId).forEach(createDepositOrderUserNotification);
+
+  listCarBuyRequestsByUser(normalizedUserId).forEach((request) => {
+    createCarBuyRequestUserNotification(request);
+
+    if (Array.isArray(request.offerNotifications)) {
+      request.offerNotifications.forEach((offer) => {
+        createCarBuyRequestOfferUserNotification(request, offer);
+      });
+    }
+  });
+};
+
+const markUserNotificationRead = (userId, notificationId) => {
+  const normalizedNotificationId = Number(notificationId || 0);
+  const normalizedUserId = Number(userId || 0);
+
+  if (!Number.isInteger(normalizedNotificationId) || normalizedNotificationId <= 0) {
+    return null;
+  }
+
+  markUserNotificationReadStatement.run(normalizedNotificationId, normalizedUserId);
+
+  return sanitizeUserNotification(
+    findUserNotificationByIdForUserStatement.get(normalizedNotificationId, normalizedUserId)
+  );
+};
+
+const markAllUserNotificationsRead = (userId) => {
+  const normalizedUserId = Number(userId || 0);
+
+  if (!Number.isInteger(normalizedUserId) || normalizedUserId <= 0) {
+    return 0;
+  }
+
+  const result = markAllUserNotificationsReadStatement.run(normalizedUserId);
+
+  return Number(result.changes || 0);
+};
+
+const deleteUserNotificationForUser = (userId, notificationId) => {
+  const normalizedNotificationId = Number(notificationId || 0);
+  const normalizedUserId = Number(userId || 0);
+
+  if (!Number.isInteger(normalizedNotificationId) || normalizedNotificationId <= 0) {
+    return null;
+  }
+
+  const existingNotification = sanitizeUserNotification(
+    findUserNotificationByIdForUserStatement.get(normalizedNotificationId, normalizedUserId)
+  );
+
+  if (!existingNotification) {
+    return null;
+  }
+
+  softDeleteUserNotificationStatement.run(normalizedNotificationId, normalizedUserId);
+
+  return existingNotification;
+};
+
+const createAdminNotification = ({
+  type,
+  title,
+  message = '',
+  entityType = '',
+  entityId = null,
+  status = '',
+}) => {
+  const normalizedType = String(type || '').trim();
+  const normalizedTitle = String(title || '').trim().slice(0, 180);
+
+  if (!normalizedType || !normalizedTitle) {
+    return null;
+  }
+
+  const normalizedMessage = String(message || '').trim().slice(0, 700);
+  const normalizedEntityType = String(entityType || '').trim().slice(0, 80);
+  const normalizedEntityId = Number.isInteger(Number(entityId)) && Number(entityId) > 0
+    ? Number(entityId)
+    : null;
+  const normalizedStatus = String(status || '').trim().slice(0, 40);
+  const result = insertAdminNotificationStatement.run(
+    normalizedType,
+    normalizedTitle,
+    normalizedMessage,
+    normalizedEntityType,
+    normalizedEntityId,
+    normalizedStatus
+  );
+
+  return sanitizeAdminNotification({
+    id: result.lastInsertRowid,
+    type: normalizedType,
+    title: normalizedTitle,
+    message: normalizedMessage,
+    entity_type: normalizedEntityType,
+    entity_id: normalizedEntityId,
+    status: normalizedStatus,
+    is_read: 0,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    deleted_at: null,
+  });
+};
+
+const createEntityAdminNotification = (notification) => {
+  const normalizedType = String(notification?.type || '').trim();
+  const normalizedEntityType = String(notification?.entityType || '').trim();
+  const normalizedEntityId = Number.isInteger(Number(notification?.entityId)) && Number(notification.entityId) > 0
+    ? Number(notification.entityId)
+    : null;
+  const normalizedStatus = String(notification?.status || '').trim().slice(0, 40);
+
+  if (!normalizedType) {
+    return null;
+  }
+
+  const existingNotification = findAdminNotificationForEntityStatement.get(
+    normalizedType,
+    normalizedEntityType,
+    normalizedEntityId,
+    normalizedStatus
+  );
+
+  if (existingNotification) {
+    return sanitizeAdminNotification(existingNotification);
+  }
+
+  return createAdminNotification({
+    ...notification,
+    type: normalizedType,
+    entityType: normalizedEntityType,
+    entityId: normalizedEntityId,
+    status: normalizedStatus,
+  });
+};
+
+const createAdminNotificationForTestDrive = (appointment) => {
+  if (!appointment?.id) {
+    return null;
+  }
+
+  const carTitle = [appointment.carBrand, appointment.carName].filter(Boolean).join(' ') || 'xe đã chọn';
+  const scheduleText = getDisplayDateTime(appointment.preferredDate, appointment.preferredTimeSlot) || 'lịch đã chọn';
+  const note = String(appointment.statusNote || '').trim();
+
+  return createEntityAdminNotification({
+    type: 'test-drive',
+    title: 'Khách vừa đăng ký lái thử',
+    message: `${appointment.fullName || 'Khách hàng'} đăng ký lái thử ${carTitle} vào ${scheduleText}.${note ? ` Ghi chú: ${note}` : ''}`,
+    entityType: 'test_drive_appointment',
+    entityId: appointment.id,
+    status: 'new',
+  });
+};
+
+const createAdminNotificationForConsultation = (request) => {
+  if (!request?.id) {
+    return null;
+  }
+
+  const carTitle = [request.carBrand, request.carName].filter(Boolean).join(' ') || 'xe đang quan tâm';
+  const contactText = [request.phone, request.email].filter(Boolean).join(' - ');
+
+  return createEntityAdminNotification({
+    type: 'consultation',
+    title: 'Khách vừa gửi yêu cầu tư vấn',
+    message: `${request.fullName || 'Khách hàng'} cần tư vấn ${carTitle}${contactText ? `. Liên hệ: ${contactText}` : ''}.`,
+    entityType: 'consultation_request',
+    entityId: request.id,
+    status: 'new',
+  });
+};
+
+const createAdminNotificationForDepositOrder = (order) => {
+  if (!order?.id) {
+    return null;
+  }
+
+  const carTitle = [order.carBrand, order.carName].filter(Boolean).join(' ') || 'xe đang đặt cọc';
+  const contactText = [order.phone, order.email].filter(Boolean).join(' - ');
+  const depositAmountText = Number(order.depositAmount || 0).toLocaleString('vi-VN');
+
+  return createEntityAdminNotification({
+    type: 'deposit-order',
+    title: 'Khách vừa gửi đơn đặt cọc',
+    message: `${order.fullName || 'Khách hàng'} đặt cọc ${carTitle} với số tiền ${depositAmountText} VNĐ${contactText ? `. Liên hệ: ${contactText}` : ''}.`,
+    entityType: 'deposit_order',
+    entityId: order.id,
+    status: 'new',
+  });
+};
+
+const createAdminNotificationForCarBuyRequest = (request) => {
+  if (!request?.id) {
+    return null;
+  }
+
+  return createEntityAdminNotification({
+    type: 'car-buy-request',
+    title: 'Khách vừa đăng tin mua xe',
+    message: `${request.fullName || 'Khách hàng'} gửi tin "${request.title || 'Nhu cầu mua ô tô'}"${request.province ? ` tại ${request.province}` : ''}.`,
+    entityType: 'car_buy_request',
+    entityId: request.id,
+    status: 'new',
+  });
+};
+
+const createAdminNotificationForCarBuyRequestOffer = (request, offer) => {
+  if (!request?.id || !offer?.id) {
+    return null;
+  }
+
+  const carTitle = [offer.carBrand, offer.carModel, offer.carYear].filter(Boolean).join(' ') || 'xe phù hợp';
+  const requestTitle = request.title || 'tin mua xe';
+
+  return createEntityAdminNotification({
+    type: 'car-buy-request-offer',
+    title: 'Có đề xuất xe phù hợp mới',
+    message: `${offer.sellerName || 'Người bán'} gửi đề xuất ${carTitle} cho "${requestTitle}".`,
+    entityType: 'car_buy_request_offer',
+    entityId: offer.id,
+    status: 'new',
+  });
+};
+
+const createAdminNotificationForCarSellRequest = (request) => {
+  if (!request?.id) {
+    return null;
+  }
+
+  const carTitle = [request.brand, request.name, request.year].filter(Boolean).join(' ') || 'xe cần bán';
+
+  return createEntityAdminNotification({
+    type: 'car-sell-request',
+    title: 'Khách vừa gửi xe cần bán',
+    message: `${request.fullName || 'Khách hàng'} gửi thông tin ${carTitle}. Nhân viên cần kiểm tra trước khi duyệt nhập kho.`,
+    entityType: 'car_sell_request',
+    entityId: request.id,
+    status: 'new',
+  });
+};
+
+const syncAdminNotifications = () => {
+  listTestDriveAppointments()
+    .filter((appointment) => appointment.status === 'pending')
+    .forEach(createAdminNotificationForTestDrive);
+
+  listConsultationRequests()
+    .filter((request) => request.status === 'new')
+    .forEach(createAdminNotificationForConsultation);
+
+  listDepositOrders()
+    .filter((order) => order.status === 'pending')
+    .forEach(createAdminNotificationForDepositOrder);
+
+  listCarBuyRequests()
+    .filter((request) => request.status === 'pending')
+    .forEach(createAdminNotificationForCarBuyRequest);
+
+  listCarBuyRequests().forEach((request) => {
+    if (!Array.isArray(request.offers)) {
+      return;
+    }
+
+    request.offers
+      .filter((offer) => offer.status === 'new')
+      .forEach((offer) => createAdminNotificationForCarBuyRequestOffer(request, offer));
+  });
+
+  listCarSellRequests()
+    .filter((request) => request.status === 'pending')
+    .forEach(createAdminNotificationForCarSellRequest);
+};
+
+const listAdminNotifications = () => {
+  syncAdminNotifications();
+
+  return listAdminNotificationsStatement.all().map(sanitizeAdminNotification);
+};
+
+const markAdminNotificationRead = (notificationId) => {
+  const normalizedNotificationId = Number(notificationId || 0);
+
+  if (!Number.isInteger(normalizedNotificationId) || normalizedNotificationId <= 0) {
+    return null;
+  }
+
+  markAdminNotificationReadStatement.run(normalizedNotificationId);
+
+  return sanitizeAdminNotification(findAdminNotificationByIdStatement.get(normalizedNotificationId));
+};
+
+const markAllAdminNotificationsRead = () => {
+  const result = markAllAdminNotificationsReadStatement.run();
+
+  return Number(result.changes || 0);
+};
+
+const deleteAdminNotification = (notificationId) => {
+  const normalizedNotificationId = Number(notificationId || 0);
+
+  if (!Number.isInteger(normalizedNotificationId) || normalizedNotificationId <= 0) {
+    return null;
+  }
+
+  const existingNotification = sanitizeAdminNotification(
+    findAdminNotificationByIdStatement.get(normalizedNotificationId)
+  );
+
+  if (!existingNotification) {
+    return null;
+  }
+
+  softDeleteAdminNotificationStatement.run(normalizedNotificationId);
+
+  return existingNotification;
 };
 
 const getCarSellRequestById = (requestId) =>
@@ -3328,8 +6295,11 @@ const listCarSellRequests = () =>
 const listCarSellRequestsByUser = (userId) =>
   listCarSellRequestsByUserStatement.all(userId).map(sanitizeCarSellRequest);
 
-const listUserNotificationsByUser = (userId) =>
-  listUserNotificationsStatement.all(userId).map(sanitizeUserNotification);
+const listUserNotificationsByUser = (userId) => {
+  syncUserNotificationsForUser(userId);
+
+  return listUserNotificationsStatement.all(userId).map(sanitizeUserNotification);
+};
 
 const createCarSellRequest = (request) => {
   const normalizedRequest = normalizeCarSellRequestPayload(request);
@@ -3367,6 +6337,8 @@ const createCarSellRequest = (request) => {
     );
     const createdRequest = getCarSellRequestById(result.lastInsertRowid);
 
+    createAdminNotificationForCarSellRequest(createdRequest);
+
     if (createdRequest?.userId) {
       createUserNotification({
         userId: createdRequest.userId,
@@ -3387,7 +6359,16 @@ const createCarSellRequest = (request) => {
   }
 };
 
-const approveCarSellRequest = (requestId, { statusNote = '' } = {}) => {
+const approveCarSellRequest = (
+  requestId,
+  {
+    statusNote = '',
+    customerDealPriceText = '',
+    customerDealPriceValue = 0,
+    finalPriceText = '',
+    finalPriceValue = 0,
+  } = {}
+) => {
   const existingRequest = getCarSellRequestById(requestId);
 
   if (!existingRequest) {
@@ -3401,6 +6382,35 @@ const approveCarSellRequest = (requestId, { statusNote = '' } = {}) => {
     };
   }
 
+  const normalizedCustomerDealPriceText = String(customerDealPriceText || '').trim();
+  const normalizedCustomerDealPriceValue = Number(customerDealPriceValue || 0);
+  const normalizedFinalPriceText = String(finalPriceText || '').trim();
+  const normalizedFinalPriceValue = Number(finalPriceValue || 0);
+
+  if (normalizedCustomerDealPriceText.length < 2) {
+    const error = new Error('Vui lòng nhập giá chốt với khách trước khi duyệt nhập kho.');
+    error.code = 'CAR_SELL_CUSTOMER_DEAL_PRICE_TEXT_REQUIRED';
+    throw error;
+  }
+
+  if (!Number.isFinite(normalizedCustomerDealPriceValue) || normalizedCustomerDealPriceValue <= 0) {
+    const error = new Error('Vui lòng nhập giá chốt với khách dạng số lớn hơn 0.');
+    error.code = 'CAR_SELL_CUSTOMER_DEAL_PRICE_VALUE_REQUIRED';
+    throw error;
+  }
+
+  if (normalizedFinalPriceText.length < 2) {
+    const error = new Error('Vui lòng nhập giá bán trên hệ thống trước khi duyệt nhập kho.');
+    error.code = 'CAR_SELL_FINAL_PRICE_TEXT_REQUIRED';
+    throw error;
+  }
+
+  if (!Number.isFinite(normalizedFinalPriceValue) || normalizedFinalPriceValue <= 0) {
+    const error = new Error('Vui lòng nhập giá bán trên hệ thống dạng số lớn hơn 0.');
+    error.code = 'CAR_SELL_FINAL_PRICE_VALUE_REQUIRED';
+    throw error;
+  }
+
   db.exec('BEGIN IMMEDIATE');
 
   try {
@@ -3410,8 +6420,8 @@ const approveCarSellRequest = (requestId, { statusNote = '' } = {}) => {
       name: existingRequest.name,
       description: existingRequest.description,
       type: existingRequest.type,
-      priceText: existingRequest.price,
-      priceValue: existingRequest.priceValue,
+      priceText: normalizedFinalPriceText,
+      priceValue: Math.trunc(normalizedFinalPriceValue),
       image: existingRequest.image,
       images: existingRequest.images,
       year: existingRequest.year,
@@ -3429,7 +6439,15 @@ const approveCarSellRequest = (requestId, { statusNote = '' } = {}) => {
     const finalNote = String(statusNote || '').trim()
       || `Tin đăng bán xe đã được duyệt và nhập vào kho xe OkXe với mã xe #${createdCar.id}.`;
 
-    updateCarSellRequestApprovedStatement.run(finalNote, createdCar.id, requestId);
+    updateCarSellRequestApprovedStatement.run(
+      finalNote,
+      normalizedCustomerDealPriceText,
+      Math.trunc(normalizedCustomerDealPriceValue),
+      normalizedFinalPriceText,
+      Math.trunc(normalizedFinalPriceValue),
+      createdCar.id,
+      requestId
+    );
 
     if (existingRequest.userId) {
       createUserNotification({
@@ -3536,19 +6554,40 @@ const createTestDriveAppointment = ({
     conflictStatusNote
   );
 
-  return getTestDriveAppointmentById(result.lastInsertRowid);
+  const createdAppointment = getTestDriveAppointmentById(result.lastInsertRowid);
+  createAdminNotificationForTestDrive(createdAppointment);
+  createTestDriveUserNotification(createdAppointment);
+
+  return createdAppointment;
 };
 
 const createCar = (car) => upsertCar(car);
 
-const updateCar = (carId, car) => {
-  const existingCar = findCarByIdStatement.get(carId);
+const updateCar = (carId, car, { actorUser = null } = {}) => {
+  const existingCar = sanitizeCar(findCarByIdStatement.get(carId));
 
   if (!existingCar) {
     return null;
   }
 
-  return upsertCar(car, carId);
+  db.exec('BEGIN IMMEDIATE');
+
+  try {
+    const updatedCar = upsertCar(car, carId);
+
+    if (
+      existingCar.actionText === carAvailableStatusText
+      && updatedCar.actionText === carSoldStatusText
+    ) {
+      createDirectCarSaleRecord(updatedCar, actorUser);
+    }
+
+    db.exec('COMMIT');
+    return updatedCar;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
 };
 
 const deleteCar = (carId) => {
@@ -3821,12 +6860,15 @@ module.exports = {
   createCarSellRequest,
   createCarBuyRequestOffer,
   createConsultationRequest,
+  createDepositOrder,
   createPasswordResetOtp,
   createPromotion,
+  createSalesKpiRecord,
   createSession,
   createTestDriveAppointment,
   createUser,
   countAdminUsers,
+  deleteAdminNotification,
   deleteCar,
   deleteBlogPost,
   deleteCarBuyRequest,
@@ -3834,6 +6876,7 @@ module.exports = {
   deletePromotion,
   deleteSession,
   deleteTestDriveAppointment,
+  deleteUserNotificationForUser,
   deleteUser,
   getCarById,
   getBlogPostById,
@@ -3842,13 +6885,19 @@ module.exports = {
   getCarBuyRequestOfferById,
   getCarSellRequestById,
   getConsultationRequestById,
+  getDepositOrderById,
+  getActiveDepositOrderForCar,
+  getDepositPaymentSettings,
   getPromotionById,
+  getSalesKpiRecordById,
+  getSalesKpiStats,
   getPublicBlogPostBySlug,
   getTestDriveAppointmentById,
   getUserById,
   getUserBySession,
   employeeRoles,
   isFavoriteCarByUser,
+  listAdminNotifications,
   listHomepageBlogPosts,
   listHomepagePromotions,
   listAdminBlogPosts,
@@ -3859,8 +6908,12 @@ module.exports = {
   listCarBuyRequestsByUser,
   listCarSellRequests,
   listCarSellRequestsByUser,
+  listDepositOrders,
+  listDepositOrdersByUser,
   listUserNotificationsByUser,
   listUsers,
+  expireOverdueDepositOrders,
+  remindPendingDepositOrders,
   listHomepageTeamMembers,
   listPublicTeamMembers,
   listCars,
@@ -3869,14 +6922,25 @@ module.exports = {
   listPublicBlogPosts,
   listPublicCarBuyRequests,
   listPromotions,
+  listAvailableSalesKpiSources,
   listConsultationRequests,
+  listSalesKpiRecords,
   listTestDriveAppointments,
   listTestDriveAppointmentsByUser,
+  markAllUserNotificationsRead,
+  markAllAdminNotificationsRead,
+  markAdminNotificationRead,
+  markUserNotificationRead,
   removeFavoriteCarForUser,
   resetPasswordWithOtp,
   updateConsultationRequestStatus,
+  updateDepositPaymentSettings,
+  updateDepositOrderTransferProof,
+  updateDepositOrderVnpayPayment,
+  updateDepositOrderStatus,
   updateBlogPost,
   updatePromotion,
+  updateSalesKpiRecord,
   updateTestDriveAppointmentStatus,
   updateUserProfile,
   updateUserSelfProfile,
@@ -3886,4 +6950,5 @@ module.exports = {
   rejectCarSellRequest,
   updateCarBuyRequestStatus,
   updateCarBuyRequestOfferStatus,
+  cancelSalesKpiRecord,
 };

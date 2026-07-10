@@ -113,14 +113,8 @@ const buildPasswordResetEmail = ({ to, fullName, otpCode, expiresInMinutes }) =>
   };
 };
 
-const sendPasswordResetEmail = async ({ to, fullName, otpCode, expiresInMinutes }) => {
+const sendMailWithPreview = async (mailOptions, label = 'email') => {
   const transporterState = createTransport();
-  const mailOptions = buildPasswordResetEmail({
-    to,
-    fullName,
-    otpCode,
-    expiresInMinutes,
-  });
   let info;
 
   try {
@@ -130,7 +124,7 @@ const sendPasswordResetEmail = async ({ to, fullName, otpCode, expiresInMinutes 
       const previewFilePath = await createPreviewEmail(mailOptions);
 
       console.warn(
-        `SMTP email failed (${error.code || 'unknown'}). Saved password reset preview to ${previewFilePath}.`
+        `SMTP email failed (${error.code || 'unknown'}). Saved ${label} preview to ${previewFilePath}.`
       );
 
       return {
@@ -149,10 +143,217 @@ const sendPasswordResetEmail = async ({ to, fullName, otpCode, expiresInMinutes 
 
   return {
     mode: 'preview',
-    previewFilePath: writeMailPreview(to, info.message),
+    previewFilePath: writeMailPreview(mailOptions.to, info.message),
   };
 };
 
+const formatDepositMoney = (value) => {
+  const amount = Number(value || 0);
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return 'Chưa cập nhật';
+  }
+
+  return `${Math.trunc(amount).toLocaleString('vi-VN')} VNĐ`;
+};
+
+const formatDepositDateTime = (value) => {
+  const normalizedValue = String(value || '').trim();
+
+  if (!normalizedValue) {
+    return 'Chưa cập nhật';
+  }
+
+  const date = new Date(normalizedValue.replace(' ', 'T'));
+
+  if (Number.isNaN(date.getTime())) {
+    return normalizedValue;
+  }
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date);
+};
+
+const getDepositOrderCode = (order = {}) =>
+  order.code || `DC-${String(order.id || '').padStart(6, '0')}`;
+
+const getDepositCarTitle = (order = {}) =>
+  [order.carBrand, order.carName].filter(Boolean).join(' ') || 'xe đã chọn';
+
+const depositStatusLabels = {
+  pending: 'Chờ xác nhận',
+  confirmed: 'Đã nhận tiền',
+  completed: 'Hoàn tất giao dịch',
+  cancelled_after_deposit: 'Hủy sau đặt cọc',
+  cancelled: 'Đã hủy',
+  expired: 'Quá hạn giữ chỗ',
+};
+
+const depositPaymentMethodLabels = {
+  bank: 'Chuyển khoản ngân hàng',
+  vnpay: 'VNPay sandbox',
+  wallet: 'Ví điện tử',
+  card: 'Thẻ ngân hàng',
+};
+
+const getDepositEmailContent = (order = {}, eventType = '') => {
+  const status = String(order.status || 'pending').trim().toLowerCase();
+  const eventKey = String(eventType || status || 'pending').trim().toLowerCase();
+  const code = getDepositOrderCode(order);
+  const carTitle = getDepositCarTitle(order);
+  const statusNote = String(order.statusNote || '').trim();
+  const paymentReference = String(order.paymentReference || '').trim();
+  const paymentMethod = String(order.paymentMethod || 'bank').trim().toLowerCase();
+  const isVnpayPayment = paymentMethod === 'vnpay';
+  const refundAmount = Number(order.refundAmount || 0);
+  const refundText = refundAmount > 0
+    ? `OkXe đã ghi nhận hoàn cọc ${formatDepositMoney(refundAmount)}${order.refundReference ? `, mã hoàn tiền ${order.refundReference}` : ''}.`
+    : '';
+  const contentByEvent = {
+    created: {
+      subject: `OkXe đã nhận đơn đặt cọc ${code}`,
+      title: 'Đã tạo đơn đặt cọc xe',
+      intro: isVnpayPayment
+        ? `OkXe đã tạo đơn đặt cọc ${code} cho ${carTitle}. Vui lòng hoàn tất thanh toán trên VNPay sandbox để hệ thống tự xác nhận.`
+        : `OkXe đã nhận đơn đặt cọc ${code} cho ${carTitle}. Vui lòng chuyển khoản đúng nội dung để nhân viên đối soát nhanh hơn.`,
+    },
+    pending: {
+      subject: `OkXe đã nhận đơn đặt cọc ${code}`,
+      title: 'Đơn đặt cọc đang chờ xác nhận',
+      intro: statusNote || (isVnpayPayment
+        ? `Đơn đặt cọc ${code} cho ${carTitle} đang chờ kết quả thanh toán VNPay sandbox.`
+        : `Đơn đặt cọc ${code} cho ${carTitle} đang chờ nhân viên xác nhận tiền chuyển khoản.`),
+    },
+    payment_reminder: {
+      subject: isVnpayPayment ? `Nhắc thanh toán đặt cọc ${code}` : `Nhắc chuyển khoản đặt cọc ${code}`,
+      title: 'Đơn đặt cọc sắp hết hạn giữ chỗ',
+      intro: isVnpayPayment
+        ? `Đơn đặt cọc ${code} cho ${carTitle} vẫn đang chờ kết quả thanh toán VNPay. Vui lòng hoàn tất thanh toán ${formatDepositMoney(order.depositAmount)} trước hạn giữ chỗ để OkXe tiếp tục giữ xe cho bạn.`
+        : `Đơn đặt cọc ${code} cho ${carTitle} vẫn đang chờ xác nhận chuyển khoản. Vui lòng chuyển khoản ${formatDepositMoney(order.depositAmount)} đúng nội dung trước hạn giữ chỗ để OkXe tiếp tục giữ xe cho bạn.`,
+    },
+    confirmed: {
+      subject: `OkXe đã nhận tiền đặt cọc ${code}`,
+      title: 'Đã xác nhận nhận tiền đặt cọc',
+      intro: statusNote || `OkXe đã xác nhận nhận tiền đặt cọc cho đơn ${code}.${paymentReference ? ` Mã giao dịch: ${paymentReference}.` : ''} Bạn có thể xem/in biên nhận trong mục Quản lý đặt cọc.`,
+    },
+    completed: {
+      subject: `OkXe đã hoàn tất giao dịch ${code}`,
+      title: 'Giao dịch mua xe đã hoàn tất',
+      intro: statusNote || `Đơn đặt cọc ${code} cho ${carTitle} đã được chốt hoàn tất. Cảm ơn bạn đã tin tưởng OkXe.`,
+    },
+    cancelled_after_deposit: {
+      subject: `OkXe cập nhật hủy sau đặt cọc ${code}`,
+      title: 'Giao dịch sau đặt cọc đã hủy',
+      intro: [statusNote || `Đơn đặt cọc ${code} cho ${carTitle} đã được cập nhật hủy sau đặt cọc.`, refundText]
+        .filter(Boolean)
+        .join(' '),
+    },
+    cancelled: {
+      subject: `OkXe đã hủy đơn đặt cọc ${code}`,
+      title: 'Đơn đặt cọc đã bị hủy',
+      intro: statusNote || `Đơn đặt cọc ${code} cho ${carTitle} đã bị hủy. Vui lòng liên hệ OkXe nếu bạn cần hỗ trợ thêm.`,
+    },
+    expired: {
+      subject: `Đơn đặt cọc ${code} đã quá hạn giữ chỗ`,
+      title: 'Đơn đặt cọc đã quá hạn',
+      intro: statusNote || `Đơn đặt cọc ${code} cho ${carTitle} đã quá hạn giữ chỗ. Xe có thể được mở lại để khách khác đặt cọc.`,
+    },
+  };
+
+  return contentByEvent[eventKey] || contentByEvent[status] || contentByEvent.pending;
+};
+
+const renderDepositEmailRows = (rows = []) => rows
+  .filter(([, value]) => String(value || '').trim())
+  .map(([label, value]) => `
+    <tr>
+      <td style="padding: 10px 12px; color: #667085; font-weight: 700; border-bottom: 1px solid #e7ebf4;">${escapeHtml(label)}</td>
+      <td style="padding: 10px 12px; color: #08154a; font-weight: 800; border-bottom: 1px solid #e7ebf4;">${escapeHtml(value)}</td>
+    </tr>
+  `)
+  .join('');
+
+const buildDepositOrderEmail = ({ to, order = {}, eventType = '' }) => {
+  const sender = process.env.SMTP_FROM || 'OkXe <no-reply@okxe.local>';
+  const content = getDepositEmailContent(order, eventType);
+  const code = getDepositOrderCode(order);
+  const carTitle = getDepositCarTitle(order);
+  const status = String(order.status || 'pending').trim().toLowerCase();
+  const paymentMethod = String(order.paymentMethod || 'bank').trim().toLowerCase();
+  const isVnpayPayment = paymentMethod === 'vnpay';
+  const rows = [
+    ['Mã đơn đặt cọc', code],
+    ['Xe đặt cọc', carTitle],
+    ['Trạng thái', depositStatusLabels[status] || status || 'Chờ xác nhận'],
+    ['Số tiền đặt cọc', formatDepositMoney(order.depositAmount)],
+    ['Phương thức thanh toán', depositPaymentMethodLabels[paymentMethod] || paymentMethod],
+    [isVnpayPayment ? 'Mã thanh toán VNPay' : 'Nội dung chuyển khoản', isVnpayPayment ? order.vnpayTxnRef : order.bankTransferNote],
+    ['Mã giao dịch', order.paymentReference],
+    ['VNPay TransactionNo', order.vnpayTransactionNo],
+    ['Thời gian nhận tiền', formatDepositDateTime(order.paymentReceivedAt)],
+    ['Hạn giữ chỗ', formatDepositDateTime(order.expiresAt)],
+  ];
+  const textRows = rows
+    .filter(([, value]) => String(value || '').trim())
+    .map(([label, value]) => `- ${label}: ${value}`)
+    .join('\n');
+
+  return {
+    from: sender,
+    to,
+    subject: content.subject,
+    text: [
+      `Xin chào ${order.fullName || 'quý khách'},`,
+      '',
+      content.intro,
+      '',
+      textRows,
+      '',
+      'Bạn có thể đăng nhập tài khoản OkXe, mở mục Quản lý đặt cọc để xem lịch sử xử lý, biên nhận và chứng từ chuyển khoản.',
+      'Nếu cần hỗ trợ gấp, vui lòng liên hệ OkXe qua hotline trên website.',
+    ].join('\n'),
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #08154a; line-height: 1.65;">
+        <h2 style="margin: 0 0 12px; color: #f15a29;">${escapeHtml(content.title)}</h2>
+        <p>Xin chào <strong>${escapeHtml(order.fullName || 'quý khách')}</strong>,</p>
+        <p>${escapeHtml(content.intro)}</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 680px; border-collapse: collapse; margin: 18px 0; border: 1px solid #e7ebf4; border-radius: 12px; overflow: hidden;">
+          ${renderDepositEmailRows(rows)}
+        </table>
+        <p>Bạn có thể đăng nhập tài khoản OkXe, mở mục <strong>Quản lý đặt cọc</strong> để xem lịch sử xử lý, biên nhận và chứng từ chuyển khoản.</p>
+        <p>Nếu cần hỗ trợ gấp, vui lòng liên hệ OkXe qua hotline trên website.</p>
+      </div>
+    `,
+  };
+};
+
+const sendPasswordResetEmail = async ({ to, fullName, otpCode, expiresInMinutes }) => {
+  const mailOptions = buildPasswordResetEmail({
+    to,
+    fullName,
+    otpCode,
+    expiresInMinutes,
+  });
+
+  return sendMailWithPreview(mailOptions, 'password reset');
+};
+
+const sendDepositOrderEmail = async ({ to, order, eventType }) => {
+  const normalizedTo = String(to || '').trim();
+
+  if (!normalizedTo || !order) {
+    return null;
+  }
+
+  return sendMailWithPreview(
+    buildDepositOrderEmail({ to: normalizedTo, order, eventType }),
+    'deposit order'
+  );
+};
+
 module.exports = {
+  sendDepositOrderEmail,
   sendPasswordResetEmail,
 };

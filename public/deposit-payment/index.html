@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thanh toán đặt cọc xe - OkXe</title>
+    <meta name="description" content="Gửi yêu cầu đặt cọc giữ xe OkXe và chờ nhân viên xác nhận.">
+    <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/global/typography.css">
+    <link rel="stylesheet" href="/deposit-payment/style.css?v=deposit-vnpay-clean-ui-20260708">
+    <link rel="stylesheet" href="/global/header.css">
+    <link rel="stylesheet" href="/global/responsive-nav.css">
+    <link rel="stylesheet" href="/global/footer.css">
+</head>
+<body>
+    <div data-site-header></div>
+
+    <main class="deposit-page">
+        <section class="deposit-heading" aria-labelledby="deposit-page-title">
+            <a class="deposit-heading__back" href="/mua-xe">
+                <i class="bx bx-left-arrow-alt" aria-hidden="true"></i>
+                <span>Quay lại danh sách xe</span>
+            </a>
+            <div class="deposit-heading__content">
+                <span>Thanh toán đặt cọc</span>
+                <h1 id="deposit-page-title">Hoàn tất đặt cọc giữ xe</h1>
+                <p>Kiểm tra thông tin xe, chọn số tiền đặt cọc và gửi yêu cầu để nhân viên OkXe xác nhận giữ chỗ.</p>
+            </div>
+            <ol class="deposit-steps" aria-label="Quy trình đặt cọc">
+                <li class="is-active"><span>1</span>Chọn xe</li>
+                <li class="is-active"><span>2</span>Thông tin</li>
+                <li><span>3</span>Thanh toán</li>
+            </ol>
+        </section>
+
+        <section class="deposit-auth-notice" id="deposit-auth-notice" hidden>
+            <i class="bx bx-user-check" aria-hidden="true"></i>
+            <div>
+                <strong>Cần đăng nhập để đặt cọc xe</strong>
+                <p>Đơn đặt cọc sẽ được gắn với tài khoản của bạn để dễ tra cứu, nhận thông báo và quản lý biên nhận.</p>
+            </div>
+            <div class="deposit-auth-notice__actions">
+                <a href="/?auth=login" id="deposit-auth-login-link">Đăng nhập</a>
+                <a href="/?auth=signup" id="deposit-auth-signup-link">Tạo tài khoản</a>
+            </div>
+        </section>
+
+        <section class="deposit-shell" aria-label="Thông tin thanh toán đặt cọc">
+            <form class="deposit-form" id="deposit-payment-form">
+                <article class="deposit-card">
+                    <div class="deposit-card__header">
+                        <span class="deposit-card__icon"><i class="bx bx-user-pin" aria-hidden="true"></i></span>
+                        <div>
+                            <h2>Thông tin khách hàng</h2>
+                            <p>OkXe dùng thông tin này để xác nhận giao dịch đặt cọc.</p>
+                        </div>
+                    </div>
+
+                    <div class="deposit-form__grid">
+                        <label>
+                            <span>Họ và tên</span>
+                            <input type="text" name="fullName" id="deposit-full-name" maxlength="120" placeholder="Nguyễn Văn A" required>
+                        </label>
+                        <label>
+                            <span>Số điện thoại</span>
+                            <input type="tel" name="phone" id="deposit-phone" maxlength="30" placeholder="0912345678" required>
+                        </label>
+                        <label>
+                            <span>Email</span>
+                            <input type="email" name="email" id="deposit-email" maxlength="160" placeholder="email@example.com">
+                        </label>
+                        <label>
+                            <span>Tỉnh/Thành phố</span>
+                            <input type="text" name="province" maxlength="120" placeholder="Hà Nội">
+                        </label>
+                        <label class="deposit-form__wide">
+                            <span>Ghi chú cho tư vấn viên</span>
+                            <textarea name="note" rows="4" maxlength="500" placeholder="Ví dụ: Tôi muốn giữ xe trong hôm nay, cần hỗ trợ hồ sơ sang tên."></textarea>
+                        </label>
+                    </div>
+                </article>
+
+                <article class="deposit-card">
+                    <div class="deposit-card__header">
+                        <span class="deposit-card__icon"><i class="bx bx-credit-card" aria-hidden="true"></i></span>
+                        <div>
+                            <h2>Phương thức thanh toán</h2>
+                            <p>Chọn chuyển khoản ngân hàng hoặc thanh toán tự động qua VNPay nếu đã được cấu hình.</p>
+                        </div>
+                    </div>
+
+                    <div class="payment-methods" role="radiogroup" aria-label="Chọn phương thức thanh toán">
+                        <label class="payment-method is-active">
+                            <input type="radio" name="paymentMethod" value="bank" checked>
+                            <i class="bx bx-transfer-alt" aria-hidden="true"></i>
+                            <span>
+                                <strong>Chuyển khoản ngân hàng</strong>
+                                <small>Chuyển khoản theo nội dung đơn và chờ xác nhận</small>
+                            </span>
+                        </label>
+                        <label class="payment-method" data-vnpay-method>
+                            <input type="radio" name="paymentMethod" value="vnpay">
+                            <i class="bx bx-credit-card-front" aria-hidden="true"></i>
+                            <span>
+                                <strong data-vnpay-method-title>VNPay sandbox</strong>
+                                <small data-vnpay-method-description>Chuyển sang cổng VNPay để tự xác nhận tiền cọc</small>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div class="payment-panels">
+                        <div class="payment-panel is-active" data-payment-panel="bank">
+                            <div>
+                                <span>Tài khoản nhận cọc</span>
+                                <strong data-deposit-bank-display>Đang cập nhật</strong>
+                            </div>
+                            <div>
+                                <span>Số tài khoản</span>
+                                <strong data-deposit-bank-account-number>Đang cập nhật</strong>
+                            </div>
+                            <div>
+                                <span>Nội dung chuyển khoản</span>
+                                <strong id="bank-transfer-note">OKXE COC XE</strong>
+                            </div>
+                        </div>
+                        <div class="payment-panel payment-panel--vnpay" data-payment-panel="vnpay" hidden>
+                            <div>
+                                <span>Cổng thanh toán</span>
+                                <strong data-vnpay-gateway-label>VNPay sandbox</strong>
+                            </div>
+                            <div>
+                                <span>Xác nhận tiền</span>
+                                <strong data-vnpay-confirm-label>Tự động sau khi VNPay trả kết quả thành công</strong>
+                            </div>
+                            <div>
+                                <span>Thời gian thanh toán</span>
+                                <strong data-vnpay-expire>15 phút</strong>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="deposit-card deposit-confirm-card">
+                    <section class="deposit-policy" aria-labelledby="deposit-policy-title">
+                        <div class="deposit-policy__header">
+                            <i class="bx bx-file" aria-hidden="true"></i>
+                            <div>
+                                <h2 id="deposit-policy-title">Chính sách đặt cọc</h2>
+                                <p>Vui lòng đọc trước khi gửi yêu cầu giữ xe.</p>
+                            </div>
+                        </div>
+                        <div class="deposit-policy__content" id="deposit-policy-content">
+                            <p>Đang tải chính sách đặt cọc...</p>
+                        </div>
+                    </section>
+                    <label class="deposit-confirm">
+                        <input type="checkbox" id="deposit-terms" required>
+                        <span id="deposit-terms-label">Tôi đã đọc, hiểu và đồng ý với chính sách đặt cọc, hủy cọc và hoàn cọc của OkXe.</span>
+                    </label>
+                    <button type="submit" class="deposit-submit">
+                        <i class="bx bx-lock-alt" aria-hidden="true"></i>
+                        <span>Xác nhận đặt cọc</span>
+                    </button>
+                    <p class="deposit-feedback" id="deposit-feedback" aria-live="polite"></p>
+                </article>
+            </form>
+
+            <aside class="deposit-summary" aria-label="Tóm tắt xe đặt cọc">
+                <div class="deposit-summary__status">
+                    <i class="bx bx-shield-check" aria-hidden="true"></i>
+                    <span>Giao dịch bảo mật</span>
+                </div>
+
+                <div class="deposit-car" id="deposit-car-summary">
+                    <div class="deposit-car__loading">
+                        <i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i>
+                        <span>Đang tải thông tin xe...</span>
+                    </div>
+                </div>
+
+                <div class="deposit-amount">
+                    <div class="deposit-amount__header">
+                        <span>Số tiền đặt cọc</span>
+                        <strong id="deposit-amount-label">10.000.000 VNĐ</strong>
+                    </div>
+                    <div class="deposit-amount__options" id="deposit-amount-options" role="radiogroup" aria-label="Chọn số tiền đặt cọc">
+                        <label>
+                            <input type="radio" name="depositAmount" value="5000000">
+                            <span>5 triệu</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="depositAmount" value="10000000" checked>
+                            <span>10 triệu</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="depositAmount" value="20000000">
+                            <span>20 triệu</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="deposit-total">
+                    <div>
+                        <span>Giá xe</span>
+                        <strong id="deposit-car-price">Đang cập nhật</strong>
+                    </div>
+                    <div>
+                        <span>Đặt cọc hôm nay</span>
+                        <strong id="deposit-total-amount">10.000.000 VNĐ</strong>
+                    </div>
+                    <div>
+                        <span>Còn lại dự kiến</span>
+                        <strong id="deposit-remaining-amount">Đang cập nhật</strong>
+                    </div>
+                </div>
+
+                <div class="deposit-qr" aria-label="Mã QR thanh toán mẫu">
+                    <div class="deposit-qr__code" aria-hidden="true">
+                        <span></span><span></span><span></span><span></span>
+                    </div>
+                    <div>
+                        <strong>QR thanh toán mẫu</strong>
+                    <p>Chọn VNPay để hệ thống tạo luồng thanh toán tự động.</p>
+                    </div>
+                </div>
+            </aside>
+        </section>
+
+        <section class="deposit-lookup" aria-labelledby="deposit-lookup-title">
+            <div class="deposit-lookup__header">
+                <span>Tra cứu đơn</span>
+                <h2 id="deposit-lookup-title">Tra cứu đơn đặt cọc</h2>
+                <p>Kiểm tra trạng thái đơn bằng mã đơn và số điện thoại đã dùng khi đặt cọc.</p>
+            </div>
+
+            <form class="deposit-lookup__form" id="deposit-lookup-form">
+                <label>
+                    <span>Mã đơn đặt cọc</span>
+                    <input type="text" name="orderCode" id="deposit-lookup-code" maxlength="20" placeholder="DC-000001" autocomplete="off" required>
+                </label>
+                <label>
+                    <span>Số điện thoại</span>
+                    <input type="tel" name="phone" id="deposit-lookup-phone" maxlength="30" placeholder="0912345678" required>
+                </label>
+                <button type="submit" id="deposit-lookup-submit">
+                    <i class="bx bx-search" aria-hidden="true"></i>
+                    <span>Tra cứu</span>
+                </button>
+            </form>
+
+            <p class="deposit-lookup__feedback" id="deposit-lookup-feedback" aria-live="polite"></p>
+            <div class="deposit-lookup__result" id="deposit-lookup-result" hidden></div>
+        </section>
+
+        <section class="deposit-status-guide" aria-labelledby="deposit-status-guide-title">
+            <div class="deposit-status-guide__header">
+                <span>Trạng thái đơn</span>
+                <h2 id="deposit-status-guide-title">Theo dõi bước tiếp theo</h2>
+                <p>Mỗi trạng thái sẽ cho biết đơn đang ở đâu và khách cần làm gì tiếp theo.</p>
+            </div>
+            <div class="deposit-status-guide__grid" id="deposit-status-guide-list"></div>
+        </section>
+    </main>
+
+    <div class="deposit-waiting-modal" id="deposit-waiting-modal" aria-hidden="true">
+        <button type="button" class="deposit-waiting-modal__overlay" data-close-deposit-waiting aria-label="Thu nhỏ màn hình chờ xác nhận"></button>
+        <section class="deposit-waiting-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="deposit-waiting-title" tabindex="-1">
+            <div class="deposit-waiting-modal__status">
+                <span class="deposit-waiting-modal__spinner" aria-hidden="true"></span>
+                <div>
+                    <span id="deposit-waiting-status-label">Đang chờ chuyển khoản</span>
+                    <strong id="deposit-waiting-title">Chờ nhân viên xác nhận đã nhận tiền</strong>
+                </div>
+            </div>
+            <p id="deposit-waiting-message">Đơn đặt cọc đã được tạo. Vui lòng chuyển khoản đúng số tiền và nội dung bên dưới để OkXe xác nhận nhanh hơn.</p>
+
+            <div class="deposit-waiting-modal__summary" aria-label="Thông tin đơn đặt cọc đang chờ xác nhận">
+                <div>
+                    <span>Mã đơn</span>
+                    <strong id="deposit-waiting-code">DC-000000</strong>
+                </div>
+                <div>
+                    <span>Xe đặt cọc</span>
+                    <strong id="deposit-waiting-car">Đang cập nhật</strong>
+                </div>
+                <div>
+                    <span>Số tiền cọc</span>
+                    <strong id="deposit-waiting-amount">Đang cập nhật</strong>
+                </div>
+            </div>
+
+            <div class="deposit-waiting-modal__bank" aria-label="Thông tin chuyển khoản ngân hàng">
+                <div>
+                    <span>Tài khoản nhận cọc</span>
+                    <strong data-deposit-bank-display>Đang cập nhật</strong>
+                </div>
+                <div>
+                    <span>Số tài khoản</span>
+                    <strong data-deposit-bank-account-number>Đang cập nhật</strong>
+                </div>
+                <div>
+                    <span>Nội dung chuyển khoản</span>
+                    <strong id="deposit-waiting-transfer-note">OKXE COC XE</strong>
+                </div>
+            </div>
+
+            <div class="deposit-proof" id="deposit-proof-card">
+                <div class="deposit-proof__header">
+                    <div>
+                        <span>Chứng từ chuyển khoản</span>
+                        <strong id="deposit-proof-title">Tải ảnh biên lai sau khi chuyển khoản</strong>
+                    </div>
+                    <a href="#" id="deposit-proof-current-link" hidden target="_blank" rel="noopener">Xem chứng từ</a>
+                </div>
+                <p id="deposit-proof-description">Chọn ảnh chụp màn hình hoặc biên lai chuyển khoản để nhân viên đối chiếu nhanh hơn.</p>
+                <div class="deposit-proof__actions">
+                    <button type="button" class="deposit-waiting-modal__secondary" id="deposit-proof-choose-button">
+                        <i class="bx bx-upload" aria-hidden="true"></i>
+                        <span>Chọn ảnh</span>
+                    </button>
+                    <button type="button" id="deposit-proof-upload-button" disabled>
+                        <i class="bx bx-cloud-upload" aria-hidden="true"></i>
+                        <span>Tải chứng từ</span>
+                    </button>
+                </div>
+                <small id="deposit-proof-file-name">Chưa chọn ảnh chứng từ.</small>
+                <p class="deposit-proof__feedback" id="deposit-proof-feedback" aria-live="polite"></p>
+                <input type="file" id="deposit-proof-input" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+            </div>
+
+            <p class="deposit-waiting-modal__hint" id="deposit-waiting-hint">Sau khi bạn chuyển khoản, màn hình này sẽ tự cập nhật khi nhân viên xác nhận đã nhận tiền.</p>
+
+            <div class="deposit-waiting-modal__actions">
+                <button type="button" id="deposit-waiting-check-button">
+                    <i class="bx bx-refresh" aria-hidden="true"></i>
+                    <span>Kiểm tra trạng thái</span>
+                </button>
+                <button type="button" class="deposit-waiting-modal__secondary" data-close-deposit-waiting>
+                    <i class="bx bx-minus-circle" aria-hidden="true"></i>
+                    <span>Để sau</span>
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <div class="deposit-success-modal" id="deposit-success-modal" aria-hidden="true">
+        <button type="button" class="deposit-success-modal__overlay" data-close-deposit-success aria-label="Đóng thông báo đặt cọc"></button>
+        <section class="deposit-success-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="deposit-success-title" tabindex="-1">
+            <div class="deposit-success-modal__icon">
+                <i class="bx bx-check" aria-hidden="true"></i>
+            </div>
+            <div class="deposit-success-modal__content">
+                <span>OkXe đã nhận yêu cầu</span>
+                <h2 id="deposit-success-title">Đặt cọc xe thành công</h2>
+                <p id="deposit-success-message">Nhân viên OkXe sẽ kiểm tra và liên hệ xác nhận giữ chỗ trong thời gian sớm nhất.</p>
+            </div>
+            <div class="deposit-success-modal__details" aria-label="Thông tin đơn đặt cọc vừa gửi">
+                <div>
+                    <span>Mã đơn</span>
+                    <strong id="deposit-success-code">DC-000000</strong>
+                </div>
+                <div>
+                    <span>Xe đặt cọc</span>
+                    <strong id="deposit-success-car">Đang cập nhật</strong>
+                </div>
+                <div>
+                    <span>Số tiền cọc</span>
+                    <strong id="deposit-success-amount">Đang cập nhật</strong>
+                </div>
+            </div>
+            <div class="deposit-success-modal__actions">
+                <button type="button" id="deposit-success-receipt-button" hidden>
+                    <i class="bx bx-printer" aria-hidden="true"></i>
+                    <span>In biên nhận</span>
+                </button>
+                <a href="/?account=deposits">
+                    <i class="bx bx-receipt" aria-hidden="true"></i>
+                    <span>Quản lý đặt cọc</span>
+                </a>
+                <button type="button" data-close-deposit-success>
+                    <i class="bx bx-check-circle" aria-hidden="true"></i>
+                    <span>Đã hiểu</span>
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <div data-site-footer></div>
+
+    <script src="/deposit-payment/script.js?v=vnpay-cancel-on-failure-20260708"></script>
+    <script src="/global/app.js?v=deposit-auth-20260706"></script>
+    <script src="/global/responsive-nav.js"></script>
+</body>
+</html>

@@ -1969,6 +1969,10 @@ section {
     color: #16a34a;
 }
 
+.rent-link.is-held {
+    color: #a16207;
+}
+
 .rent-link.is-sold {
     color: #dc2626;
 }
@@ -4445,6 +4449,748 @@ body.signup-modal-open {
     margin-bottom: 0;
 }
 
+.profile-modal--deposits .profile-form {
+    padding: 1.6rem;
+}
+
+.profile-modal--deposits .profile-overview,
+.profile-modal--deposits .profile-edit-callout,
+.profile-modal--deposits .profile-listings,
+.profile-modal--deposits .profile-edit-panel {
+    display: none;
+}
+
+.profile-modal--deposits .profile-form__header {
+    margin-bottom: 1rem;
+}
+
+.profile-deposits[hidden] {
+    display: none;
+}
+
+.profile-deposits {
+    margin-bottom: 0;
+    border: 1px solid rgba(8, 21, 74, 0.08);
+    border-radius: 20px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 16px 34px rgba(8, 21, 74, 0.06);
+}
+
+.profile-deposits__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.15rem 1.25rem;
+    background: linear-gradient(135deg, #fff7f2 0%, #ffffff 70%);
+}
+
+.profile-deposits__header > div {
+    min-width: 0;
+}
+
+.profile-deposits__header h3 {
+    margin: 0.25rem 0 0;
+    color: var(--text-color);
+    font-size: 1.08rem;
+    line-height: 1.35;
+    font-weight: 900;
+}
+
+.profile-deposits__eyebrow {
+    display: block;
+    color: var(--main-color);
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.profile-deposits__count {
+    flex: 0 0 auto;
+    min-height: 34px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    padding: 0 0.85rem;
+    color: #18348e;
+    background: #eef2fb;
+    font-size: 0.86rem;
+    font-weight: 900;
+}
+
+.profile-deposits__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-top: 1px solid rgba(8, 21, 74, 0.08);
+    background: #ffffff;
+}
+
+.profile-deposits__refresh {
+    min-height: 42px;
+    border: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0 1rem;
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--main-color) 0%, var(--main-color-dark) 100%);
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 900;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 14px 26px rgba(241, 90, 41, 0.2);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.profile-deposits__refresh:hover,
+.profile-deposits__refresh:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 18px 32px rgba(241, 90, 41, 0.27);
+    outline: 0;
+}
+
+.profile-deposits__refresh:disabled {
+    cursor: wait;
+    opacity: 0.72;
+}
+
+.profile-deposits__filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-left: auto;
+    color: var(--text-color);
+    font-size: 0.92rem;
+    font-weight: 800;
+}
+
+.profile-deposits__filter select {
+    min-width: 180px;
+    min-height: 44px;
+    border: 1px solid rgba(8, 21, 74, 0.14);
+    border-radius: 12px;
+    padding: 0 0.8rem;
+    color: var(--text-color);
+    background: #ffffff;
+    font: inherit;
+    outline: 0;
+}
+
+.profile-deposits__filter select:focus {
+    border-color: rgba(241, 90, 41, 0.7);
+    box-shadow: 0 0 0 4px rgba(241, 90, 41, 0.12);
+}
+
+.profile-deposits__panel {
+    border-top: 1px dashed rgba(8, 21, 74, 0.12);
+    padding: 1rem;
+}
+
+.profile-deposits__list {
+    max-height: 430px;
+    display: grid;
+    gap: 0.9rem;
+    overflow: auto;
+    padding-right: 0.15rem;
+}
+
+.profile-deposits.is-detail-open .profile-deposits__toolbar,
+.profile-deposits.is-detail-open .profile-deposits__panel {
+    display: none;
+}
+
+.profile-deposit-card {
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.profile-deposit-card:hover,
+.profile-deposit-card:focus-visible {
+    border-color: rgba(241, 90, 41, 0.28);
+    box-shadow: 0 18px 36px rgba(8, 21, 74, 0.1);
+    outline: 0;
+    transform: translateY(-1px);
+}
+
+.profile-deposit-detail[hidden] {
+    display: none;
+}
+
+.profile-deposit-detail {
+    border-top: 1px dashed rgba(8, 21, 74, 0.12);
+    padding: 1rem;
+}
+
+.profile-deposit-detail__back {
+    min-height: 42px;
+    border: 1px solid rgba(8, 21, 74, 0.1);
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+    padding: 0 1rem;
+    color: #18348e;
+    background: #eef2fb;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.profile-deposit-detail__back:hover,
+.profile-deposit-detail__back:focus-visible {
+    border-color: rgba(241, 90, 41, 0.25);
+    color: var(--main-color);
+    outline: 0;
+}
+
+.profile-deposit-detail__card {
+    border: 1px solid rgba(8, 21, 74, 0.08);
+    border-radius: 18px;
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+    background: #ffffff;
+    box-shadow: 0 14px 30px rgba(8, 21, 74, 0.07);
+}
+
+.profile-deposit-detail__hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #fff7f2 0%, #ffffff 72%);
+}
+
+.profile-deposit-detail__hero > div {
+    min-width: 0;
+}
+
+.profile-deposit-detail__hero span {
+    color: var(--main-color);
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.profile-deposit-detail__hero h4 {
+    margin: 0.28rem 0 0.45rem;
+    color: var(--text-color);
+    font-size: 1.2rem;
+    line-height: 1.3;
+    font-weight: 900;
+}
+
+.profile-deposit-detail__hero p {
+    margin: 0;
+    color: var(--muted-color);
+    font-size: 0.92rem;
+    line-height: 1.55;
+    font-weight: 700;
+}
+
+.profile-deposit-detail__summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.profile-deposit-detail__summary div,
+.profile-deposit-detail__section {
+    border: 1px solid rgba(8, 21, 74, 0.08);
+    border-radius: 16px;
+    background: #fbfcff;
+}
+
+.profile-deposit-detail__summary div {
+    display: grid;
+    gap: 0.25rem;
+    padding: 0.9rem;
+}
+
+.profile-deposit-next-steps {
+    display: grid;
+    gap: 0.8rem;
+    padding: 1rem;
+    border: 1px solid rgba(241, 90, 41, 0.14);
+    border-radius: 16px;
+    background: #fff7f2;
+}
+
+.profile-deposit-next-steps__head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+}
+
+.profile-deposit-next-steps__head > .bx {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    background: #f15a29;
+    font-size: 1.35rem;
+}
+
+.profile-deposit-next-steps__head span {
+    color: #f15a29;
+    font-size: 0.76rem;
+    line-height: 1.35;
+    font-weight: 900;
+}
+
+.profile-deposit-next-steps__head h4 {
+    margin: 0.15rem 0 0;
+    color: var(--text-color);
+    font-size: 1rem;
+    line-height: 1.35;
+    font-weight: 900;
+}
+
+.profile-deposit-next-steps__head p {
+    margin: 0.2rem 0 0;
+    color: var(--muted-color);
+    font-size: 0.88rem;
+    line-height: 1.55;
+    font-weight: 700;
+}
+
+.profile-deposit-next-steps ol {
+    display: grid;
+    gap: 0.45rem;
+    margin: 0;
+    padding-left: 1.2rem;
+    color: var(--text-color);
+    font-size: 0.88rem;
+    line-height: 1.55;
+    font-weight: 700;
+}
+
+.profile-deposit-bank-guide {
+    display: grid;
+    gap: 0.9rem;
+    padding: 1rem;
+    border: 1px solid rgba(8, 21, 74, 0.08);
+    border-radius: 16px;
+    background: linear-gradient(180deg, #ffffff 0%, #f7f9ff 100%);
+}
+
+.profile-deposit-bank-guide__head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: start;
+}
+
+.profile-deposit-bank-guide__head > .bx {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #173b8f;
+    background: #eef4ff;
+    font-size: 1.35rem;
+}
+
+.profile-deposit-bank-guide__head span,
+.profile-deposit-bank-guide__grid span {
+    color: #7b86a3;
+    font-size: 0.76rem;
+    line-height: 1.35;
+    font-weight: 900;
+}
+
+.profile-deposit-bank-guide__head h4 {
+    margin: 0.15rem 0 0;
+    color: var(--text-color);
+    font-size: 1rem;
+    line-height: 1.35;
+    font-weight: 900;
+}
+
+.profile-deposit-bank-guide__head p {
+    margin: 0.2rem 0 0;
+    color: var(--muted-color);
+    font-size: 0.88rem;
+    line-height: 1.55;
+    font-weight: 700;
+}
+
+.profile-deposit-bank-guide__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.profile-deposit-bank-guide__grid div {
+    min-width: 0;
+    display: grid;
+    gap: 0.25rem;
+    min-height: 64px;
+    align-content: start;
+    padding: 0.85rem;
+    border: 1px solid rgba(8, 21, 74, 0.08);
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.profile-deposit-bank-guide__grid strong {
+    min-width: 0;
+    color: var(--text-color);
+    font-size: 0.94rem;
+    line-height: 1.4;
+    font-weight: 900;
+    overflow-wrap: anywhere;
+}
+
+.profile-deposit-detail__summary span,
+.profile-deposit-detail__section dt {
+    color: #7b86a3;
+    font-size: 0.76rem;
+    line-height: 1.45;
+    font-weight: 900;
+    text-transform: uppercase;
+}
+
+.profile-deposit-detail__summary strong,
+.profile-deposit-detail__section dd {
+    min-width: 0;
+    margin: 0;
+    color: var(--text-color);
+    font-size: 0.92rem;
+    line-height: 1.45;
+    font-weight: 900;
+    overflow-wrap: anywhere;
+}
+
+.profile-deposit-detail__section {
+    padding: 1rem;
+}
+
+.profile-deposit-detail__section--bank {
+    border-color: rgba(241, 90, 41, 0.16);
+    background: #fff7f2;
+}
+
+.profile-deposit-detail__section h4 {
+    margin: 0 0 0.85rem;
+    color: var(--text-color);
+    font-size: 1rem;
+    font-weight: 900;
+}
+
+.profile-deposit-detail__section dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0;
+}
+
+.profile-deposit-detail__section dl div {
+    min-width: 0;
+    display: grid;
+    gap: 0.2rem;
+}
+
+.profile-deposit-detail__proof {
+    margin: 0.85rem 0 0;
+}
+
+.profile-deposit-detail__proof a {
+    color: var(--main-color);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    font-weight: 800;
+}
+
+.profile-deposit-proof-panel {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 0.85rem;
+    align-items: center;
+    margin-top: 0.9rem;
+    padding: 0.85rem;
+    border: 1px solid rgba(24, 52, 142, 0.1);
+    border-radius: 16px;
+    background: #fbfcff;
+}
+
+.profile-deposit-proof-panel__thumb,
+.profile-deposit-proof-panel__empty {
+    width: 104px;
+    aspect-ratio: 4 / 3;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid rgba(24, 52, 142, 0.1);
+    border-radius: 14px;
+    color: #6d7893;
+    background: #eef2fb;
+}
+
+.profile-deposit-proof-panel__thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.profile-deposit-proof-panel__empty i {
+    font-size: 1.65rem;
+}
+
+.profile-deposit-proof-panel > div {
+    min-width: 0;
+    display: grid;
+    gap: 0.35rem;
+}
+
+.profile-deposit-proof-panel strong,
+.profile-deposit-proof-panel span,
+.profile-deposit-proof-panel small {
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.profile-deposit-proof-panel strong {
+    color: var(--text-color);
+    font-weight: 900;
+}
+
+.profile-deposit-proof-panel span,
+.profile-deposit-proof-panel small {
+    color: var(--muted-color);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.profile-deposit-proof-panel small.is-success {
+    color: #14865d;
+}
+
+.profile-deposit-proof-panel small.is-error {
+    color: #b94f4f;
+}
+
+.profile-deposit-proof-panel small.is-loading {
+    color: #18348e;
+}
+
+.profile-deposit-proof-panel__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 0.2rem;
+}
+
+.profile-deposit-proof-panel__actions a,
+.profile-deposit-proof-panel__actions button {
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0 0.8rem;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.profile-deposit-proof-panel__actions a {
+    color: #18348e;
+    background: #eef2fb;
+}
+
+.profile-deposit-proof-panel__actions button {
+    color: #ffffff;
+    background: var(--main-color);
+}
+
+.profile-deposit-proof-panel__actions button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.profile-deposit-history {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.profile-deposit-history__item {
+    position: relative;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 0.75rem;
+}
+
+.profile-deposit-history__item:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    left: 18px;
+    top: 42px;
+    bottom: -0.85rem;
+    width: 2px;
+    border-radius: 999px;
+    background: #e7ebf4;
+}
+
+.profile-deposit-history__marker {
+    position: relative;
+    z-index: 1;
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: #18348e;
+    background: #eef2fb;
+    box-shadow: 0 0 0 5px #ffffff;
+}
+
+.profile-deposit-history__marker i {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.profile-deposit-history__item.is-confirmed .profile-deposit-history__marker,
+.profile-deposit-history__item.is-completed .profile-deposit-history__marker {
+    color: #0f8f51;
+    background: #eaf8f0;
+}
+
+.profile-deposit-history__item.is-cancelled .profile-deposit-history__marker,
+.profile-deposit-history__item.is-expired .profile-deposit-history__marker {
+    color: #a13c12;
+    background: #fff0e8;
+}
+
+.profile-deposit-history__item.is-proof .profile-deposit-history__marker,
+.profile-deposit-history__item.is-refund .profile-deposit-history__marker {
+    color: #7a4a07;
+    background: #fff6df;
+}
+
+.profile-deposit-history__content {
+    min-width: 0;
+    display: grid;
+    gap: 0.4rem;
+    padding: 0.78rem 0.9rem;
+    border: 1px solid var(--line-color);
+    border-radius: 14px;
+    background: #fbfcff;
+}
+
+.profile-deposit-history__head {
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.profile-deposit-history__head strong {
+    min-width: 0;
+    color: var(--text-color);
+    font-size: 0.93rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.profile-deposit-history__head time {
+    flex: 0 0 auto;
+    color: var(--muted-color);
+    font-size: 0.78rem;
+    font-weight: 800;
+    line-height: 1.35;
+    white-space: nowrap;
+}
+
+.profile-deposit-history small,
+.profile-deposit-history p,
+.profile-deposit-detail__section--history p {
+    margin: 0;
+    color: var(--muted-color);
+    line-height: 1.45;
+}
+
+.profile-deposit-history p {
+    overflow-wrap: anywhere;
+}
+
+.profile-deposit-history small {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.profile-deposit-detail__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+}
+
+.profile-deposit-detail__actions a,
+.profile-deposit-detail__actions button {
+    min-height: 42px;
+    border: 0;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding: 0 1rem;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.profile-deposit-detail__actions a {
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--main-color) 0%, var(--main-color-dark) 100%);
+}
+
+.profile-deposit-detail__actions button {
+    color: #18348e;
+    background: #eef2fb;
+}
+
+.profile-deposit-detail__actions a:hover,
+.profile-deposit-detail__actions a:focus-visible,
+.profile-deposit-detail__actions button:hover,
+.profile-deposit-detail__actions button:focus-visible {
+    outline: 0;
+    transform: translateY(-1px);
+}
+
 .profile-listings__header {
     display: flex;
     align-items: center;
@@ -4477,8 +5223,10 @@ body.signup-modal-open {
 
 .profile-listings__quick-link,
 .profile-listings__create,
+.profile-listing-card__actions button,
 .profile-listing-card__actions a {
     min-height: 42px;
+    border: 0;
     border-radius: 999px;
     display: inline-flex;
     align-items: center;
@@ -4487,9 +5235,11 @@ body.signup-modal-open {
     padding: 0 1rem;
     color: #ffffff;
     background: linear-gradient(135deg, var(--main-color) 0%, var(--main-color-dark) 100%);
+    font: inherit;
     font-size: 0.9rem;
     font-weight: 900;
     white-space: nowrap;
+    cursor: pointer;
     box-shadow: 0 14px 26px rgba(241, 90, 41, 0.2);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -4498,6 +5248,8 @@ body.signup-modal-open {
 .profile-listings__quick-link:focus-visible,
 .profile-listings__create:hover,
 .profile-listings__create:focus-visible,
+.profile-listing-card__actions button:hover,
+.profile-listing-card__actions button:focus-visible,
 .profile-listing-card__actions a:hover,
 .profile-listing-card__actions a:focus-visible {
     transform: translateY(-1px);
@@ -4712,9 +5464,418 @@ body.signup-modal-open {
     background: #fff1f0;
 }
 
+.profile-listing-status.is-expired {
+    color: #8a4b00;
+    background: #fff3d9;
+}
+
 .profile-listing-status.is-muted {
     color: #4b587c;
     background: #eef2fb;
+}
+
+.profile-modal--deposits {
+    --profile-deposit-font: "Segoe UI", "Noto Sans", Arial, sans-serif;
+}
+
+.profile-modal--deposits :where(
+    .profile-form__eyebrow,
+    .profile-form__header h2,
+    .profile-form__header p,
+    .profile-deposits__eyebrow,
+    .profile-deposits__header h3,
+    .profile-deposits__count,
+    .profile-deposits__refresh,
+    .profile-deposits__filter,
+    .profile-deposits__filter select,
+    .profile-listing-card__top span,
+    .profile-listing-card h4,
+    .profile-listing-card p,
+    .profile-listing-card__meta,
+    .profile-listing-card__chips span,
+    .profile-listing-card__note,
+    .profile-listing-status,
+    .profile-listing-card__actions button,
+    .profile-listing-card__actions a,
+    .profile-deposit-detail__back,
+    .profile-deposit-detail__hero span,
+    .profile-deposit-detail__hero h4,
+    .profile-deposit-detail__hero p,
+    .profile-deposit-detail__summary span,
+    .profile-deposit-detail__summary strong,
+    .profile-deposit-next-steps__head span,
+    .profile-deposit-next-steps__head h4,
+    .profile-deposit-next-steps__head p,
+    .profile-deposit-next-steps li,
+    .profile-deposit-bank-guide__head span,
+    .profile-deposit-bank-guide__head h4,
+    .profile-deposit-bank-guide__head p,
+    .profile-deposit-bank-guide__grid span,
+    .profile-deposit-bank-guide__grid strong,
+    .profile-deposit-detail__section h4,
+    .profile-deposit-detail__section dt,
+    .profile-deposit-detail__section dd,
+    .profile-deposit-history strong,
+    .profile-deposit-history small,
+    .profile-deposit-history time,
+    .profile-deposit-history p,
+    .profile-deposit-detail__section--history p,
+    .profile-deposit-detail__actions a,
+    .profile-deposit-detail__actions button
+) {
+    font-family: var(--profile-deposit-font);
+    letter-spacing: 0;
+}
+
+.profile-modal--deposits .profile-form__eyebrow,
+.profile-modal--deposits .profile-deposits__eyebrow,
+.profile-modal--deposits .profile-deposit-detail__hero span,
+.profile-modal--deposits .profile-deposit-next-steps__head span,
+.profile-modal--deposits .profile-deposit-bank-guide__head span,
+.profile-modal--deposits .profile-deposit-bank-guide__grid span,
+.profile-modal--deposits .profile-deposit-detail__summary span,
+.profile-modal--deposits .profile-deposit-detail__section dt {
+    line-height: 1.35;
+    text-transform: none;
+}
+
+.profile-modal--deposits .profile-form__eyebrow {
+    margin-bottom: 0.6rem;
+    font-size: 0.86rem;
+    font-weight: 800;
+}
+
+.profile-modal--deposits .profile-form__header h2 {
+    max-width: 840px;
+    font-size: clamp(1.95rem, 3.4vw, 2.5rem);
+    font-weight: 800;
+    line-height: 1.16;
+}
+
+.profile-modal--deposits .profile-form__header p {
+    max-width: 760px;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.58;
+}
+
+.profile-modal--deposits .profile-deposits__header h3 {
+    font-size: 1.08rem;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+.profile-modal--deposits .profile-deposits__eyebrow {
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.profile-modal--deposits .profile-deposits__count,
+.profile-modal--deposits .profile-listing-status {
+    justify-content: center;
+    min-height: 34px;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.profile-modal--deposits .profile-deposits__refresh,
+.profile-modal--deposits .profile-deposit-detail__back,
+.profile-modal--deposits .profile-listing-card__actions button,
+.profile-modal--deposits .profile-listing-card__actions a,
+.profile-modal--deposits .profile-deposit-detail__actions a,
+.profile-modal--deposits .profile-deposit-detail__actions button {
+    min-height: 44px;
+    padding: 0.55rem 1rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.profile-modal--deposits .profile-listing-card__actions button span,
+.profile-modal--deposits .profile-listing-card__actions a span,
+.profile-modal--deposits .profile-deposit-detail__actions button span,
+.profile-modal--deposits .profile-deposit-detail__actions a span {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.profile-modal--deposits .profile-deposit-action--pay {
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--main-color) 0%, var(--main-color-dark) 100%);
+}
+
+.profile-modal--deposits .profile-deposit-action--pay:disabled {
+    opacity: 0.72;
+    cursor: wait;
+    transform: none;
+}
+
+.profile-modal--deposits .profile-deposits__refresh i,
+.profile-modal--deposits .profile-deposit-detail__back i,
+.profile-modal--deposits .profile-deposit-detail__actions i {
+    flex: 0 0 auto;
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
+.profile-modal--deposits .profile-deposits__filter {
+    font-size: 0.93rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.profile-modal--deposits .profile-deposits__filter select {
+    min-height: 46px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.profile-modal--deposits .profile-deposit-card {
+    gap: 0.72rem;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__top span {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.profile-modal--deposits .profile-deposit-card h4 {
+    margin-top: 0.28rem;
+    font-size: 1.04rem;
+    font-weight: 800;
+    line-height: 1.36;
+}
+
+.profile-modal--deposits .profile-deposit-card p {
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.58;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__meta,
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__note {
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.profile-modal--deposits .profile-listing-card__chips span {
+    min-height: 34px;
+    padding: 0.38rem 0.82rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+.profile-modal--deposits .profile-deposit-detail__hero h4 {
+    font-size: 1.18rem;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+.profile-modal--deposits .profile-deposit-detail__hero p {
+    font-weight: 600;
+    line-height: 1.58;
+}
+
+.profile-modal--deposits .profile-deposit-detail__summary span,
+.profile-modal--deposits .profile-deposit-detail__section dt {
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.profile-modal--deposits .profile-deposit-detail__summary strong,
+.profile-modal--deposits .profile-deposit-detail__section dd {
+    font-weight: 800;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+}
+
+.profile-modal--deposits .profile-deposit-detail__section h4,
+.profile-modal--deposits .profile-deposit-history strong {
+    font-weight: 800;
+    line-height: 1.4;
+}
+
+.profile-modal--deposits .profile-deposits {
+    border-radius: 16px;
+}
+
+.profile-modal--deposits .profile-deposits__header {
+    align-items: center;
+    padding: 1rem 1.15rem;
+}
+
+.profile-modal--deposits .profile-deposits__toolbar {
+    align-items: center;
+    padding: 0.9rem 1.15rem;
+    background: #fbfcff;
+}
+
+.profile-modal--deposits .profile-deposits__panel,
+.profile-modal--deposits .profile-deposit-detail {
+    padding: 1rem 1.15rem 1.15rem;
+}
+
+.profile-modal--deposits .profile-deposits__list {
+    gap: 0.82rem;
+    padding-right: 0.25rem;
+}
+
+.profile-modal--deposits .profile-deposit-card {
+    border-radius: 14px;
+    gap: 0.72rem;
+    padding: 1rem 1.1rem;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.85rem;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-status {
+    min-width: 116px;
+    min-height: 34px;
+    justify-content: center;
+    padding: 0 0.85rem;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, max-content));
+    gap: 0.36rem 0.85rem;
+    align-items: center;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__meta span,
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__note {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, max-content));
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__chips span {
+    justify-content: center;
+    max-width: 100%;
+    white-space: nowrap;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__note {
+    border-radius: 10px;
+    padding: 0.48rem 0.65rem;
+    color: #5f6b89;
+    background: #f7f9fd;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__note:empty {
+    display: none;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
+    gap: 0.55rem;
+    align-items: stretch;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__actions button,
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__actions a {
+    width: 100%;
+    min-height: 40px;
+    padding: 0 0.82rem;
+    box-shadow: none;
+}
+
+.profile-modal--deposits .profile-deposit-card .profile-listing-card__actions .bx {
+    flex: 0 0 auto;
+    font-size: 1.05rem;
+    line-height: 1;
+}
+
+.profile-modal--deposits .profile-deposit-detail__card {
+    border-radius: 14px;
+    gap: 0.9rem;
+    padding: 1rem;
+}
+
+.profile-modal--deposits .profile-deposit-detail__hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    border-radius: 12px;
+}
+
+.profile-modal--deposits .profile-deposit-detail__hero .profile-listing-status {
+    min-width: 128px;
+    justify-content: center;
+    text-align: center;
+}
+
+.profile-modal--deposits .profile-deposit-detail__summary {
+    gap: 0.65rem;
+}
+
+.profile-modal--deposits .profile-deposit-detail__summary div,
+.profile-modal--deposits .profile-deposit-bank-guide,
+.profile-modal--deposits .profile-deposit-bank-guide__grid div,
+.profile-modal--deposits .profile-deposit-detail__section {
+    border-radius: 12px;
+}
+
+.profile-modal--deposits .profile-deposit-bank-guide__grid {
+    gap: 0.65rem;
+}
+
+.profile-modal--deposits .profile-deposit-detail__section dl {
+    gap: 0.7rem 0.9rem;
+}
+
+.profile-modal--deposits .profile-deposit-detail__section dl div {
+    min-height: 48px;
+    align-content: start;
+}
+
+.profile-modal--deposits .profile-deposit-proof-panel {
+    grid-template-columns: 96px minmax(0, 1fr);
+    border-radius: 12px;
+}
+
+.profile-modal--deposits .profile-deposit-proof-panel__thumb,
+.profile-modal--deposits .profile-deposit-proof-panel__empty {
+    width: 96px;
+    border-radius: 10px;
+}
+
+.profile-modal--deposits .profile-deposit-detail__actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.55rem;
+}
+
+.profile-modal--deposits .profile-deposit-detail__actions a,
+.profile-modal--deposits .profile-deposit-detail__actions button {
+    width: 100%;
+    box-shadow: none;
 }
 
 .profile-edit-panel {
@@ -5196,7 +6357,23 @@ body.reset-password-modal-open {
         width: 100%;
     }
 
+    .profile-modal--deposits .profile-form__header {
+        padding-right: 2.5rem;
+    }
+
+    .profile-modal--deposits .profile-form__header h2 {
+        font-size: clamp(1.6rem, 7.4vw, 2.05rem);
+        line-height: 1.18;
+    }
+
+    .profile-modal--deposits .profile-form__header p {
+        font-size: 0.94rem;
+        line-height: 1.55;
+    }
+
     .profile-listings__header,
+    .profile-deposits__header,
+    .profile-deposits__toolbar,
     .profile-listings__toolbar,
     .profile-listing-card__top {
         align-items: stretch;
@@ -5205,8 +6382,74 @@ body.reset-password-modal-open {
 
     .profile-listings__quick-link,
     .profile-listings__create,
+    .profile-deposits__refresh,
+    .profile-listing-card__actions button,
     .profile-listing-card__actions a {
         width: 100%;
+    }
+
+    .profile-modal--deposits .profile-deposits__count,
+    .profile-modal--deposits .profile-listing-status {
+        align-self: flex-start;
+        max-width: 100%;
+    }
+
+    .profile-deposit-next-steps__head,
+    .profile-deposit-bank-guide__head {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-deposit-next-steps__head > .bx,
+    .profile-deposit-bank-guide__head > .bx {
+        justify-self: start;
+    }
+
+    .profile-modal--deposits .profile-listing-card__chips span {
+        max-width: 100%;
+    }
+
+    .profile-modal--deposits .profile-deposit-card .profile-listing-card__top,
+    .profile-modal--deposits .profile-deposit-detail__hero {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-modal--deposits .profile-deposit-card .profile-listing-status,
+    .profile-modal--deposits .profile-deposit-detail__hero .profile-listing-status {
+        min-width: 0;
+        width: fit-content;
+    }
+
+    .profile-modal--deposits .profile-deposit-card .profile-listing-card__meta,
+    .profile-modal--deposits .profile-deposit-card .profile-listing-card__chips,
+    .profile-modal--deposits .profile-deposit-card .profile-listing-card__actions,
+    .profile-deposit-bank-guide__grid,
+    .profile-modal--deposits .profile-deposit-detail__actions {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-deposit-history__item {
+        grid-template-columns: 34px minmax(0, 1fr);
+        gap: 0.65rem;
+    }
+
+    .profile-deposit-history__item:not(:last-child)::after {
+        left: 16px;
+    }
+
+    .profile-deposit-history__marker {
+        width: 34px;
+        height: 34px;
+        box-shadow: 0 0 0 4px #ffffff;
+    }
+
+    .profile-deposit-history__head {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .profile-deposit-history__head time {
+        white-space: normal;
     }
 
     .profile-listings__tabs {
@@ -5222,19 +6465,47 @@ body.reset-password-modal-open {
         border-bottom: 0;
     }
 
-    .profile-listings__filter {
+    .profile-listings__filter,
+    .profile-deposits__filter {
         width: 100%;
         align-items: stretch;
         flex-direction: column;
     }
 
-    .profile-listings__filter select {
+    .profile-listings__filter select,
+    .profile-deposits__filter select {
         width: 100%;
     }
 
-    .profile-listings__list {
+    .profile-listings__list,
+    .profile-deposits__list {
         max-height: none;
         overflow: visible;
+    }
+
+    .profile-deposit-detail__hero,
+    .profile-deposit-detail__actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .profile-deposit-detail__summary,
+    .profile-deposit-detail__section dl,
+    .profile-deposit-proof-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-deposit-proof-panel__thumb,
+    .profile-deposit-proof-panel__empty {
+        width: 100%;
+        max-width: 240px;
+    }
+
+    .profile-deposit-detail__actions a,
+    .profile-deposit-detail__actions button,
+    .profile-deposit-proof-panel__actions a,
+    .profile-deposit-proof-panel__actions button {
+        width: 100%;
     }
 
     .profile-avatar {

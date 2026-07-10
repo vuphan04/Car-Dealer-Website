@@ -15,8 +15,22 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Cho phép người dùng đã đăng nhập xem họ tên, email và cập nhật hồ sơ cá nhân: số điện thoại, số CCCD, ngày sinh, giới tính, ảnh đại diện và địa chỉ liên hệ.
 - Cho phép người dùng đã đăng nhập lưu xe yêu thích và xem danh sách xe yêu thích của chính mình.
 - Popup thông tin tài khoản của người dùng đã đăng nhập có mục quản lý tin đăng, gồm tab tin bán xe và tin mua xe, hiển thị số lượng tin, lọc theo trạng thái và liên kết đăng tin mới tương ứng; menu tài khoản có nút mở nhanh thẳng tới mục này bằng chế độ chỉ hiển thị quản lý tin, không kèm khối thông tin cá nhân.
+- Popup thông tin tài khoản của người dùng đã đăng nhập có mục quản lý đặt cọc để xem lại các đơn đặt cọc của chính mình, lọc theo trạng thái `pending`, `confirmed`, `completed`, `cancelled_after_deposit`, `cancelled`, `expired`, và nhấn vào từng đơn để xem chi tiết thông tin xe, khách hàng, thanh toán, chứng từ chuyển khoản, ngân hàng, hạn giữ chỗ, ghi chú và lịch sử xử lý; với đơn `pending` dùng VNPay sandbox chưa có kết quả thất bại/hủy, khách có thể bấm "Tiếp tục thanh toán VNPay" để hệ thống tạo lại URL thanh toán và chuyển sang cổng VNPay; nếu VNPay đã trả kết quả thất bại hoặc khách hủy/quay về từ cổng thanh toán thì đơn chuyển sang `cancelled` và khách phải tạo đơn mới để thanh toán lại; menu tài khoản thay nút giỏ hàng bằng nút "Quản lý đặt cọc".
 - Cho phép người dùng liên hệ mua xe hoặc đặt lịch xem xe
 - Trang chi tiết xe có nút "Nhận tư vấn & báo giá" mở popup cho khách gửi yêu cầu tư vấn theo xe đang xem, gồm họ tên, số điện thoại, email, nhu cầu, thời gian muốn gọi lại và ghi chú; khách chưa đăng nhập vẫn gửi được yêu cầu. Nếu xe đã hết hàng/đã bán, nút chính đổi thành "Tư vấn xe tương tự", popup báo xe hiện đã hết hàng và yêu cầu gửi lên admin phải thể hiện khách cần tư vấn xe tương tự.
+- Trang chi tiết xe có nút "Đặt cọc xe" nổi bật; khi nhấn chuyển đến trang `/thanh-toan-dat-coc?carId=...` để khách đã đăng nhập nhập thông tin đặt cọc giữ xe, gồm thông tin xe, thông tin khách hàng, số tiền đặt cọc và phương thức chuyển khoản ngân hàng hoặc VNPay sandbox nếu đã cấu hình. Khách chưa đăng nhập phải đăng nhập/tạo tài khoản trước khi gửi đơn để đơn đặt cọc luôn gắn với tài khoản khách hàng. Trước khi gửi đơn, khách phải đọc và tick đồng ý chính sách đặt cọc/hủy cọc/hoàn cọc đang cấu hình trong admin; backend cũng kiểm tra cờ đồng ý để tránh gọi API trực tiếp bỏ qua điều khoản. Khi khách xác nhận, backend lưu đơn đặt cọc vào SQLite, chuyển xe sang trạng thái `Đang giữ chỗ` và chặn đơn đặt cọc trùng xe nếu xe đang có đơn `pending` hoặc `confirmed`.
+- Với phương thức chuyển khoản ngân hàng, sau khi khách bấm xác nhận đặt cọc, frontend hiển thị màn hình chờ gồm mã đơn, xe, số tiền cọc, thông tin ngân hàng và nội dung chuyển khoản. Màn hình chờ tự kiểm tra trạng thái đơn bằng mã đơn + số điện thoại; chỉ khi nhân viên/admin cập nhật đơn sang `confirmed` thì frontend mới chuyển sang thông báo "Đặt cọc xe thành công".
+- Với phương thức VNPay sandbox, sau khi backend tạo đơn đặt cọc, hệ thống ký URL thanh toán theo cấu hình `OKXE_VNPAY_*` trong `.env` và frontend chuyển khách sang cổng VNPay. Khi VNPay redirect về return URL hoặc gọi IPN, backend kiểm tra chữ ký, kiểm tra đơn và số tiền, lưu thông tin giao dịch VNPay, rồi tự chuyển đơn sang `confirmed` nếu `vnp_ResponseCode` và `vnp_TransactionStatus` thành công; nếu VNPay trả thất bại hoặc khách bấm hủy/quay về khiến giao dịch không thành công, backend chuyển đơn `pending` sang `cancelled`, ghi lịch sử, gửi thông báo và mở lại xe nếu không còn đơn active khác.
+- Trang `/thanh-toan-dat-coc` có form tra cứu đơn đặt cọc bằng mã đơn và số điện thoại để khách xem trạng thái `pending`, `confirmed`, `completed`, `cancelled_after_deposit`, `cancelled`, `expired`, hạn giữ chỗ, lịch sử xử lý và hướng dẫn bước tiếp theo theo từng trạng thái. Trang này cũng có khối giải thích trạng thái đơn đặt cọc để khách biết cần chuyển khoản/thanh toán VNPay, chờ xác nhận, in biên nhận, kiểm tra hoàn cọc hoặc tạo đơn mới khi quá hạn hoặc khi VNPay thất bại/hủy. Sau khi tạo đơn đang `pending`, frontend lưu tạm mã đơn và số điện thoại trong `localStorage`; nếu khách reload trang hoặc quay về từ VNPay, màn hình chờ/kết quả được khôi phục và tự kiểm tra lại trạng thái, còn khi đơn `confirmed`, `cancelled` hoặc `expired` thì dữ liệu tạm được xóa.
+- Khách và admin chỉ có thể tải/bổ sung ảnh biên lai chuyển khoản khi đơn đặt cọc đã được xác nhận nhận tiền (`confirmed`); backend lưu ảnh local trong thư mục upload chứng từ, gắn đường dẫn vào đơn và ghi lịch sử xử lý để admin đối chiếu. Đơn `pending` chỉ hiển thị thông tin chuyển khoản và chờ nhân viên xác nhận, chưa cho tải biên lai.
+- Khi đơn đặt cọc đã được xác nhận `confirmed` hoặc đã `completed`, khách có thể xem/in biên nhận đặt cọc từ trang tra cứu hoặc mục "Quản lý đặt cọc" trong tài khoản. Biên nhận hiển thị mã biên nhận, mã đơn, thông tin khách hàng, xe, số tiền đặt cọc, số tiền còn lại nếu có, nội dung chuyển khoản, mã giao dịch, thời gian nhận tiền, thời gian xác nhận, chứng từ khách tải nếu có, thông tin tài khoản nhận cọc và chính sách đặt cọc đang áp dụng; biên nhận dùng hộp thoại in của trình duyệt để in hoặc lưu PDF.
+- Khi khách tạo đơn đặt cọc, khi đơn pending sắp hết hạn giữ chỗ, khi admin/nhân viên đổi trạng thái đơn, hoặc khi đơn tự quá hạn, backend phải tạo thông báo trong tài khoản khách hàng; nếu đơn có email hợp lệ và SMTP được cấu hình thì gửi thêm email xác nhận/cập nhật vòng đời đơn, còn môi trường dev có thể lưu email preview để kiểm thử. Mỗi đơn chỉ gửi nhắc chuyển khoản một lần trước hạn và phải ghi lịch sử xử lý.
+- Trang quản trị có mục "Quản lý đặt cọc" cho `staff` và `admin` xem danh sách đơn đặt cọc, tìm kiếm/lọc theo trạng thái, cấu hình tài khoản ngân hàng nhận cọc, các mức tiền đặt cọc hiển thị, mức cọc mặc định, giới hạn tối thiểu/tối đa, thời gian giữ xe, tùy chọn yêu cầu chứng từ chuyển khoản và nội dung chính sách đặt cọc/hủy cọc/hoàn cọc hiển thị cho khách.
+- Trang quản trị cho phép cập nhật trạng thái `pending`, `confirmed`, `completed`, `cancelled_after_deposit`, `cancelled`, `expired`; khi chuyển sang `confirmed`, nhân viên phải nhập mã giao dịch/tham chiếu duy nhất, thời gian nhận tiền, có thể nhập ghi chú nội bộ đối soát, hệ thống lưu người xác nhận và thời điểm xác nhận. Sau khi đơn ở trạng thái `confirmed`, admin/nhân viên có thể xem chứng từ khách tải hoặc tải biên lai thay khách nếu khách gửi qua tin nhắn/kênh ngoài hệ thống; sau đó có thể chốt `completed` để chuyển xe sang `Xe đã bán` hoặc hủy sau đặt cọc bằng `cancelled_after_deposit` để mở lại xe nếu cần. Khi hủy sau đặt cọc, admin/nhân viên nhập lý do gửi khách, số tiền hoàn cọc, mã giao dịch hoàn tiền, thời gian hoàn tiền và ghi chú hoàn cọc; hệ thống lưu người ghi nhận hoàn cọc và thời điểm ghi nhận. Admin có thể xem timeline lịch sử xử lý, đánh dấu đơn quá hạn, lọc đơn sắp quá hạn/đã nhắc khách/chờ chứng từ/cần đối soát, xem báo cáo tổng tiền cọc đã nhận/đã hoàn/cọc ròng và xuất danh sách đặt cọc hoặc lịch sử xử lý CSV theo bộ lọc hiện tại.
+- Luồng trạng thái đơn đặt cọc phải đi theo thứ tự hợp lệ: `pending` chỉ được chuyển sang `confirmed`, `cancelled` hoặc `expired`; `confirmed` chỉ được chuyển sang `completed` hoặc `cancelled_after_deposit`; các trạng thái cuối `completed`, `cancelled_after_deposit`, `cancelled`, `expired` không được mở lại sang trạng thái khác. Hệ thống vẫn cho phép cập nhật lại cùng một trạng thái để bổ sung ghi chú hoặc thông tin đối soát khi cần.
+- Khi xe đang có đơn đặt cọc active (`pending` hoặc `confirmed`), admin không được đổi trực tiếp trạng thái xe trong kho từ `Đang giữ chỗ` sang `Xe đã bán` hoặc `Còn xe`, đồng thời không được xóa xe khỏi kho; nếu đơn `pending` phải hủy/để quá hạn trước, còn nếu đơn `confirmed` phải chốt đơn sang `completed` để hệ thống tự đổi thành `Xe đã bán` hoặc hủy sau đặt cọc bằng `cancelled_after_deposit` để mở lại xe.
+- Đơn đặt cọc `pending` có thời hạn giữ chỗ theo cấu hình trong admin, mặc định lấy seed từ `OKXE_DEPOSIT_HOLD_HOURS` nếu chưa có cấu hình (mặc định 24 giờ). Khi quá hạn, backend tự chuyển đơn sang `expired`, ghi lịch sử xử lý, gửi thông báo cho khách và mở lại xe nếu không còn đơn `pending` hoặc `confirmed` khác.
+- Khi đơn đặt cọc bị hủy hoặc quá hạn và xe không còn đơn đặt cọc `pending` hoặc `confirmed` khác, backend tự đưa trạng thái xe từ `Đang giữ chỗ` về `Còn xe`.
 - Trang quản trị có mục "Yêu cầu tư vấn" để `staff` và `admin` xem, tìm kiếm, cập nhật trạng thái và xóa yêu cầu tư vấn của khách hàng.
 - Cho phép khách hàng đã đăng nhập đăng ký lái thử tại trang con `/dang-ky-lai-thu`, nhập họ tên, số điện thoại, chọn xe đang còn xe trong database, ngày dự kiến và khung giờ lái thử.
 - Popup chọn xe trong trang đăng ký lái thử cho phép lọc nhanh xe yêu thích của khách hàng, chỉ hiển thị các xe yêu thích vẫn còn hàng để lái thử.
@@ -53,7 +67,7 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Trang website có mục "Đăng bán xe" tại `/dang-tin-ban-xe`, cho phép khách hàng đã đăng nhập nhấn nút "Điền thông tin xe cần bán" để mở popup nhập thông tin người bán, thông tin xe đầy đủ, mô tả tình trạng và tải nhiều ảnh xe thực tế.
 - Khi khách hàng gửi thông tin xe cần bán, backend lưu vào trạng thái `pending`, tạo thông báo đã nhận thông tin cho khách hàng và hiển thị trong mục "Thông báo".
 - Trang quản trị có mục "Quản lý đăng bán xe" cho `staff` và `admin` xem thông tin xe khách gửi, ảnh xe, số điện thoại/email để sale gọi lại, tìm kiếm/lọc theo trạng thái và xử lý duyệt hoặc từ chối.
-- Khi `staff` hoặc `admin` duyệt thông tin đăng bán xe, backend tạo xe mới trong bảng kho xe `cars` với trạng thái còn xe, cập nhật bài đăng bán sang `approved` và gửi thông báo duyệt cho khách hàng.
+- Khi `staff` hoặc `admin` duyệt thông tin đăng bán xe, bắt buộc nhập giá chốt với khách và giá bán trên hệ thống, mỗi giá gồm bản hiển thị và dạng số. Backend dùng giá bán trên hệ thống để tạo xe mới trong bảng kho xe `cars` với trạng thái còn xe, cập nhật bài đăng bán sang `approved` và gửi thông báo duyệt cho khách hàng. Giá khách mong muốn chỉ giữ lại để tham khảo, giá chốt với khách dùng làm giá vốn/quản trị nội bộ, không dùng làm giá bán công khai.
 - Trong kho xe admin, xe được nhập từ luồng khách hàng đăng bán phải hiển thị rõ nguồn "Khách gửi bán", mã bài đăng bán và thông tin người bán để nhân viên dễ kiểm soát, nhưng API public không được lộ thông tin người bán.
 - Khi `staff` hoặc `admin` từ chối thông tin đăng bán xe, bắt buộc nhập lý do; backend gửi thông báo lý do từ chối cho khách hàng, xóa bài đăng bán xe bị từ chối và khách hàng cần đăng lại bài nếu muốn OkXe kiểm tra lại.
 - Khi khách hàng đã đăng nhập gửi tin mua ô tô, mục "Thông báo" của khách hàng hiển thị tin đã gửi thành công; khi nhân viên/admin duyệt hoặc từ chối tin, mục "Thông báo" cũng hiển thị trạng thái mới cho khách hàng.
@@ -63,7 +77,7 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Form thêm/sửa xe trong trang admin cho phép nhập mô tả xe để lưu thông tin tình trạng, tiện nghi hoặc ghi chú bán xe.
 - Form thêm/sửa xe trong trang admin dùng lựa chọn cố định cho phân khúc, kiểu vận hành, nhiên liệu, số chỗ, hộp số, dẫn động, xuất xứ, tình trạng và nút hành động để hạn chế nhập sai dữ liệu.
 - Cho phép admin tải lên một hoặc nhiều ảnh cho mỗi xe bằng nút chọn ảnh
-- Có chức năng thanh toán qua ngân hàng hoặc các ví điện tử
+- MVP đặt cọc hỗ trợ chuyển khoản ngân hàng xác nhận thủ công và VNPay sandbox để tạo luồng thanh toán tự động; ví điện tử/thẻ/cổng thanh toán production vẫn là hướng mở rộng sau.
 ## Quy tắc chung
 
 - Viết code rõ ràng, dễ hiểu, dễ bảo trì.
@@ -122,17 +136,21 @@ Ghi các đặc tả, quy tắc và ưu tiên của bạn tại đây. Mỗi khi
 - Bảng `users` lưu thêm hồ sơ khách hàng trong các cột `phone`, `citizen_id`, `birth_date`, `gender`, `avatar_url`, `address_province`, `address_district`, `address_ward`, `address_detail`, `updated_at`.
 - Bảng `users` lưu thêm hồ sơ nhân viên kinh doanh hiển thị trang chủ trong các cột `sales_title`, `sales_experience`, `sales_bio`, `show_on_home`, `home_display_order`. Cột `sales_specialty` có thể còn tồn tại ở database cũ nhưng không hiển thị trên giao diện.
 - Trường `sales_bio` là mô tả chi tiết nhân viên, nhập bằng textarea trong admin và hiển thị đầy đủ trong popup chi tiết nhân viên ở trang chủ.
-- Bảng `cars` lưu hãng xe trong cột `brand`, mô tả xe trong cột `description`, thông số dẫn động trong cột `drivetrain`, ảnh chính trong cột `image` và danh sách nhiều ảnh trong cột `images_json`.
+- Bảng `cars` lưu hãng xe trong cột `brand`, mô tả xe trong cột `description`, thông số dẫn động trong cột `drivetrain`, ảnh chính trong cột `image` và danh sách nhiều ảnh trong cột `images_json`. Cột `action_text` dùng trạng thái kho xe gồm `Còn xe`, `Đang giữ chỗ`, `Xe đã bán`.
 - Bảng `promotions` lưu bài khuyến mại trong các cột `title`, `summary`, `content`, `badge_text`, `image_url`, `cta_text`, `cta_url`, `starts_at`, `ends_at`, `show_on_home`, `display_order`, `created_at`, `updated_at`.
 - Bảng `blog_posts` lưu bài viết blog trong các cột `slug`, `category`, `title`, `excerpt`, `content`, `image_url`, `image_alt`, `author_id`, `author_name`, `published_at`, `read_time`, `status`, `featured`, `show_on_home`, `display_order`, `created_at`, `updated_at`. Trạng thái gồm `draft`, `published`; chỉ bài `published` và đến ngày đăng mới hiển thị công khai. Cột `show_on_home` quyết định bài có xuất hiện trong carousel blog ở trang chủ hay không. Trường `content` hỗ trợ ảnh xen giữa nội dung bằng cú pháp `![mô tả ảnh](đường-dẫn-ảnh)`.
 - Khi backend khởi động, các bài blog tĩnh cũ trong `public/blog/data.js` được đồng bộ vào bảng `blog_posts` theo `slug`; bài còn thiếu sẽ được thêm mới, còn bài seed cũ có nội dung ngắn hơn sẽ được cập nhật nội dung mà vẫn giữ trạng thái, nổi bật, hiển thị Home và thứ tự hiện có trong admin.
 - Bảng `user_favorite_cars` lưu xe yêu thích của khách hàng bằng `user_id`, `car_id`, `created_at`, có khóa ngoại tới `users` và `cars`.
 - Bảng `test_drive_appointments` lưu lịch đăng ký lái thử của khách hàng bằng `user_id`, `car_id`, thông tin xe tại thời điểm đăng ký, `full_name`, `phone`, `preferred_date`, `preferred_time_slot`, `status`, `status_note`, `created_at`, `updated_at`.
 - Bảng `consultation_requests` lưu yêu cầu tư vấn theo xe bằng `user_id`, `car_id`, thông tin xe tại thời điểm gửi, `full_name`, `phone`, `email`, `request_type`, `preferred_contact_time`, `note`, `status`, `status_note`, `created_at`, `updated_at`.
+- Bảng `deposit_payment_settings` lưu cấu hình active cho thanh toán đặt cọc gồm tài khoản nhận cọc (`account_name`, `bank_name`, `account_number`, `branch`), tiền tố nội dung chuyển khoản (`transfer_prefix`), danh sách mức cọc hiển thị (`deposit_amount_options_json`), mức cọc mặc định (`default_deposit_amount`), giới hạn tối thiểu/tối đa (`min_deposit_amount`, `max_deposit_amount`), thời gian giữ xe (`hold_hours`), tùy chọn yêu cầu chứng từ (`require_transfer_proof`), nội dung chính sách đặt cọc/hủy cọc/hoàn cọc (`policy_text`) và thông tin người cập nhật.
+- Bảng `deposit_orders` lưu đơn đặt cọc giữ xe bằng `user_id`, `car_id`, thông tin xe tại thời điểm gửi (`car_name`, `car_brand`, `car_price_text`, `car_price_value`), `full_name`, `phone`, `email`, `province`, `note`, `deposit_amount`, `payment_method`, `bank_transfer_note`, thông tin VNPay sandbox (`vnpay_txn_ref`, `vnpay_transaction_no`, `vnpay_response_code`, `vnpay_transaction_status`, `vnpay_bank_code`, `vnpay_card_type`, `vnpay_pay_date`, `vnpay_payment_url`, `vnpay_confirmed_at`), chứng từ chuyển khoản (`transfer_proof_url`, `transfer_proof_file_name`, `transfer_proof_uploaded_at`), `status`, `status_note`, hạn giữ chỗ (`expires_at`, `expired_at`), thời điểm đã nhắc thanh toán (`payment_reminder_sent_at`), thông tin xác nhận tiền (`payment_reference`, `payment_received_at`, `payment_confirmation_note`, `payment_confirmed_by_user_id`, `payment_confirmed_by_name`, `payment_confirmed_at`), thông tin hoàn cọc (`refund_amount`, `refund_reference`, `refund_completed_at`, `refund_note`, `refund_confirmed_by_user_id`, `refund_confirmed_by_name`, `refund_confirmed_at`), `created_at`, `updated_at`. Trạng thái gồm `pending`, `confirmed`, `completed`, `cancelled_after_deposit`, `cancelled`, `expired`; `pending` là đơn đang chờ chuyển khoản/VNPay hoặc nhân viên xác nhận, `confirmed` là đã nhận tiền đặt cọc, `completed` là đã hoàn tất giao dịch mua xe và chuyển xe sang `Xe đã bán`, `cancelled_after_deposit` là giao dịch hủy sau khi đã nhận cọc, `expired` là quá hạn giữ chỗ, và `pending`/`confirmed` được xem là đơn active để giữ xe và chặn đặt cọc trùng.
+- Bảng `deposit_order_status_history` lưu lịch sử xử lý đơn đặt cọc bằng `deposit_order_id`, `previous_status`, `next_status`, `note`, `actor_user_id`, `actor_name`, `action_type`, `created_at`.
 - Bảng `car_buy_requests` lưu tin khách cần mua xe bằng `user_id`, `budget_range`, `title`, `content`, `full_name`, `phone`, `email`, `province`, `address`, `status`, `status_note`, `created_at`, `updated_at`. Trạng thái gồm `pending`, `approved`, `rejected`; chỉ tin `approved` hiển thị công khai.
 - Bảng `car_buy_request_offers` lưu đề xuất xe phù hợp cho tin mua bằng `car_buy_request_id`, `seller_name`, `seller_phone`, `seller_email`, `car_brand`, `car_model`, `car_year`, `car_version`, `expected_price`, `mileage`, `condition_note`, `contact_preference`, `status`, `status_note`, `created_at`, `updated_at`. Trạng thái gồm `new`, `contacted`, `matched`, `rejected`.
-- Bảng `car_sell_requests` lưu thông tin xe khách hàng gửi bán bằng `user_id`, thông tin liên hệ người bán, đầy đủ trường xe tương ứng kho xe (`brand`, `category`, `name`, `description`, `type`, `price_text`, `price_value`, `image`, `images_json`, `year`, `fuel`, `mileage_text`, `mileage_value`, `seats`, `gearbox`, `drivetrain`, `origin`, `condition`, `color`, `action_text`), `status`, `status_note`, `approved_car_id`, `created_at`, `updated_at`. Trạng thái lưu trong bảng gồm `pending`, `approved`; bài bị từ chối được xóa sau khi tạo thông báo lý do cho khách hàng.
-- Bảng `user_notifications` lưu thông báo riêng của khách hàng bằng `user_id`, `type`, `title`, `message`, `entity_type`, `entity_id`, `status`, `created_at`; hiện dùng cho luồng đăng bán xe để báo đã nhận, đã duyệt hoặc bị từ chối.
+- Bảng `car_sell_requests` lưu thông tin xe khách hàng gửi bán bằng `user_id`, thông tin liên hệ người bán, đầy đủ trường xe tương ứng kho xe (`brand`, `category`, `name`, `description`, `type`, `price_text`, `price_value`, `customer_deal_price_text`, `customer_deal_price_value`, `final_price_text`, `final_price_value`, `image`, `images_json`, `year`, `fuel`, `mileage_text`, `mileage_value`, `seats`, `gearbox`, `drivetrain`, `origin`, `condition`, `color`, `action_text`), `status`, `status_note`, `approved_car_id`, `created_at`, `updated_at`. `price_text`/`price_value` là giá khách mong muốn, `customer_deal_price_text`/`customer_deal_price_value` là giá chốt với khách khi đồng ý nhận xe, còn `final_price_text`/`final_price_value` là giá bán trên hệ thống và là giá dùng để tạo xe trong bảng `cars`. Trạng thái lưu trong bảng gồm `pending`, `approved`; bài bị từ chối được xóa sau khi tạo thông báo lý do cho khách hàng.
+- Bảng `user_notifications` lưu thông báo riêng của khách hàng bằng `user_id`, `type`, `title`, `message`, `entity_type`, `entity_id`, `status`, `is_read`, `created_at`, `updated_at`, `deleted_at`; dùng cho luồng đặt cọc xe, đăng bán xe, đăng ký lái thử, tin mua xe, đề xuất xe phù hợp và khuyến mại công khai. Thông báo được xóa mềm bằng `deleted_at`, đánh dấu đã đọc bằng `is_read` và API chỉ trả các thông báo chưa bị xóa.
+- Bảng `admin_notifications` lưu thông báo chung cho `staff` và `admin` bằng `type`, `title`, `message`, `entity_type`, `entity_id`, `status`, `is_read`, `created_at`, `updated_at`, `deleted_at`; dùng để báo phát sinh mới từ khách hàng như đơn đặt cọc, yêu cầu tư vấn, đăng ký lái thử, tin mua xe, đề xuất xe phù hợp và đăng bán xe. Thông báo admin được tạo ở backend, xóa mềm bằng `deleted_at`, đánh dấu đã đọc bằng `is_read` và API admin chỉ trả các thông báo chưa bị xóa.
 - Ảnh xe được upload local vào thư mục `storage/uploads/cars` hoặc thư mục được cấu hình bằng `OKXE_UPLOAD_DIR`.
 - Ảnh đại diện người dùng được upload local vào thư mục `storage/uploads/avatars` hoặc thư mục upload được cấu hình bằng `OKXE_UPLOAD_DIR`.
 - Ảnh khuyến mại được upload local vào thư mục `storage/uploads/promotions` hoặc thư mục upload được cấu hình bằng `OKXE_UPLOAD_DIR`.
@@ -189,6 +207,171 @@ Nếu có thay đổi database, bắt buộc ghi rõ:
 - Tên cột được thêm, sửa hoặc xóa.
 - Câu lệnh SQL cần chạy.
 - Lý do cần thay đổi database.
+
+### Thay đổi database gần nhất
+
+- Bảng thay đổi: `car_sell_requests`.
+- Cột thêm: `customer_deal_price_text`, `customer_deal_price_value`, `final_price_text`, `final_price_value`.
+- SQL migration tham khảo:
+
+```sql
+ALTER TABLE car_sell_requests ADD COLUMN customer_deal_price_text TEXT NOT NULL DEFAULT '';
+ALTER TABLE car_sell_requests ADD COLUMN customer_deal_price_value INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE car_sell_requests ADD COLUMN final_price_text TEXT NOT NULL DEFAULT '';
+ALTER TABLE car_sell_requests ADD COLUMN final_price_value INTEGER NOT NULL DEFAULT 0;
+```
+
+- Lý do: tách giá khách mong muốn, giá chốt với khách và giá bán trên hệ thống; giá bán trên hệ thống được dùng làm giá chính thức của xe trong bảng `cars`, còn giá chốt với khách là nền dữ liệu quản trị giá vốn/lợi nhuận và tính thưởng sale sau này.
+
+- Bảng thay đổi: `deposit_orders`, `deposit_payment_settings`.
+- Cột thêm ở `deposit_orders`: `expires_at`, `expired_at`, `payment_reminder_sent_at`, `payment_reference`, `payment_received_at`, `payment_confirmation_note`, `payment_confirmed_by_user_id`, `payment_confirmed_by_name`, `payment_confirmed_at`, `transfer_proof_url`, `transfer_proof_file_name`, `transfer_proof_uploaded_at`, `vnpay_txn_ref`, `vnpay_transaction_no`, `vnpay_response_code`, `vnpay_transaction_status`, `vnpay_bank_code`, `vnpay_card_type`, `vnpay_pay_date`, `vnpay_payment_url`, `vnpay_confirmed_at`, `refund_amount`, `refund_reference`, `refund_completed_at`, `refund_note`, `refund_confirmed_by_user_id`, `refund_confirmed_by_name`, `refund_confirmed_at`.
+- Cột thêm ở `deposit_payment_settings`: `policy_text`.
+- Bảng thêm: `deposit_order_status_history`, `deposit_payment_settings`.
+- SQL migration tham khảo:
+
+```sql
+ALTER TABLE deposit_orders ADD COLUMN expires_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN expired_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN payment_reminder_sent_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN payment_reference TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN payment_received_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN payment_confirmation_note TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN payment_confirmed_by_user_id INTEGER;
+ALTER TABLE deposit_orders ADD COLUMN payment_confirmed_by_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN payment_confirmed_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN transfer_proof_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN transfer_proof_file_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN transfer_proof_uploaded_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN vnpay_txn_ref TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN vnpay_transaction_no TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN vnpay_response_code TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN vnpay_transaction_status TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN vnpay_bank_code TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN vnpay_card_type TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN vnpay_pay_date TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN vnpay_payment_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN vnpay_confirmed_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN refund_amount INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE deposit_orders ADD COLUMN refund_reference TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN refund_completed_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN refund_note TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN refund_confirmed_by_user_id INTEGER;
+ALTER TABLE deposit_orders ADD COLUMN refund_confirmed_by_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_orders ADD COLUMN refund_confirmed_at TEXT NOT NULL DEFAULT '';
+ALTER TABLE deposit_payment_settings ADD COLUMN policy_text TEXT NOT NULL DEFAULT '';
+
+CREATE TABLE IF NOT EXISTS deposit_order_status_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  deposit_order_id INTEGER NOT NULL,
+  previous_status TEXT NOT NULL DEFAULT '',
+  next_status TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  actor_user_id INTEGER,
+  actor_name TEXT NOT NULL DEFAULT '',
+  action_type TEXT NOT NULL DEFAULT 'status_update',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (deposit_order_id) REFERENCES deposit_orders(id) ON DELETE CASCADE,
+  FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS deposit_payment_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  account_name TEXT NOT NULL DEFAULT '',
+  bank_name TEXT NOT NULL DEFAULT '',
+  account_number TEXT NOT NULL DEFAULT '',
+  branch TEXT NOT NULL DEFAULT '',
+  transfer_prefix TEXT NOT NULL DEFAULT 'OKXE COC',
+  deposit_amount_options_json TEXT NOT NULL DEFAULT '',
+  default_deposit_amount INTEGER NOT NULL DEFAULT 10000000,
+  min_deposit_amount INTEGER NOT NULL DEFAULT 1000000,
+  max_deposit_amount INTEGER NOT NULL DEFAULT 200000000,
+  hold_hours INTEGER NOT NULL DEFAULT 24,
+  require_transfer_proof INTEGER NOT NULL DEFAULT 0,
+  policy_text TEXT NOT NULL DEFAULT '',
+  updated_by_user_id INTEGER,
+  updated_by_name TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_deposit_orders_payment_reference
+ON deposit_orders (payment_reference);
+
+CREATE INDEX IF NOT EXISTS idx_deposit_orders_vnpay_txn_ref
+ON deposit_orders (vnpay_txn_ref);
+```
+
+- Lý do: lưu thời hạn giữ chỗ, trạng thái quá hạn, thông tin đối soát khi admin/nhân viên hoặc VNPay sandbox xác nhận đã nhận tiền đặt cọc, chứng từ chuyển khoản khách tải, thông tin hoàn cọc khi hủy sau đặt cọc, timeline lịch sử xử lý, chính sách đặt cọc/hủy cọc/hoàn cọc hiển thị cho khách và cấu hình thanh toán đặt cọc chỉnh được trong admin; đồng thời hỗ trợ chốt giao dịch sau khi đã nhận cọc, chặn dùng trùng mã giao dịch, tra cứu giao dịch VNPay và báo cáo tiền cọc/hoàn cọc.
+
+### KPI / Hiệu quả kinh doanh sale
+
+- Trang quản trị có mục **KPI / Hiệu quả kinh doanh** chỉ hiển thị và thao tác được với tài khoản `admin`; tài khoản `staff` không được tạo, sửa hoặc hủy KPI.
+- KPI chỉ được ghi nhận thủ công bởi admin sau khi giao dịch thành công: tin đăng bán xe đã được duyệt và nhập kho (`approved`, có giá chốt với khách), đơn đặt cọc đã hoàn tất (`completed`), hoặc xe được admin đổi trực tiếp từ `Còn xe` sang `Xe đã bán` tại quản lý kho. Đơn mới xác nhận cọc (`confirmed`) không được tính KPI/doanh số.
+- Khi ghi nhận, admin chọn sale chịu trách nhiệm, tiền thưởng, trạng thái thưởng `pending`/`paid` và ghi chú. Hệ thống lưu ảnh chụp dữ liệu giao dịch tại thời điểm ghi nhận để báo cáo lịch sử không đổi theo dữ liệu xe/đơn về sau.
+- Mỗi nguồn giao dịch chỉ được tạo một bản ghi KPI theo loại tương ứng: một tin đăng bán tạo tối đa một KPI `acquisition`, một đơn đặt cọc hoàn tất tạo tối đa một KPI `sale`, một xe bán trực tiếp tạo tối đa một KPI `direct_sale`.
+- Admin có thể điều chỉnh sale, tiền thưởng, trạng thái chi và ghi chú của KPI còn hiệu lực; khi hủy phải nhập lý do. KPI hủy không bị xóa mà giữ lịch sử và không còn tính vào thống kê.
+
+### Thay đổi database mới nhất
+
+- Bảng thêm: `sales_kpi_records`.
+- Cột chính: `kpi_type`, `source_id`, `sale_user_id`, `sale_name`, `car_id`, giá trị giao dịch/giá nhập/giá bán, `reward_amount`, `reward_status`, `record_status`, thông tin admin ghi nhận và lịch sử hủy.
+- Ràng buộc: `UNIQUE (kpi_type, source_id)` để một giao dịch thành công không được ghi KPI trùng.
+- SQL migration tham khảo:
+
+```sql
+CREATE TABLE IF NOT EXISTS sales_kpi_records (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kpi_type TEXT NOT NULL,
+  source_id INTEGER NOT NULL,
+  sale_user_id INTEGER NOT NULL,
+  sale_name TEXT NOT NULL DEFAULT '',
+  car_id INTEGER,
+  car_name TEXT NOT NULL DEFAULT '',
+  car_brand TEXT NOT NULL DEFAULT '',
+  source_code TEXT NOT NULL DEFAULT '',
+  transaction_value INTEGER NOT NULL DEFAULT 0,
+  purchase_price_value INTEGER NOT NULL DEFAULT 0,
+  sale_price_value INTEGER NOT NULL DEFAULT 0,
+  reward_amount INTEGER NOT NULL DEFAULT 0,
+  reward_status TEXT NOT NULL DEFAULT 'pending',
+  record_status TEXT NOT NULL DEFAULT 'active',
+  note TEXT NOT NULL DEFAULT '',
+  recorded_by_user_id INTEGER,
+  recorded_by_name TEXT NOT NULL DEFAULT '',
+  recorded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  cancelled_at TEXT NOT NULL DEFAULT '',
+  cancelled_by_user_id INTEGER,
+  cancelled_by_name TEXT NOT NULL DEFAULT '',
+  cancellation_note TEXT NOT NULL DEFAULT '',
+  UNIQUE (kpi_type, source_id)
+);
+```
+
+- Lý do: ghi nhận KPI/doanh số và thưởng sale do admin chốt sau giao dịch thành công, chặn tính trùng và giữ lịch sử điều chỉnh/hủy minh bạch.
+
+- Bảng thêm: `direct_car_sales`.
+- Cột chính: `car_id` (duy nhất), ảnh chụp tên/hãng xe, `sale_price_value`, người đổi xe sang đã bán và thời điểm bán trực tiếp.
+- SQL migration tham khảo:
+
+```sql
+CREATE TABLE IF NOT EXISTS direct_car_sales (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  car_id INTEGER NOT NULL UNIQUE,
+  car_name TEXT NOT NULL DEFAULT '',
+  car_brand TEXT NOT NULL DEFAULT '',
+  sale_price_value INTEGER NOT NULL DEFAULT 0,
+  sold_by_user_id INTEGER,
+  sold_by_name TEXT NOT NULL DEFAULT '',
+  sold_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE RESTRICT,
+  FOREIGN KEY (sold_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+```
+
+- Lý do: lưu nguồn giao dịch bán trực tiếp tại cửa hàng khi admin chuyển xe từ `Còn xe` sang `Xe đã bán`, để admin gán sale và thưởng trong KPI mà không cần tạo đơn đặt cọc.
 
 ## Ghi chú khác
 - Đây là đồ án tốt nghiệp nên ưu tiên code dễ giải thích khi bảo vệ.

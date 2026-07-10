@@ -1,7 +1,7 @@
 const getSharedHeaderActivePath = () => {
     const path = window.location.pathname;
 
-    if (path === '/mua-xe' || path.startsWith('/cars/')) {
+    if (path === '/mua-xe' || path.startsWith('/cars/') || path === '/thanh-toan-dat-coc') {
         return '/mua-xe';
     }
 
@@ -14,6 +14,15 @@ const getSharedHeaderActivePath = () => {
     }
 
     return path;
+};
+
+const getSharedAuthHref = (authAction = 'login') => {
+    const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    const returnTo = currentPath && currentPath !== '/'
+        ? `&returnTo=${encodeURIComponent(currentPath)}`
+        : '';
+
+    return `/?auth=${encodeURIComponent(authAction)}${returnTo}`;
 };
 
 const renderSharedSiteHeader = () => {
@@ -54,8 +63,8 @@ const renderSharedSiteHeader = () => {
                         <div class="okxe-site-header__links nav-links">${navLinks}</div>
                         <div class="okxe-site-header__auth">
                             <div class="okxe-site-header__guest" data-site-header-guest hidden>
-                                <a href="/?auth=login" class="okxe-site-header__action okxe-site-header__action--login">Đăng nhập</a>
-                                <a href="/?auth=signup" class="okxe-site-header__action okxe-site-header__action--signup">Đăng ký tài khoản</a>
+                                <a href="${getSharedAuthHref('login')}" class="okxe-site-header__action okxe-site-header__action--login">Đăng nhập</a>
+                                <a href="${getSharedAuthHref('signup')}" class="okxe-site-header__action okxe-site-header__action--signup">Đăng ký tài khoản</a>
                             </div>
                             <div class="okxe-site-header__logged-in" data-site-header-user hidden>
                                 <div class="okxe-site-header__account" data-site-account-menu>
@@ -77,6 +86,7 @@ const renderSharedSiteHeader = () => {
                                         <a href="/?account=listings" class="okxe-site-header__dropdown-link"><i class="bx bx-list-ul" aria-hidden="true"></i><span>Quản lý tin đăng</span></a>
                                         <a href="/?account=favorites" class="okxe-site-header__dropdown-link"><i class="bx bx-heart" aria-hidden="true"></i><span>Xe yêu thích</span></a>
                                         <a href="/?account=notifications" class="okxe-site-header__dropdown-link"><i class="bx bx-bell" aria-hidden="true"></i><span>Thông báo</span></a>
+                                        <a href="/?account=deposits" class="okxe-site-header__dropdown-link"><i class="bx bx-receipt" aria-hidden="true"></i><span>Quản lý đặt cọc</span></a>
                                         <a href="/dang-tin-mua-o-to" class="okxe-site-header__dropdown-link"><i class="bx bx-message-square-edit" aria-hidden="true"></i><span>Đăng tin mua ô tô</span></a>
                                         <a href="/dang-tin-ban-xe" class="okxe-site-header__dropdown-link"><i class="bx bx-car" aria-hidden="true"></i><span>Đăng bán xe cũ</span></a>
                                     </div>

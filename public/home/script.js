@@ -47,6 +47,40 @@ const escapeHtml = (value) =>
         "'": '&#039;'
     })[character]);
 
+const escapeSelectorValue = (value) =>
+    globalThis.CSS?.escape
+        ? globalThis.CSS.escape(String(value ?? ''))
+        : String(value ?? '').replace(/["\\]/g, '\\$&');
+
+const getSafeAuthReturnTo = () => {
+    const returnTo = new URL(window.location.href).searchParams.get('returnTo');
+
+    if (!returnTo) {
+        return '';
+    }
+
+    try {
+        const nextUrl = new URL(returnTo, window.location.origin);
+
+        return nextUrl.origin === window.location.origin
+            ? `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
+            : '';
+    } catch (error) {
+        return '';
+    }
+};
+
+const redirectToAuthReturnTarget = () => {
+    const returnTo = getSafeAuthReturnTo();
+
+    if (!returnTo) {
+        return false;
+    }
+
+    window.location.assign(returnTo);
+    return true;
+};
+
 const renderSpecChip = (value, fallback = 'Chưa cập nhật') => {
     const fullValue = String(value || fallback).trim();
 
@@ -103,13 +137,14 @@ let testDriveAppointmentsState = [];
 let carBuyRequestsState = [];
 let carSellRequestsState = [];
 let userNotificationsState = [];
+let depositOrdersState = [];
 let homeBlogResizeControlsBound = false;
 let teamMemberCloseTimer = 0;
-let dismissedNotificationIds = new Set();
 let carBuyRequestBudgetLabelsState = {};
 let activeProfileListingsTab = 'sell';
 let activeProfileListingsFilter = 'all';
-const dismissedNotificationsStorageKey = 'okxe:dismissedPromotionNotifications';
+let activeProfileDepositsFilter = 'all';
+let activeProfileDepositDetailId = null;
 const promotionDateFormatter = new Intl.DateTimeFormat('vi-VN', {
     year: 'numeric',
     month: '2-digit',
@@ -121,9 +156,15 @@ const getCarDetailUrl = (carId) => `/cars/${encodeURIComponent(carId)}`;
 const getCarStatusClass = (status) => {
     const normalizedStatus = String(status || '').trim().toLocaleLowerCase('vi-VN');
 
-    return ['xe đã bán', 'hết xe', 'hết hàng'].includes(normalizedStatus)
-        ? 'is-sold'
-        : 'is-available';
+    if (['xe đã bán', 'hết xe', 'hết hàng'].includes(normalizedStatus)) {
+        return 'is-sold';
+    }
+
+    if (normalizedStatus.includes('đang giữ') || normalizedStatus.includes('giữ chỗ')) {
+        return 'is-held';
+    }
+
+    return 'is-available';
 };
 
 const updateRentalSliderControls = () => {
@@ -643,7 +684,7 @@ const syncFavoriteButtons = (carId) => {
     const normalizedCarId = String(carId);
     const isActive = isFavoriteCar(normalizedCarId);
 
-    document.querySelectorAll(`[data-favorite-car="${CSS.escape(normalizedCarId)}"]`).forEach((button) => {
+    document.querySelectorAll(`[data-favorite-car="${escapeSelectorValue(normalizedCarId)}"]`).forEach((button) => {
         const icon = button.querySelector('i');
         const car = rentalCars.find((item) => String(item.id) === normalizedCarId);
 
@@ -826,271 +867,153 @@ const closeFavoriteCarsModal = () => {
     document.body.classList.remove('favorite-cars-modal-open');
 };
 
-const loadDismissedNotificationIds = () => {
-    try {
-        const parsedIds = JSON.parse(localStorage.getItem(dismissedNotificationsStorageKey) || '[]');
-        dismissedNotificationIds = new Set(
-            Array.isArray(parsedIds) ? parsedIds.map((id) => String(id)) : []
-        );
-    } catch (error) {
-        dismissedNotificationIds = new Set();
-    }
-};
-
-const saveDismissedNotificationIds = () => {
-    try {
-        localStorage.setItem(
-            dismissedNotificationsStorageKey,
-            JSON.stringify([...dismissedNotificationIds])
-        );
-    } catch (error) {
-        // Nếu trình duyệt chặn localStorage, vẫn xóa tạm trong phiên hiện tại.
-    }
-};
-
-const getNotificationKey = (type, id) => `${type}:${id}`;
-
-const testDriveNotificationLabels = {
-    approved: {
+const notificationTypeConfig = {
+    promotion: {
+        meta: 'Khuyến mại mới',
+        icon: 'bxs-purchase-tag',
+        footer: 'Ưu đãi đang hiển thị tại OkXe.',
+        actionText: 'Xem ưu đãi',
+        actionUrl: '/khuyen-mai'
+    },
+    'test-drive': {
         meta: 'Lái thử',
-        title: 'Đồng ý cho phép lái thử',
-        icon: 'bxs-check-circle',
-        footer: 'OkXe đã đồng ý lịch lái thử của bạn.'
-    },
-    cancelled: {
-        meta: 'Lịch hẹn',
-        title: 'Hủy lịch hẹn',
-        icon: 'bxs-x-circle',
-        footer: 'Lịch hẹn lái thử đã được hủy.'
-    },
-    pending: {
-        meta: 'Lịch hẹn',
-        title: 'Cần đổi khung giờ lái thử',
-        icon: 'bxs-time-five',
-        footer: 'Khung giờ bạn chọn cần được sắp xếp lại. OkXe sẽ liên hệ để hỗ trợ đổi lịch.'
-    },
-    registered: {
-        meta: 'Lái thử',
-        title: 'Đã nhận đăng ký lái thử',
         icon: 'bxs-calendar-check',
-        footer: 'Lịch hẹn đang chờ nhân viên xác nhận.'
-    }
-};
-
-const carBuyRequestNotificationLabels = {
-    pending: {
+        footer: 'OkXe sẽ tiếp tục cập nhật khi lịch hẹn thay đổi.',
+        actionText: 'Xem lịch',
+        actionUrl: '/dang-ky-lai-thu'
+    },
+    'deposit-order': {
+        meta: 'Đặt cọc xe',
+        icon: 'bxs-credit-card',
+        footer: 'OkXe sẽ tiếp tục cập nhật khi đơn đặt cọc thay đổi.',
+        actionText: 'Xem đơn đặt cọc',
+        actionUrl: '/?account=deposits'
+    },
+    'car-buy-request': {
         meta: 'Tin mua xe',
-        title: 'Đã nhận tin mua ô tô',
         icon: 'bx-message-square-edit',
-        footer: 'Tin của bạn đang chờ cửa hàng duyệt trước khi hiển thị công khai.'
+        footer: 'Bạn có thể theo dõi tin mua xe trong mục quản lý tin đăng.',
+        actionText: 'Xem tin mua xe',
+        actionUrl: '/tin-mua-o-to'
     },
-    approved: {
-        meta: 'Tin mua xe',
-        title: 'Tin mua ô tô đã được duyệt',
-        icon: 'bxs-check-circle',
-        footer: 'Tin của bạn đã hiển thị trên mục Tin mua ô tô.'
-    },
-    rejected: {
-        meta: 'Tin mua xe',
-        title: 'Tin mua ô tô bị từ chối',
-        icon: 'bxs-x-circle',
-        footer: 'Tin chưa được hiển thị công khai. Bạn có thể đăng lại với nội dung phù hợp hơn.'
-  }
-};
-
-const carBuyRequestOfferNotificationLabels = {
-    new: {
-        meta: 'Xe phù hợp mới',
-        title: 'Có người vừa đề xuất xe cho tin mua của bạn',
+    'car-buy-request-offer': {
+        meta: 'Xe phù hợp',
         icon: 'bxs-car',
-        footer: 'OkXe đang kiểm tra thông tin xe và sẽ hỗ trợ kết nối nếu phù hợp.'
+        footer: 'OkXe không tiết lộ thông tin người đề xuất trước khi kiểm tra và kết nối.',
+        actionText: 'Xem tin mua xe',
+        actionUrl: '/tin-mua-o-to'
     },
-    contacted: {
-        meta: 'Đang xác minh',
-        title: 'OkXe đã liên hệ người có xe phù hợp',
-        icon: 'bx-phone-call',
-        footer: 'Đội ngũ OkXe đang xác minh thông tin xe trước khi kết nối với bạn.'
-    },
-    matched: {
-        meta: 'Sẵn sàng kết nối',
-        title: 'Xe phù hợp đã sẵn sàng kết nối',
-        icon: 'bx-link-alt',
-        footer: 'OkXe sẽ liên hệ bạn để xác nhận nhu cầu và sắp xếp trao đổi.'
-    },
-    rejected: {
-        meta: 'Đã kiểm tra',
-        title: 'Một đề xuất xe chưa phù hợp',
-        icon: 'bxs-x-circle',
-        footer: 'OkXe đã kiểm tra và xác định đề xuất này chưa phù hợp với nhu cầu của bạn.'
-    }
-};
-
-const userNotificationLabels = {
-    pending: {
+    'car-sell-request': {
         meta: 'Đăng bán xe',
         icon: 'bx-message-square-edit',
+        footer: 'OkXe sẽ tiếp tục cập nhật khi có thay đổi.',
         actionText: 'Xem biểu mẫu',
-        actionUrl: '/dang-tin-ban-xe'
-    },
-    approved: {
-        meta: 'Đăng bán xe',
-        icon: 'bxs-check-circle',
-        actionText: 'Xem kho xe',
-        actionUrl: '/mua-xe'
-    },
-    rejected: {
-        meta: 'Đăng bán xe',
-        icon: 'bxs-x-circle',
-        actionText: 'Đăng lại xe',
         actionUrl: '/dang-tin-ban-xe'
     },
     default: {
         meta: 'Thông báo',
         icon: 'bxs-bell',
+        footer: 'OkXe sẽ tiếp tục cập nhật khi có thay đổi.',
         actionText: 'Xem chi tiết',
         actionUrl: '/'
     }
 };
 
-const getTestDriveNotificationState = (appointment = {}) => {
-    const status = String(appointment.status || '').trim().toLowerCase();
-    const hasStatusNote = String(appointment.statusNote || '').trim().length > 0;
-
-    if (status === 'approved') {
-        return 'approved';
-    }
-
-    if (status === 'cancelled') {
-        return 'cancelled';
-    }
-
-    if (status === 'pending' && hasStatusNote) {
-        return 'pending';
-    }
-
-    return 'registered';
+const notificationStatusConfig = {
+    approved: { icon: 'bxs-check-circle' },
+    matched: { icon: 'bx-link-alt' },
+    contacted: { icon: 'bx-phone-call' },
+    rejected: { icon: 'bxs-x-circle' },
+    cancelled: { icon: 'bxs-x-circle' },
+    confirmed: { icon: 'bxs-check-circle' },
+    payment_reminder: { icon: 'bxs-time-five', actionText: 'Xem đơn đặt cọc', actionUrl: '/?account=deposits' },
+    pending_conflict: { icon: 'bxs-time-five', actionText: 'Đổi lịch', actionUrl: '/dang-ky-lai-thu' },
+    registered: { icon: 'bxs-calendar-check' },
+    active: { icon: 'bxs-purchase-tag' }
 };
 
-const getCustomerTestDriveStatusNote = (statusNote = '') => {
-    const note = String(statusNote || '').trim();
+const getNotificationTypeKey = (notification = {}) =>
+    String(notification.type || notification.entityType || '').trim();
 
-    if (!note) {
-        return '';
+const getNotificationConfig = (notification = {}) => {
+    const typeKey = getNotificationTypeKey(notification);
+    const normalizedStatus = String(notification.status || '').trim().toLowerCase();
+    const baseConfig = notificationTypeConfig[typeKey] || notificationTypeConfig.default;
+    const statusConfig = notificationStatusConfig[normalizedStatus] || {};
+    const entityType = String(notification.entityType || '').trim();
+
+    if (typeKey === 'car-sell-request' || entityType === 'car_sell_request') {
+        const sellStatusConfig = {
+            approved: { actionText: 'Xem kho xe', actionUrl: '/mua-xe' },
+            rejected: {
+                icon: 'bxs-x-circle',
+                footer: 'Bạn cần đăng lại bài nếu muốn OkXe kiểm tra lại.',
+                actionText: 'Đăng lại xe',
+                actionUrl: '/dang-tin-ban-xe'
+            }
+        }[normalizedStatus] || {};
+
+        return { ...baseConfig, ...statusConfig, ...sellStatusConfig };
     }
 
-    return note
-        .replace(
-            'Vui lòng liên hệ với khách hàng để đổi khung giờ.',
-            'OkXe sẽ liên hệ để hỗ trợ bạn đổi sang khung giờ phù hợp.'
-        )
-        .replace(
-            'Nhân viên sẽ liên hệ để hỗ trợ đổi sang khung giờ khác.',
-            'OkXe sẽ liên hệ để hỗ trợ bạn đổi sang khung giờ phù hợp.'
-        );
+    return { ...baseConfig, ...statusConfig };
 };
 
-const getTestDriveNotificationKey = (appointment = {}) =>
-    getNotificationKey(
-        'test-drive',
-        [
-            appointment.id,
-            getTestDriveNotificationState(appointment),
-            appointment.updatedAt || appointment.createdAt || ''
-        ].join(':')
+const getPromotionByNotification = (notification = {}) =>
+    promotionsState.find((promotion) =>
+        String(promotion.id || '') === String(notification.entityId || '')
     );
 
-const getCarBuyRequestNotificationKey = (request = {}) =>
-    getNotificationKey(
-        'car-buy-request',
-        [
-            request.id,
-            request.status || 'pending',
-            request.updatedAt || request.createdAt || ''
-        ].join(':')
-    );
+const getNotificationAction = (notification = {}, config = {}) => {
+    const typeKey = getNotificationTypeKey(notification);
+    const status = String(notification.status || '').trim().toLowerCase();
 
-const getCarBuyRequestOfferNotificationKey = (request = {}, offer = {}) =>
-    getNotificationKey(
-        'car-buy-request-offer',
-        [
-            request.id,
-            offer.id,
-            offer.status || 'new',
-            offer.updatedAt || offer.createdAt || ''
-        ].join(':')
-    );
+    if (typeKey === 'test-drive' && status !== 'pending_conflict' && notification.entityId) {
+        return `
+            <button type="button" class="notification-item__action notification-item__action--danger" data-delete-test-drive-appointment="${escapeHtml(String(notification.entityId))}" data-related-notification-id="${escapeHtml(String(notification.id || ''))}">
+                <span>Xóa lịch</span>
+                <i class="bx bx-trash" aria-hidden="true"></i>
+            </button>
+        `;
+    }
 
-const getUserNotificationKey = (notification = {}) =>
-    getNotificationKey(
-        'user-notification',
-        [
-            notification.id,
-            notification.status || '',
-            notification.createdAt || ''
-        ].join(':')
-    );
+    if (typeKey === 'promotion') {
+        const promotion = getPromotionByNotification(notification);
+        const actionUrl = promotion?.ctaUrl || config.actionUrl;
+        const actionText = promotion?.ctaText || config.actionText;
 
-const isNotificationDismissed = (type, id) =>
-    dismissedNotificationIds.has(getNotificationKey(type, id))
-    || (type === 'promotion' && dismissedNotificationIds.has(String(id || '')));
+        return `
+            <a href="${escapeHtml(actionUrl)}" data-close-notifications-link>
+                <span>${escapeHtml(actionText)}</span>
+                <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+            </a>
+        `;
+    }
 
-const getNotificationPromotions = (promotions = promotionsState) =>
-    [...promotions]
-        .filter((promotion) => promotion?.showOnHome !== false)
-        .filter((promotion) => !isNotificationDismissed('promotion', promotion.id))
-        .sort((first, second) => {
-            const firstTime = new Date(first.createdAt || first.startsAt || 0).getTime();
-            const secondTime = new Date(second.createdAt || second.startsAt || 0).getTime();
+    return `
+        <a href="${escapeHtml(config.actionUrl || '/')}" data-close-notifications-link>
+            <span>${escapeHtml(config.actionText || 'Xem chi tiết')}</span>
+            <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+        </a>
+    `;
+};
 
-            return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
-        });
+const getNotificationIcon = (notification = {}, config = {}) => {
+    if (getNotificationTypeKey(notification) === 'promotion') {
+        const promotion = getPromotionByNotification(notification);
+        const imageUrl = String(promotion?.imageUrl || '').trim();
 
-const getNotificationTestDriveAppointments = () =>
-    [...testDriveAppointmentsState]
-        .filter((appointment) => !dismissedNotificationIds.has(getTestDriveNotificationKey(appointment)))
-        .sort((first, second) => {
-            const firstTime = new Date(first.createdAt || 0).getTime();
-            const secondTime = new Date(second.createdAt || 0).getTime();
+        if (imageUrl) {
+            return `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(promotion.title || notification.title || 'Khuyến mại OkXe')}">`;
+        }
+    }
 
-            return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
-        });
-
-const getNotificationCarBuyRequests = () =>
-    [...carBuyRequestsState]
-        .filter((request) => !dismissedNotificationIds.has(getCarBuyRequestNotificationKey(request)))
-        .sort((first, second) => {
-            const firstTime = new Date(first.updatedAt || first.createdAt || 0).getTime();
-            const secondTime = new Date(second.updatedAt || second.createdAt || 0).getTime();
-
-            return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
-        });
-
-const getNotificationCarBuyRequestOffers = () =>
-    carBuyRequestsState
-        .flatMap((request) => {
-            const offers = Array.isArray(request.offerNotifications)
-                ? request.offerNotifications
-                : [];
-
-            return offers.map((offer) => ({
-                request,
-                offer,
-                updatedAt: offer.updatedAt || offer.createdAt || request.updatedAt || request.createdAt || ''
-            }));
-        })
-        .filter(({ request, offer }) =>
-            !dismissedNotificationIds.has(getCarBuyRequestOfferNotificationKey(request, offer))
-        )
-        .sort((first, second) => {
-            const firstTime = new Date(first.updatedAt || 0).getTime();
-            const secondTime = new Date(second.updatedAt || 0).getTime();
-
-            return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
-        });
+    return `<i class="bx ${escapeHtml(config.icon || 'bxs-bell')}" aria-hidden="true"></i>`;
+};
 
 const getNotificationUserNotifications = () =>
     [...userNotificationsState]
-        .filter((notification) => !dismissedNotificationIds.has(getUserNotificationKey(notification)))
+        .filter((notification) => !notification.deletedAt)
         .sort((first, second) => {
             const firstTime = new Date(first.createdAt || 0).getTime();
             const secondTime = new Date(second.createdAt || 0).getTime();
@@ -1099,12 +1022,9 @@ const getNotificationUserNotifications = () =>
         });
 
 const updateNotificationBadge = () => {
-    const notificationCount =
-        getNotificationPromotions().length
-        + getNotificationTestDriveAppointments().length
-        + getNotificationCarBuyRequests().length
-        + getNotificationCarBuyRequestOffers().length
-        + getNotificationUserNotifications().length;
+    const notificationCount = getNotificationUserNotifications()
+        .filter((notification) => !notification.isRead)
+        .length;
 
     notificationBadges.forEach((badge) => {
         badge.textContent = notificationCount > 9 ? '9+' : String(notificationCount);
@@ -1112,29 +1032,13 @@ const updateNotificationBadge = () => {
     });
 };
 
-const renderPromotionNotifications = (promotions = promotionsState) => {
+const renderPromotionNotifications = () => {
     if (!notificationsList) {
         updateNotificationBadge();
         return;
     }
 
-    const notificationPromotions = getNotificationPromotions(promotions);
-    const notificationAppointments = getNotificationTestDriveAppointments();
-    const notificationCarBuyRequests = getNotificationCarBuyRequests();
-    const notificationCarBuyRequestOffers = getNotificationCarBuyRequestOffers();
-    const notificationUserNotifications = getNotificationUserNotifications();
-    const notifications = [
-        ...notificationUserNotifications.map((notification) => ({ type: 'user-notification', item: notification })),
-        ...notificationAppointments.map((appointment) => ({ type: 'test-drive', item: appointment })),
-        ...notificationCarBuyRequestOffers.map((offerNotification) => ({ type: 'car-buy-request-offer', item: offerNotification })),
-        ...notificationCarBuyRequests.map((request) => ({ type: 'car-buy-request', item: request })),
-        ...notificationPromotions.map((promotion) => ({ type: 'promotion', item: promotion }))
-    ].sort((first, second) => {
-        const firstTime = new Date(first.item.updatedAt || first.item.createdAt || first.item.startsAt || 0).getTime();
-        const secondTime = new Date(second.item.updatedAt || second.item.createdAt || second.item.startsAt || 0).getTime();
-
-        return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
-    });
+    const notifications = getNotificationUserNotifications();
     updateNotificationBadge();
 
     if (!notifications.length) {
@@ -1148,237 +1052,37 @@ const renderPromotionNotifications = (promotions = promotionsState) => {
         return;
     }
 
-    notificationsList.innerHTML = notifications.map(({ type, item }) => {
-        if (type === 'test-drive') {
-            const appointment = item;
-            const notificationState = getTestDriveNotificationState(appointment);
-            const notificationConfig = testDriveNotificationLabels[notificationState] || testDriveNotificationLabels.registered;
-            const createdText = formatPromotionDate(
-                String(appointment.updatedAt || appointment.createdAt || '').slice(0, 10),
-                'Vừa đăng ký'
-            );
-            const preferredDateText = formatPromotionDate(appointment.preferredDate, 'Chưa rõ ngày');
-            const preferredTimeText = String(appointment.preferredTimeSlot || '').trim();
-            const notificationKey = getTestDriveNotificationKey(appointment);
-            const carTitle = [appointment.carBrand, appointment.carName].filter(Boolean).join(' ') || 'Xe đã chọn';
-            const reasonText = getCustomerTestDriveStatusNote(appointment.statusNote);
-            const scheduleText = preferredTimeText
-                ? `${preferredDateText}, khung giờ ${preferredTimeText}`
-                : preferredDateText;
-            const detailText = notificationState === 'registered'
-                ? `${carTitle} - lịch dự kiến ${scheduleText}.`
-                : `${carTitle} - lịch hẹn ${scheduleText}.`;
-            const footerText = reasonText
-                ? `${notificationState === 'approved' ? 'Ghi chú' : 'Lý do'}: ${reasonText}`
-                : notificationConfig.footer;
-            const appointmentAction = notificationState === 'pending'
-                ? `
-                            <a href="/dang-ky-lai-thu?carId=${encodeURIComponent(String(appointment.carId || ''))}" class="notification-item__action" data-close-notifications-link>
-                                <span>Đổi lịch</span>
-                                <i class="bx bx-calendar-edit" aria-hidden="true"></i>
-                            </a>
-                        `
-                : `
-                            <button type="button" class="notification-item__action notification-item__action--danger" data-delete-test-drive-appointment="${escapeHtml(String(appointment.id || ''))}">
-                                <span>Xóa lịch</span>
-                                <i class="bx bx-trash" aria-hidden="true"></i>
-                            </button>
-                        `;
-
-            return `
-                <article class="notification-item">
-                    <button type="button" class="notification-item__delete" data-delete-notification="${escapeHtml(notificationKey)}" aria-label="Xóa thông báo đăng ký lái thử">
-                        <i class="bx bx-x" aria-hidden="true"></i>
-                    </button>
-                    <span class="notification-item__icon">
-                        <i class="bx ${escapeHtml(notificationConfig.icon)}" aria-hidden="true"></i>
-                    </span>
-                    <div class="notification-item__body">
-                        <div class="notification-item__meta">
-                            <span>${escapeHtml(notificationConfig.meta)}</span>
-                            <small>${escapeHtml(createdText)}</small>
-                        </div>
-                        <h3>${escapeHtml(notificationConfig.title)}</h3>
-                        <p>${escapeHtml(detailText)}</p>
-                        <div class="notification-item__footer">
-                            <small>${escapeHtml(footerText)}</small>
-                            ${appointmentAction}
-                        </div>
-                    </div>
-                </article>
-            `;
-        }
-
-        if (type === 'car-buy-request-offer') {
-            const { request, offer } = item;
-            const status = String(offer.status || 'new').trim().toLowerCase();
-            const notificationConfig = carBuyRequestOfferNotificationLabels[status]
-                || carBuyRequestOfferNotificationLabels.new;
-            const notificationKey = getCarBuyRequestOfferNotificationKey(request, offer);
-            const createdText = formatPromotionDate(
-                String(offer.updatedAt || offer.createdAt || '').slice(0, 10),
-                'Vừa đề xuất'
-            );
-            const carTitle = [offer.carBrand, offer.carModel, offer.carYear]
-                .filter(Boolean)
-                .join(' ') || 'Xe phù hợp';
-            const carDetails = [offer.carVersion, offer.expectedPrice, offer.mileage]
-                .filter(Boolean)
-                .join(' · ');
-            const requestTitle = request.title || 'Tin mua ô tô của bạn';
-            const requestCode = request.code || `MX-${String(request.id || '').padStart(6, '0')}`;
-            const detailText = `${carTitle}${carDetails ? ` · ${carDetails}` : ''}. Đề xuất dành cho ${requestCode} - ${requestTitle}.`;
-
-            return `
-                <article class="notification-item">
-                    <button type="button" class="notification-item__delete" data-delete-notification="${escapeHtml(notificationKey)}" aria-label="Xóa thông báo xe phù hợp">
-                        <i class="bx bx-x" aria-hidden="true"></i>
-                    </button>
-                    <span class="notification-item__icon">
-                        <i class="bx ${escapeHtml(notificationConfig.icon)}" aria-hidden="true"></i>
-                    </span>
-                    <div class="notification-item__body">
-                        <div class="notification-item__meta">
-                            <span>${escapeHtml(notificationConfig.meta)}</span>
-                            <small>${escapeHtml(createdText)}</small>
-                        </div>
-                        <h3>${escapeHtml(notificationConfig.title)}</h3>
-                        <p>${escapeHtml(detailText)}</p>
-                        <div class="notification-item__footer">
-                            <small>${escapeHtml(notificationConfig.footer)}</small>
-                            <a href="/tin-mua-o-to" data-close-notifications-link>
-                                <span>Xem tin mua xe</span>
-                                <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
-                            </a>
-                        </div>
-                    </div>
-                </article>
-            `;
-        }
-
-        if (type === 'car-buy-request') {
-            const request = item;
-            const status = String(request.status || 'pending').trim().toLowerCase();
-            const notificationConfig = carBuyRequestNotificationLabels[status] || carBuyRequestNotificationLabels.pending;
-            const createdText = formatPromotionDate(
-                String(request.updatedAt || request.createdAt || '').slice(0, 10),
-                'Vừa gửi'
-            );
-            const notificationKey = getCarBuyRequestNotificationKey(request);
-            const title = request.title || 'Tin mua ô tô của bạn';
-            const budgetText = {
-                'under-200': 'Dưới 200 Triệu',
-                '200-400': '200-400 Triệu',
-                '400-600': '400-600 Triệu',
-                '600-800': '600-800 Triệu',
-                '800-1000': '800-1 Tỉ',
-                'over-1000': 'Trên 1 Tỉ'
-            }[request.budgetRange] || 'Giá thỏa thuận';
-            const detailText = `${title} - mức tiền ${budgetText}${request.province ? ` tại ${request.province}` : ''}.`;
-            const footerText = request.statusNote
-                ? `Ghi chú: ${request.statusNote}`
-                : notificationConfig.footer;
-
-            return `
-                <article class="notification-item">
-                    <button type="button" class="notification-item__delete" data-delete-notification="${escapeHtml(notificationKey)}" aria-label="Xóa thông báo tin mua xe">
-                        <i class="bx bx-x" aria-hidden="true"></i>
-                    </button>
-                    <span class="notification-item__icon">
-                        <i class="bx ${escapeHtml(notificationConfig.icon)}" aria-hidden="true"></i>
-                    </span>
-                    <div class="notification-item__body">
-                        <div class="notification-item__meta">
-                            <span>${escapeHtml(notificationConfig.meta)}</span>
-                            <small>${escapeHtml(createdText)}</small>
-                        </div>
-                        <h3>${escapeHtml(notificationConfig.title)}</h3>
-                        <p>${escapeHtml(detailText)}</p>
-                        <div class="notification-item__footer">
-                            <small>${escapeHtml(footerText)}</small>
-                            <a href="/tin-mua-o-to" data-close-notifications-link>
-                                <span>Xem tin mua xe</span>
-                                <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
-                            </a>
-                        </div>
-                    </div>
-                </article>
-            `;
-        }
-
-        if (type === 'user-notification') {
-            const notification = item;
-            const status = String(notification.status || 'default').trim().toLowerCase();
-            const notificationConfig = userNotificationLabels[status] || userNotificationLabels.default;
-            const createdText = formatPromotionDate(
-                String(notification.createdAt || '').slice(0, 10),
-                'Vừa cập nhật'
-            );
-            const notificationKey = getUserNotificationKey(notification);
-            const title = notification.title || 'Thông báo từ OkXe';
-            const message = notification.message || 'OkXe vừa cập nhật trạng thái yêu cầu của bạn.';
-
-            return `
-                <article class="notification-item">
-                    <button type="button" class="notification-item__delete" data-delete-notification="${escapeHtml(notificationKey)}" aria-label="Xóa thông báo ${escapeHtml(title)}">
-                        <i class="bx bx-x" aria-hidden="true"></i>
-                    </button>
-                    <span class="notification-item__icon">
-                        <i class="bx ${escapeHtml(notificationConfig.icon)}" aria-hidden="true"></i>
-                    </span>
-                    <div class="notification-item__body">
-                        <div class="notification-item__meta">
-                            <span>${escapeHtml(notificationConfig.meta)}</span>
-                            <small>${escapeHtml(createdText)}</small>
-                        </div>
-                        <h3>${escapeHtml(title)}</h3>
-                        <p>${escapeHtml(message)}</p>
-                        <div class="notification-item__footer">
-                            <small>${escapeHtml(status === 'rejected' ? 'Bạn cần đăng lại bài nếu muốn OkXe kiểm tra lại.' : 'OkXe sẽ tiếp tục cập nhật khi có thay đổi.')}</small>
-                            <a href="${escapeHtml(notificationConfig.actionUrl)}" data-close-notifications-link>
-                                <span>${escapeHtml(notificationConfig.actionText)}</span>
-                                <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
-                            </a>
-                        </div>
-                    </div>
-                </article>
-            `;
-        }
-
-        const promotion = item;
-        const imageUrl = String(promotion.imageUrl || '').trim();
-        const periodText = getPromotionPeriod(promotion);
+    notificationsList.innerHTML = notifications.map((notification) => {
+        const config = getNotificationConfig(notification);
+        const title = notification.title || 'Thông báo từ OkXe';
+        const message = notification.message || 'OkXe vừa cập nhật thông tin mới cho bạn.';
         const createdText = formatPromotionDate(
-            String(promotion.createdAt || '').slice(0, 10),
+            String(notification.createdAt || notification.updatedAt || '').slice(0, 10),
             'Vừa cập nhật'
         );
-        const ctaUrl = promotion.ctaUrl || '#promotions';
-        const ctaText = promotion.ctaText || 'Xem ưu đãi';
-        const notificationKey = getNotificationKey('promotion', promotion.id);
+        const isPromotionNotification = getNotificationTypeKey(notification) === 'promotion';
+        const promotionAttributes = isPromotionNotification
+            ? ` role="button" tabindex="0" data-promotion-notification-id="${escapeHtml(String(notification.entityId || ''))}"`
+            : '';
 
         return `
-            <article class="notification-item" role="button" tabindex="0" data-promotion-notification-id="${escapeHtml(String(promotion.id || ''))}" aria-label="Xem chi tiết ${escapeHtml(promotion.title || 'khuyến mại OkXe')}">
-                <button type="button" class="notification-item__delete" data-delete-notification="${escapeHtml(notificationKey)}" aria-label="Xóa thông báo ${escapeHtml(promotion.title || 'khuyến mại OkXe')}">
+            <article class="notification-item${notification.isRead ? '' : ' is-unread'}"${promotionAttributes} aria-label="${escapeHtml(isPromotionNotification ? `Xem chi tiết ${title}` : title)}">
+                <button type="button" class="notification-item__delete" data-delete-notification="${escapeHtml(String(notification.id || ''))}" aria-label="Xóa thông báo ${escapeHtml(title)}">
                     <i class="bx bx-x" aria-hidden="true"></i>
                 </button>
                 <span class="notification-item__icon">
-                    ${imageUrl
-                        ? `<img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(promotion.title || 'Khuyến mại OkXe')}">`
-                        : '<i class="bx bxs-purchase-tag" aria-hidden="true"></i>'}
+                    ${getNotificationIcon(notification, config)}
                 </span>
                 <div class="notification-item__body">
                     <div class="notification-item__meta">
-                        <span>Khuyến mại mới</span>
+                        <span>${escapeHtml(config.meta)}</span>
                         <small>${escapeHtml(createdText)}</small>
                     </div>
-                    <h3>${escapeHtml(promotion.title || 'Ưu đãi mới từ OkXe')}</h3>
-                    <p>${escapeHtml(promotion.summary || 'OkXe vừa cập nhật một chương trình ưu đãi mới dành cho khách hàng.')}</p>
+                    <h3>${escapeHtml(title)}</h3>
+                    <p>${escapeHtml(message)}</p>
                     <div class="notification-item__footer">
-                        <small>${escapeHtml(periodText)}</small>
-                        <a href="${escapeHtml(ctaUrl)}" data-close-notifications-link>
-                            <span>${escapeHtml(ctaText)}</span>
-                            <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
-                        </a>
+                        <small>${escapeHtml(config.footer)}</small>
+                        ${getNotificationAction(notification, config)}
                     </div>
                 </div>
             </article>
@@ -1386,19 +1090,56 @@ const renderPromotionNotifications = (promotions = promotionsState) => {
     }).join('');
 };
 
-const deleteNotification = (notificationId) => {
+const markNotificationsRead = async () => {
+    const hasUnreadNotifications = userNotificationsState.some((notification) => !notification.isRead);
+
+    if (!hasUnreadNotifications) {
+        return;
+    }
+
+    try {
+        const { response } = await requestJson('/api/notifications/my/read', { method: 'PATCH' });
+
+        if (!response.ok) {
+            return;
+        }
+
+        userNotificationsState = userNotificationsState.map((notification) => ({
+            ...notification,
+            isRead: true
+        }));
+        updateNotificationBadge();
+    } catch (error) {
+        // Đọc thất bại không chặn người dùng xem danh sách thông báo.
+    }
+};
+
+const deleteNotification = async (notificationId) => {
     const normalizedNotificationId = String(notificationId || '');
 
     if (!normalizedNotificationId) {
         return;
     }
 
-    dismissedNotificationIds.add(normalizedNotificationId);
-    saveDismissedNotificationIds();
-    renderPromotionNotifications();
+    try {
+        const { response, data } = await requestJson(`/api/notifications/my/${encodeURIComponent(normalizedNotificationId)}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể xóa thông báo.');
+        }
+
+        userNotificationsState = userNotificationsState.filter((notification) =>
+            String(notification.id || '') !== normalizedNotificationId
+        );
+        renderPromotionNotifications();
+    } catch (error) {
+        window.alert(error.message || 'Không thể xóa thông báo lúc này.');
+    }
 };
 
-const deleteTestDriveAppointment = async (appointmentId) => {
+const deleteTestDriveAppointment = async (appointmentId, relatedNotificationId = '') => {
     const normalizedAppointmentId = String(appointmentId || '').trim();
 
     if (!normalizedAppointmentId) {
@@ -1423,6 +1164,23 @@ const deleteTestDriveAppointment = async (appointmentId) => {
         testDriveAppointmentsState = testDriveAppointmentsState.filter((appointment) =>
             String(appointment.id || '') !== normalizedAppointmentId
         );
+        userNotificationsState = userNotificationsState.filter((notification) =>
+            !(
+                getNotificationTypeKey(notification) === 'test-drive'
+                && String(notification.entityId || '') === normalizedAppointmentId
+            )
+        );
+
+        if (relatedNotificationId) {
+            try {
+                await requestJson(`/api/notifications/my/${encodeURIComponent(String(relatedNotificationId))}`, {
+                    method: 'DELETE'
+                });
+            } catch (error) {
+                // Lịch đã xóa thành công; thông báo sẽ được đồng bộ lại ở lần tải sau nếu cần.
+            }
+        }
+
         renderPromotionNotifications();
     } catch (error) {
         window.alert(error.message || 'Không thể xóa lịch hẹn lái thử lúc này.');
@@ -1459,6 +1217,7 @@ const openNotificationsModal = async () => {
     await syncTestDriveAppointments();
     await syncCarBuyRequests();
     await syncUserNotifications();
+    await markNotificationsRead();
     renderPromotionNotifications();
 };
 
@@ -2454,6 +2213,7 @@ const profileOpenButtons = document.querySelectorAll('[data-open-profile]');
 const listingOpenButtons = document.querySelectorAll('[data-open-listings]');
 const favoriteOpenButtons = document.querySelectorAll('[data-open-favorites]');
 const notificationOpenButtons = document.querySelectorAll('[data-open-notifications]');
+const depositOpenButtons = document.querySelectorAll('[data-open-deposits]');
 const profileModal = document.querySelector('#profile-modal');
 const profileCloseButtons = document.querySelectorAll('[data-close-profile]');
 const profileForm = document.querySelector('.profile-form');
@@ -2473,6 +2233,7 @@ const profileOverviewCitizen = document.querySelector('#profile-overview-citizen
 const profileOverviewBirthDate = document.querySelector('#profile-overview-birth-date');
 const profileOverviewGender = document.querySelector('#profile-overview-gender');
 const profileOverviewAddress = document.querySelector('#profile-overview-address');
+const profileListingsSection = document.querySelector('#profile-listings-section');
 const profileListingsTabs = document.querySelectorAll('[data-profile-listings-tab]');
 const profileListingsFilter = document.querySelector('#profile-listings-filter');
 const profileListingsList = document.querySelector('#profile-listings-list');
@@ -2480,6 +2241,14 @@ const profileSellCount = document.querySelector('#profile-sell-count');
 const profileBuyCount = document.querySelector('#profile-buy-count');
 const profileListingsCreateLink = document.querySelector('#profile-listings-create-link');
 const profileListingsSecondaryLink = document.querySelector('#profile-listings-secondary-link');
+const profileDepositsSection = document.querySelector('#profile-deposits-section');
+const profileDepositsList = document.querySelector('#profile-deposits-list');
+const profileDepositCount = document.querySelector('#profile-deposit-count');
+const profileDepositsFilter = document.querySelector('#profile-deposits-filter');
+const profileDepositsRefreshButton = document.querySelector('#profile-deposits-refresh');
+const profileDepositDetail = document.querySelector('#profile-deposit-detail');
+const profileDepositDetailContent = document.querySelector('#profile-deposit-detail-content');
+const profileDepositDetailBackButton = document.querySelector('#profile-deposit-detail-back');
 const chooseAvatarButton = document.querySelector('#choose-avatar-button');
 const switchToSignupLink = document.querySelector('#switch-to-signup');
 const switchToLoginLink = document.querySelector('#switch-to-login');
@@ -2488,6 +2257,8 @@ const maxProfileAvatarSize = 5 * 1024 * 1024;
 let currentUser = null;
 let selectedProfileAvatarFile = null;
 let selectedProfileAvatarDataUrl = '';
+const maxProfileDepositProofSize = 5 * 1024 * 1024;
+const allowedProfileDepositProofTypes = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 const setFormFeedback = (element, message, type = 'error') => {
     if (!element) {
@@ -2642,6 +2413,10 @@ const profileDateFormatter = new Intl.DateTimeFormat('vi-VN', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
+});
+const profileDateTimeFormatter = new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'short',
+    timeStyle: 'short'
 });
 
 const getProfileDisplayValue = (value, fallback = 'Chưa cập nhật') => {
@@ -3114,6 +2889,1162 @@ const renderProfileListings = ({ isLoading = false } = {}) => {
         .join('');
 };
 
+const profileDepositStatusLabels = {
+    all: 'Tất cả',
+    pending: 'Chờ xác nhận',
+    confirmed: 'Đã nhận tiền',
+    completed: 'Hoàn tất giao dịch',
+    cancelled_after_deposit: 'Hủy sau đặt cọc',
+    cancelled: 'Đã hủy',
+    expired: 'Quá hạn giữ chỗ'
+};
+
+const profileDepositPaymentLabels = {
+    bank: 'Chuyển khoản ngân hàng',
+    vnpay: 'VNPay sandbox',
+    wallet: 'Ví điện tử',
+    card: 'Thẻ ngân hàng'
+};
+
+const formatProfileMoney = (value) => {
+    const amount = Number(value || 0);
+
+    return Number.isFinite(amount) && amount > 0
+        ? `${amount.toLocaleString('vi-VN')} VNĐ`
+        : 'Chưa cập nhật';
+};
+
+const getProfileDepositStatusClass = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+
+    if (normalizedStatus === 'confirmed' || normalizedStatus === 'completed') {
+        return 'is-approved';
+    }
+
+    if (normalizedStatus === 'cancelled' || normalizedStatus === 'cancelled_after_deposit') {
+        return 'is-rejected';
+    }
+
+    if (normalizedStatus === 'expired') {
+        return 'is-expired';
+    }
+
+    return 'is-pending';
+};
+
+const getProfileDepositDescription = (order = {}) => {
+    const status = String(order.status || 'pending').trim().toLowerCase();
+
+    if (status === 'confirmed') {
+        return order.statusNote || 'OkXe đã xác nhận nhận tiền đặt cọc. Nhân viên sẽ tiếp tục hỗ trợ hồ sơ mua xe.';
+    }
+
+    if (status === 'completed') {
+        return order.statusNote || 'Giao dịch mua xe đã hoàn tất. Xe đã được chuyển sang trạng thái đã bán.';
+    }
+
+    if (status === 'cancelled_after_deposit') {
+        return order.statusNote || 'Giao dịch sau đặt cọc đã hủy. Vui lòng liên hệ OkXe để được hỗ trợ chính sách hoàn cọc hoặc xử lý tiếp.';
+    }
+
+    if (status === 'cancelled') {
+        return order.statusNote || 'Đơn đặt cọc đã bị hủy. Nếu thanh toán VNPay thất bại hoặc bạn đã hủy giao dịch, vui lòng tạo đơn mới để thanh toán lại.';
+    }
+
+    if (status === 'expired') {
+        return order.statusNote || 'Đơn đặt cọc đã quá hạn giữ chỗ. Xe có thể được mở lại để khách khác đặt cọc.';
+    }
+
+    if (order.paymentMethod === 'bank') {
+        return 'Đơn đang chờ nhân viên xác nhận đã nhận tiền chuyển khoản.';
+    }
+
+    if (order.paymentMethod === 'vnpay') {
+        return 'Đơn đang chờ thanh toán VNPay. Chỉ bấm Tiếp tục thanh toán VNPay nếu giao dịch trước chưa trả kết quả thất bại/hủy.';
+    }
+
+    return 'Đơn đang chờ nhân viên OkXe kiểm tra và xác nhận.';
+};
+
+const getProfileDepositNextStepGuide = (order = {}) => {
+    const status = String(order.status || 'pending').trim().toLowerCase();
+    const isVnpayPayment = String(order.paymentMethod || '').trim().toLowerCase() === 'vnpay';
+    const guides = {
+        pending: {
+            icon: 'bx-time-five',
+            title: isVnpayPayment ? 'Hoàn tất thanh toán VNPay' : 'Chuyển khoản và theo dõi xác nhận',
+            description: 'Đơn đang giữ xe tạm thời trong thời hạn cấu hình.',
+            steps: isVnpayPayment
+                ? [
+                    'Bấm "Tiếp tục thanh toán VNPay" nếu giao dịch trước chưa trả kết quả thất bại/hủy.',
+                    order.expiresAt ? `Hoàn tất thanh toán trước hạn giữ chỗ: ${formatProfileListingDate(order.expiresAt)}.` : 'Theo dõi hạn giữ chỗ trong chi tiết đơn.',
+                    'Nếu VNPay trả kết quả thất bại hoặc bạn hủy giao dịch, đơn sẽ bị hủy và bạn cần tạo đơn mới.'
+                ]
+                : [
+                    order.bankTransferNote ? `Chuyển khoản đúng nội dung: ${order.bankTransferNote}.` : 'Chuyển khoản đúng nội dung hiển thị trong đơn.',
+                    order.expiresAt ? `Hoàn tất chuyển khoản trước hạn giữ chỗ: ${formatProfileListingDate(order.expiresAt)}.` : 'Theo dõi hạn giữ chỗ trong chi tiết đơn.',
+                    'Sau khi OkXe xác nhận đã nhận tiền, bạn có thể xem biên nhận và bổ sung ảnh biên lai.'
+                ]
+        },
+        confirmed: {
+            icon: 'bx-check-shield',
+            title: 'Lưu biên nhận và chuẩn bị hồ sơ',
+            description: 'OkXe đã ghi nhận tiền đặt cọc và tiếp tục giữ xe cho bạn.',
+            steps: [
+                'In hoặc lưu PDF biên nhận đặt cọc.',
+                'Tải ảnh biên lai nếu bạn muốn lưu chứng từ trong hồ sơ.',
+                'Chờ nhân viên OkXe liên hệ về hồ sơ mua xe, thanh toán còn lại và lịch nhận xe.'
+            ]
+        },
+        completed: {
+            icon: 'bx-check-circle',
+            title: 'Giao dịch đã hoàn tất',
+            description: 'Xe đã được chốt bán từ đơn đặt cọc này.',
+            steps: [
+                'Lưu lại biên nhận và chứng từ thanh toán.',
+                'Liên hệ nhân viên nếu cần đối chiếu giấy tờ sau bàn giao.'
+            ]
+        },
+        cancelled_after_deposit: {
+            icon: 'bx-transfer-alt',
+            title: 'Kiểm tra thông tin hoàn cọc',
+            description: 'Giao dịch đã hủy sau khi tiền đặt cọc được xác nhận.',
+            steps: [
+                'Xem lý do hủy, số tiền hoàn và mã giao dịch hoàn cọc.',
+                'Liên hệ OkXe nếu đã quá thời gian hẹn mà chưa nhận được tiền hoàn.'
+            ]
+        },
+        cancelled: {
+            icon: 'bx-x-circle',
+            title: 'Đơn không còn hiệu lực',
+            description: 'Xe không còn được giữ bằng đơn này.',
+            steps: [
+                'Xem ghi chú xử lý để biết lý do hủy.',
+                'Chọn xe khác hoặc liên hệ OkXe nếu bạn vẫn cần hỗ trợ.'
+            ]
+        },
+        expired: {
+            icon: 'bx-timer',
+            title: 'Đơn đã quá hạn giữ chỗ',
+            description: 'Thời gian giữ xe đã kết thúc trước khi OkXe xác nhận nhận tiền.',
+            steps: [
+                'Tra cứu lại tình trạng xe nếu bạn vẫn muốn mua.',
+                'Tạo đơn mới hoặc liên hệ OkXe để nhân viên kiểm tra lại xe còn bán hay không.'
+            ]
+        }
+    };
+
+    return guides[status] || guides.pending;
+};
+
+const renderProfileDepositNextSteps = (order = {}) => {
+    const guide = getProfileDepositNextStepGuide(order);
+
+    return `
+        <section class="profile-deposit-next-steps">
+            <div class="profile-deposit-next-steps__head">
+                <i class="bx ${escapeHtml(guide.icon)}" aria-hidden="true"></i>
+                <div>
+                    <span>Bước tiếp theo</span>
+                    <h4>${escapeHtml(guide.title)}</h4>
+                    <p>${escapeHtml(guide.description)}</p>
+                </div>
+            </div>
+            <ol>
+                ${guide.steps.map((step) => `<li>${escapeHtml(step)}</li>`).join('')}
+            </ol>
+        </section>
+    `;
+};
+
+const renderProfileDepositEmpty = (message = '') => `
+    <article class="profile-listings__empty">
+        <i class="bx bx-receipt" aria-hidden="true"></i>
+        <strong>${escapeHtml(message || 'Bạn chưa có đơn đặt cọc nào')}</strong>
+        <p>Bạn có thể đặt cọc xe từ trang chi tiết xe để giữ chỗ và theo dõi trạng thái tại đây.</p>
+    </article>
+`;
+
+const getProfileDepositCarTitle = (order = {}) =>
+    [order.carBrand, order.carName].filter(Boolean).join(' ') || 'Xe đặt cọc';
+
+const getProfileDepositExpiryText = (order = {}) => {
+    const status = String(order.status || 'pending').trim().toLowerCase();
+
+    if (status === 'expired' && order.expiredAt) {
+        return `Quá hạn lúc: ${formatProfileListingDate(order.expiredAt)}`;
+    }
+
+    if (status === 'pending' && order.expiresAt) {
+        return `${order.isOverdue ? 'Đã quá hạn' : 'Hạn giữ chỗ'}: ${formatProfileListingDate(order.expiresAt)}`;
+    }
+
+    return '';
+};
+
+const getProfileDepositRemainingAmount = (order = {}) => {
+    const carPriceValue = Number(order.carPriceValue || 0);
+    const depositAmount = Number(order.depositAmount || 0);
+
+    return Number.isFinite(carPriceValue) && carPriceValue > 0
+        ? Math.max(carPriceValue - depositAmount, 0)
+        : 0;
+};
+
+const formatProfileDepositReceiptDate = (value) => {
+    const normalizedValue = String(value || '').trim();
+
+    if (!normalizedValue) {
+        return 'Chưa cập nhật';
+    }
+
+    const date = new Date(normalizedValue.replace(' ', 'T'));
+
+    return Number.isNaN(date.getTime())
+        ? normalizedValue
+        : profileDateTimeFormatter.format(date);
+};
+
+const renderProfileDepositReceiptRows = (rows = []) => rows
+    .map(([label, value]) => `
+        <div class="receipt-row">
+            <span>${escapeHtml(label)}</span>
+            <strong>${escapeHtml(getProfileDisplayValue(value))}</strong>
+        </div>
+    `)
+    .join('');
+
+const renderProfileDepositReceiptPolicy = (policyText = '') => {
+    const policyItems = String(policyText || '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .split('\n')
+        .map((line) => line.trim().replace(/\s+/g, ' '))
+        .filter(Boolean);
+
+    if (!policyItems.length) {
+        return '';
+    }
+
+    return `<ul class="policy-list">${policyItems.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`;
+};
+
+const getProfileDepositReceiptDocument = (receipt = {}) => {
+    const customer = receipt.customer || {};
+    const car = receipt.car || {};
+    const payment = receipt.payment || {};
+    const bank = receipt.bank || {};
+    const receiptRows = [
+        ['Mã biên nhận', receipt.receiptCode],
+        ['Mã đơn đặt cọc', receipt.orderCode],
+        ['Ngày lập biên nhận', formatProfileDepositReceiptDate(receipt.issuedAt)]
+    ];
+    const customerRows = [
+        ['Khách hàng', customer.fullName],
+        ['Số điện thoại', customer.phone],
+        ['Email', customer.email || 'Không có'],
+        ['Tỉnh/thành phố', customer.province]
+    ];
+    const carRows = [
+        ['Xe đặt cọc', car.title],
+        ['Giá xe tại thời điểm đặt cọc', car.priceText || formatProfileMoney(car.priceValue)],
+        ['Mã xe', car.id ? `XE-${String(car.id).padStart(6, '0')}` : 'Chưa cập nhật']
+    ];
+    const paymentRows = [
+        ['Số tiền đặt cọc', formatProfileMoney(payment.depositAmount)],
+        ['Số tiền còn lại', payment.remainingAmount !== null && payment.remainingAmount !== undefined ? formatProfileMoney(payment.remainingAmount) : 'Nhân viên sẽ xác nhận'],
+        ['Phương thức thanh toán', payment.methodLabel],
+        [payment.method === 'vnpay' ? 'Mã thanh toán VNPay' : 'Nội dung chuyển khoản', payment.method === 'vnpay' ? payment.vnpayTxnRef : payment.bankTransferNote],
+        ['Mã giao dịch', payment.paymentReference],
+        ...(payment.method === 'vnpay' ? [['VNPay TransactionNo', payment.vnpayTransactionNo]] : []),
+        ['Thời gian nhận tiền', formatProfileDepositReceiptDate(payment.paymentReceivedAt)],
+        ['Thời gian xác nhận', formatProfileDepositReceiptDate(payment.paymentConfirmedAt)],
+        ['Chứng từ khách tải', payment.transferProofFileName || payment.transferProofUrl]
+    ];
+    const bankRows = [
+        ['Tài khoản nhận cọc', bank.displayName || [bank.accountName, bank.bankName].filter(Boolean).join(' - ')],
+        ['Số tài khoản', bank.accountNumber],
+        ['Chi nhánh', bank.branch || 'Không ghi nhận']
+    ];
+
+    return `<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Biên nhận đặt cọc ${escapeHtml(receipt.orderCode || '')}</title>
+    <style>
+        * { box-sizing: border-box; letter-spacing: 0; }
+        body { margin: 0; color: #102033; background: #eef2f7; font-family: "Segoe UI", "Noto Sans", Arial, sans-serif; line-height: 1.5; text-rendering: geometricPrecision; -webkit-font-smoothing: antialiased; }
+        .toolbar { position: sticky; top: 0; display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; background: #102033; }
+        .toolbar button { min-height: 40px; border: 0; border-radius: 999px; padding: 0 16px; color: #fff; background: #f15a29; font: inherit; line-height: 1.2; font-weight: 700; cursor: pointer; }
+        .toolbar button:last-child { color: #102033; background: #fff; }
+        .receipt { width: min(900px, calc(100% - 32px)); margin: 28px auto; padding: 36px; background: #fff; border: 1px solid #d8deea; border-radius: 12px; }
+        .receipt-head { display: flex; justify-content: space-between; gap: 24px; border-bottom: 3px solid #f15a29; padding-bottom: 20px; }
+        .brand { font-size: 26px; line-height: 1.2; font-weight: 900; letter-spacing: 0; }
+        .receipt-head h1 { margin: 8px 0 0; font-size: 30px; line-height: 1.2; }
+        .status { align-self: flex-start; border-radius: 999px; padding: 9px 14px; color: #0f8f51; background: #eaf8f0; font-weight: 800; line-height: 1.2; white-space: nowrap; }
+        .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 22px 0; }
+        .receipt-row { min-width: 0; padding: 13px 14px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fbfcff; }
+        .receipt-row span { display: block; color: #667085; font-size: 12px; line-height: 1.35; font-weight: 700; text-transform: none; }
+        .receipt-row strong { display: block; margin-top: 6px; line-height: 1.5; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+        .section { margin-top: 18px; }
+        .section h2 { margin: 0 0 10px; font-size: 18px; }
+        .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .note { margin-top: 18px; padding: 14px 16px; border-left: 4px solid #f15a29; background: #fff7ed; line-height: 1.6; }
+        .policy-list { margin: 0; padding: 14px 18px 14px 34px; border: 1px solid #fde2d3; border-radius: 10px; background: #fff7ed; line-height: 1.6; }
+        .policy-list li + li { margin-top: 6px; }
+        .signatures { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px; margin-top: 36px; text-align: center; }
+        .signature-box { min-height: 110px; padding-top: 12px; border-top: 1px solid #d8deea; color: #667085; }
+        @media (max-width: 720px) { .receipt { padding: 22px; } .receipt-head, .summary, .grid, .signatures { grid-template-columns: 1fr; display: grid; } .status { justify-self: start; } }
+        @media print { body { background: #fff; } .toolbar { display: none; } .receipt { width: 100%; margin: 0; padding: 20px; border: 0; border-radius: 0; } }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button type="button" onclick="window.print()">In / Lưu PDF</button>
+        <button type="button" onclick="window.close()">Đóng</button>
+    </div>
+    <main class="receipt">
+        <header class="receipt-head">
+            <div>
+                <div class="brand">OKXE</div>
+                <h1>Biên nhận đặt cọc xe</h1>
+            </div>
+            <strong class="status">${escapeHtml(receipt.statusLabel || 'Đã nhận tiền')}</strong>
+        </header>
+        <section class="summary">${renderProfileDepositReceiptRows(receiptRows)}</section>
+        <section class="section"><h2>Thông tin khách hàng</h2><div class="grid">${renderProfileDepositReceiptRows(customerRows)}</div></section>
+        <section class="section"><h2>Thông tin xe</h2><div class="grid">${renderProfileDepositReceiptRows(carRows)}</div></section>
+        <section class="section"><h2>Thông tin thanh toán</h2><div class="grid">${renderProfileDepositReceiptRows(paymentRows)}</div></section>
+        <section class="section"><h2>Tài khoản nhận cọc</h2><div class="grid">${renderProfileDepositReceiptRows(bankRows)}</div></section>
+        <section class="section"><h2>Chính sách đặt cọc</h2>${renderProfileDepositReceiptPolicy(receipt.policyText)}</section>
+        <p class="note">${escapeHtml(receipt.note || 'Biên nhận xác nhận OkXe đã nhận tiền đặt cọc giữ xe. Các bước mua bán tiếp theo sẽ được nhân viên hỗ trợ theo quy trình của cửa hàng.')}</p>
+        <section class="signatures">
+            <div class="signature-box">Khách hàng</div>
+            <div class="signature-box">Đại diện OkXe</div>
+        </section>
+    </main>
+</body>
+</html>`;
+};
+
+const writeProfileDepositReceiptWindowMessage = (receiptWindow, message = 'Đang tải biên nhận...') => {
+    receiptWindow.document.open();
+    receiptWindow.document.write(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><title>Biên nhận đặt cọc</title></head><body style="font-family: 'Segoe UI', 'Noto Sans', Arial, sans-serif; line-height: 1.5; padding: 32px; color: #102033;"><strong>${escapeHtml(message)}</strong></body></html>`);
+    receiptWindow.document.close();
+};
+
+const openProfileDepositReceipt = async (orderId) => {
+    const receiptWindow = window.open('', '_blank', 'width=920,height=900');
+
+    if (!receiptWindow) {
+        showToast('Trình duyệt đang chặn cửa sổ biên nhận. Vui lòng cho phép popup rồi thử lại.', 'error', 'Không mở được biên nhận');
+        return;
+    }
+
+    writeProfileDepositReceiptWindowMessage(receiptWindow);
+
+    try {
+        const { response, data } = await requestJson(`/api/deposit-orders/${encodeURIComponent(String(orderId))}/receipt`);
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải biên nhận đặt cọc.');
+        }
+
+        receiptWindow.document.open();
+        receiptWindow.document.write(getProfileDepositReceiptDocument(data.receipt));
+        receiptWindow.document.close();
+        receiptWindow.focus();
+    } catch (error) {
+        writeProfileDepositReceiptWindowMessage(receiptWindow, error.message || 'Không thể tải biên nhận đặt cọc.');
+        showToast(error.message || 'Không thể tải biên nhận đặt cọc.', 'error', 'Biên nhận đặt cọc');
+    }
+};
+
+const setProfileDepositProofFeedback = (orderId, message = '', type = '') => {
+    const selector = `[data-profile-deposit-proof-feedback="${escapeSelectorValue(orderId)}"]`;
+    const feedback = profileDepositDetail?.querySelector(selector)
+        || profileDepositsList?.querySelector(selector);
+
+    if (!feedback) {
+        return;
+    }
+
+    feedback.textContent = message || '';
+    feedback.className = type ? `is-${type}` : '';
+};
+
+const getProfileDepositProofMimeType = (file = {}) => {
+    const declaredType = String(file.type || '').trim().toLowerCase();
+
+    if (allowedProfileDepositProofTypes.has(declaredType)) {
+        return declaredType;
+    }
+
+    const fileName = String(file.name || '').trim().toLowerCase();
+
+    if (/\.jpe?g$/.test(fileName)) {
+        return 'image/jpeg';
+    }
+
+    if (/\.png$/.test(fileName)) {
+        return 'image/png';
+    }
+
+    if (/\.webp$/.test(fileName)) {
+        return 'image/webp';
+    }
+
+    if (/\.gif$/.test(fileName)) {
+        return 'image/gif';
+    }
+
+    return declaredType;
+};
+
+const uploadProfileDepositProof = async (orderId, file) => {
+    if (!file) {
+        throw new Error('Vui lòng chọn ảnh biên lai chuyển khoản.');
+    }
+
+    const currentOrder = depositOrdersState.find((order) => String(order.id || '') === String(orderId || ''));
+
+    if (currentOrder && String(currentOrder.status || '').trim().toLowerCase() !== 'confirmed') {
+        throw new Error('Chỉ đơn đã được xác nhận nhận tiền mới được tải biên lai.');
+    }
+
+    const proofMimeType = getProfileDepositProofMimeType(file);
+
+    if (!allowedProfileDepositProofTypes.has(proofMimeType)) {
+        throw new Error('Chỉ hỗ trợ ảnh biên lai định dạng JPG, PNG, WEBP hoặc GIF.');
+    }
+
+    if (file.size > maxProfileDepositProofSize) {
+        throw new Error('Ảnh biên lai tối đa 5MB.');
+    }
+
+    const { response, data } = await requestJson(`/api/deposit-orders/${encodeURIComponent(String(orderId))}/transfer-proof/account`, {
+        method: 'POST',
+        body: JSON.stringify({
+            file: {
+                name: file.name,
+                type: proofMimeType,
+                dataUrl: await readFileAsDataUrl(file)
+            }
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(data.message || 'Không thể tải ảnh biên lai chuyển khoản.');
+    }
+
+    const updatedOrder = data.order;
+
+    if (updatedOrder?.id) {
+        depositOrdersState = depositOrdersState.map((order) =>
+            String(order.id || '') === String(updatedOrder.id || '') ? updatedOrder : order);
+        renderProfileDeposits();
+        openProfileDepositDetail(updatedOrder.id);
+    } else {
+        await syncDepositOrders();
+    }
+
+    return data;
+};
+
+const setProfileDepositVnpayResumeLoading = (orderId, isLoading = false) => {
+    const selector = `[data-profile-deposit-vnpay-resume="${escapeSelectorValue(orderId)}"]`;
+
+    document.querySelectorAll(selector).forEach((button) => {
+        if (!(button instanceof HTMLButtonElement)) {
+            return;
+        }
+
+        if (isLoading) {
+            if (!button.dataset.profileDepositOriginalHtml) {
+                button.dataset.profileDepositOriginalHtml = button.innerHTML;
+            }
+
+            button.disabled = true;
+            button.innerHTML = `
+                <i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i>
+                <span>Đang mở VNPay...</span>
+            `;
+            return;
+        }
+
+        button.disabled = false;
+        button.innerHTML = button.dataset.profileDepositOriginalHtml || `
+            <i class="bx bx-credit-card-front" aria-hidden="true"></i>
+            <span>Tiếp tục thanh toán VNPay</span>
+        `;
+        delete button.dataset.profileDepositOriginalHtml;
+    });
+};
+
+const updateProfileDepositOrderInState = (updatedOrder = {}) => {
+    if (!updatedOrder?.id) {
+        return;
+    }
+
+    const updatedOrderId = String(updatedOrder.id);
+    const hasOrder = depositOrdersState.some((order) => String(order.id || '') === updatedOrderId);
+
+    depositOrdersState = hasOrder
+        ? depositOrdersState.map((order) => String(order.id || '') === updatedOrderId ? updatedOrder : order)
+        : [updatedOrder, ...depositOrdersState];
+
+    renderProfileDeposits();
+
+    if (activeProfileDepositDetailId && String(activeProfileDepositDetailId || '') === updatedOrderId) {
+        openProfileDepositDetail(updatedOrder.id);
+    }
+};
+
+const resumeProfileDepositVnpayPayment = async (orderId) => {
+    if (!orderId) {
+        return;
+    }
+
+    let shouldRestoreButton = true;
+
+    setProfileDepositVnpayResumeLoading(orderId, true);
+
+    try {
+        const { response, data } = await requestJson(`/api/deposit-orders/${encodeURIComponent(String(orderId))}/vnpay/resume`, {
+            method: 'POST'
+        });
+
+        if (data.order?.id) {
+            updateProfileDepositOrderInState(data.order);
+        }
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tiếp tục thanh toán VNPay.');
+        }
+
+        const paymentUrl = String(data.payment?.paymentUrl || '').trim();
+
+        if (!paymentUrl) {
+            throw new Error('VNPay chưa trả về đường dẫn thanh toán. Vui lòng thử lại sau.');
+        }
+
+        showToast(data.message || 'Đang chuyển sang cổng thanh toán VNPay.', 'success', 'Thanh toán đặt cọc');
+        shouldRestoreButton = false;
+        window.location.assign(paymentUrl);
+    } catch (error) {
+        showToast(error.message || 'Không thể tiếp tục thanh toán VNPay.', 'error', 'Thanh toán đặt cọc');
+    } finally {
+        if (shouldRestoreButton) {
+            setProfileDepositVnpayResumeLoading(orderId, false);
+        }
+    }
+};
+
+const renderProfileDepositDetailRows = (rows = []) => rows
+    .map(([label, value]) => `
+        <div>
+            <dt>${escapeHtml(label)}</dt>
+            <dd>${escapeHtml(getProfileDisplayValue(value))}</dd>
+        </div>
+    `)
+    .join('');
+
+const getProfileDepositBankInfo = (order = {}) => {
+    const bank = order.bank || {};
+    const accountName = String(bank.accountName || order.bankAccountName || '').trim();
+    const bankName = String(bank.bankName || order.bankName || '').trim();
+    const accountNumber = String(bank.accountNumber || order.bankAccountNumber || '').trim();
+    const branch = String(bank.branch || order.bankBranch || '').trim();
+    const displayName = String(bank.displayName || [accountName, bankName].filter(Boolean).join(' - ')).trim();
+
+    return {
+        accountName,
+        bankName,
+        accountNumber,
+        branch,
+        displayName
+    };
+};
+
+const renderProfileDepositBankTransferPanel = (order = {}) => {
+    const status = String(order.status || 'pending').trim().toLowerCase();
+    const paymentMethod = String(order.paymentMethod || '').trim().toLowerCase();
+
+    if (paymentMethod !== 'bank' || status !== 'pending') {
+        return '';
+    }
+
+    const bankInfo = getProfileDepositBankInfo(order);
+    const transferNote = String(order.bankTransferNote || '').trim();
+    const items = [
+        ['Ngân hàng', bankInfo.bankName || 'Chưa cấu hình'],
+        ['Chủ tài khoản', bankInfo.accountName || 'Chưa cấu hình'],
+        ['Số tài khoản', bankInfo.accountNumber || 'Chưa cấu hình'],
+        ['Số tiền cần chuyển', formatProfileMoney(order.depositAmount)],
+        ['Nội dung chuyển khoản', transferNote || 'Chưa có nội dung'],
+        ...(bankInfo.branch ? [['Chi nhánh', bankInfo.branch]] : [])
+    ];
+
+    return `
+        <section class="profile-deposit-bank-guide">
+            <div class="profile-deposit-bank-guide__head">
+                <i class="bx bx-bank" aria-hidden="true"></i>
+                <div>
+                    <span>Thông tin chuyển khoản</span>
+                    <h4>${escapeHtml(bankInfo.displayName || bankInfo.bankName || 'Tài khoản nhận cọc OkXe')}</h4>
+                    <p>Vui lòng chuyển đúng số tiền và nội dung để OkXe đối soát đơn nhanh hơn.</p>
+                </div>
+            </div>
+            <div class="profile-deposit-bank-guide__grid">
+                ${items.map(([label, value]) => `
+                    <div>
+                        <span>${escapeHtml(label)}</span>
+                        <strong>${escapeHtml(getProfileDisplayValue(value))}</strong>
+                    </div>
+                `).join('')}
+            </div>
+        </section>
+    `;
+};
+
+const getProfileDepositHistoryMeta = (entry = {}) => {
+    const actionType = String(entry.actionType || '').trim().toLowerCase();
+    const nextStatus = String(entry.nextStatus || 'pending').trim().toLowerCase();
+    const statusLabel = entry.nextStatusLabel
+        || profileDepositStatusLabels[nextStatus]
+        || profileDepositStatusLabels.pending;
+    const statusConfig = {
+        pending: {
+            className: 'is-pending',
+            icon: 'bxs-time-five',
+            title: statusLabel
+        },
+        confirmed: {
+            className: 'is-confirmed',
+            icon: 'bxs-check-circle',
+            title: statusLabel
+        },
+        completed: {
+            className: 'is-completed',
+            icon: 'bxs-check-circle',
+            title: statusLabel
+        },
+        cancelled_after_deposit: {
+            className: 'is-cancelled',
+            icon: 'bxs-x-circle',
+            title: statusLabel
+        },
+        cancelled: {
+            className: 'is-cancelled',
+            icon: 'bxs-x-circle',
+            title: statusLabel
+        },
+        expired: {
+            className: 'is-expired',
+            icon: 'bxs-time-five',
+            title: statusLabel
+        }
+    };
+    const actionConfig = {
+        created: {
+            className: 'is-created',
+            icon: 'bx-receipt',
+            title: 'Tạo đơn đặt cọc'
+        },
+        vnpay_payment_url_created: {
+            className: 'is-pending',
+            icon: 'bx-credit-card',
+            title: 'Tạo link thanh toán VNPay'
+        },
+        vnpay_payment_url_resumed: {
+            className: 'is-pending',
+            icon: 'bx-credit-card-front',
+            title: 'Mở lại thanh toán VNPay'
+        },
+        transfer_proof_uploaded: {
+            className: 'is-proof',
+            icon: 'bx-image-add',
+            title: 'Tải chứng từ chuyển khoản'
+        },
+        refund_recorded: {
+            className: 'is-refund',
+            icon: 'bx-transfer-alt',
+            title: 'Ghi nhận hoàn cọc'
+        },
+        payment_reminder_sent: {
+            className: 'is-pending',
+            icon: 'bxs-time-five',
+            title: 'Nhắc chuyển khoản'
+        },
+        auto_expired: {
+            className: 'is-expired',
+            icon: 'bxs-time-five',
+            title: 'Tự động quá hạn'
+        }
+    };
+
+    return actionConfig[actionType] || statusConfig[nextStatus] || statusConfig.pending;
+};
+
+const renderProfileDepositHistory = (history = []) => {
+    const entries = Array.isArray(history) ? history : [];
+
+    if (!entries.length) {
+        return '<p>Chưa có lịch sử xử lý.</p>';
+    }
+
+    return `
+        <div class="profile-deposit-history">
+            ${entries.map((entry) => {
+                const historyMeta = getProfileDepositHistoryMeta(entry);
+                const actorText = entry.actorName || (entry.actionType === 'auto_expired' ? 'Hệ thống OkXe' : 'OkXe');
+                const noteText = String(entry.note || '').trim();
+
+                return `
+                    <article class="profile-deposit-history__item ${escapeHtml(historyMeta.className)}">
+                        <span class="profile-deposit-history__marker" aria-hidden="true">
+                            <i class="bx ${escapeHtml(historyMeta.icon)}"></i>
+                        </span>
+                        <div class="profile-deposit-history__content">
+                            <div class="profile-deposit-history__head">
+                                <strong>${escapeHtml(historyMeta.title)}</strong>
+                                <time>${escapeHtml(formatProfileListingDate(entry.createdAt))}</time>
+                            </div>
+                            ${noteText ? `<p>${escapeHtml(noteText)}</p>` : ''}
+                            <small>
+                                <i class="bx bx-user" aria-hidden="true"></i>
+                                <span>${escapeHtml(actorText)}</span>
+                            </small>
+                        </div>
+                    </article>
+                `;
+            }).join('')}
+        </div>
+    `;
+};
+
+const canUploadProfileDepositProof = (order = {}) =>
+    String(order.status || '').trim().toLowerCase() === 'confirmed';
+
+const canResumeProfileDepositVnpayPayment = (order = {}) =>
+    String(order.status || '').trim().toLowerCase() === 'pending'
+    && String(order.paymentMethod || '').trim().toLowerCase() === 'vnpay';
+
+const renderProfileDepositVnpayResumeButton = (order = {}) => {
+    if (!canResumeProfileDepositVnpayPayment(order)) {
+        return '';
+    }
+
+    return `
+        <button type="button" class="profile-deposit-action--pay" data-profile-deposit-vnpay-resume="${escapeHtml(order.id)}">
+            <i class="bx bx-credit-card-front" aria-hidden="true"></i>
+            <span>Tiếp tục thanh toán VNPay</span>
+        </button>
+    `;
+};
+
+const renderProfileDepositProofPanel = (order = {}) => {
+    const proofUrl = String(order.transferProofUrl || '').trim();
+    const proofFileName = String(order.transferProofFileName || '').trim();
+    const proofUploadedAt = String(order.transferProofUploadedAt || '').trim();
+    const canUploadProof = canUploadProfileDepositProof(order);
+
+    return `
+        <div class="profile-deposit-proof-panel">
+            ${proofUrl ? `
+                <a class="profile-deposit-proof-panel__thumb" href="${escapeHtml(proofUrl)}" target="_blank" rel="noopener">
+                    <img src="${escapeHtml(proofUrl)}" alt="Biên lai chuyển khoản ${escapeHtml(order.code || '')}">
+                </a>
+            ` : `
+                <span class="profile-deposit-proof-panel__empty">
+                    <i class="bx bx-image-add" aria-hidden="true"></i>
+                </span>
+            `}
+            <div>
+                <strong>${escapeHtml(proofUrl ? (proofFileName || 'Biên lai chuyển khoản') : 'Chưa có ảnh biên lai')}</strong>
+                <span>${escapeHtml(proofUrl && proofUploadedAt
+                    ? `Đã tải lúc ${formatProfileListingDate(proofUploadedAt)}`
+                    : canUploadProof
+                        ? 'Tải ảnh biên lai sau khi OkXe đã xác nhận nhận tiền đặt cọc.'
+                        : 'Chỉ đơn đã được xác nhận nhận tiền mới được bổ sung biên lai trong tài khoản.')}</span>
+                <div class="profile-deposit-proof-panel__actions">
+                    ${proofUrl ? `
+                        <a href="${escapeHtml(proofUrl)}" target="_blank" rel="noopener">
+                            <i class="bx bx-show" aria-hidden="true"></i>
+                            <span>Xem biên lai</span>
+                        </a>
+                    ` : ''}
+                    ${canUploadProof ? `
+                        <button type="button" data-profile-deposit-proof-choose="${escapeHtml(order.id)}">
+                            <i class="bx bx-upload" aria-hidden="true"></i>
+                            <span>${proofUrl ? 'Thay ảnh biên lai' : 'Tải ảnh biên lai'}</span>
+                        </button>
+                        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden data-profile-deposit-proof-input="${escapeHtml(order.id)}">
+                    ` : ''}
+                </div>
+                <small data-profile-deposit-proof-feedback="${escapeHtml(order.id)}" aria-live="polite"></small>
+            </div>
+        </div>
+    `;
+};
+
+const renderProfileDepositDetail = (order = {}) => {
+    const status = String(order.status || 'pending').trim().toLowerCase();
+    const statusLabel = profileDepositStatusLabels[status] || profileDepositStatusLabels.pending;
+    const paymentLabel = profileDepositPaymentLabels[order.paymentMethod] || order.paymentMethod || 'Chưa cập nhật';
+    const carTitle = getProfileDepositCarTitle(order);
+    const remainingAmount = getProfileDepositRemainingAmount(order);
+    const transferNote = String(order.bankTransferNote || '').trim();
+    const isVnpayPayment = String(order.paymentMethod || '').trim().toLowerCase() === 'vnpay';
+    const canPrintReceipt = ['confirmed', 'completed'].includes(status);
+    const customerRows = [
+        ['Họ tên', order.fullName],
+        ['Số điện thoại', order.phone],
+        ['Email', order.email],
+        ['Tỉnh/thành phố', order.province],
+        ['Ghi chú của khách', order.note || 'Không có ghi chú']
+    ];
+    const carRows = [
+        ['Xe đặt cọc', carTitle],
+        ['Giá xe tại thời điểm đặt cọc', order.carPrice || formatProfileMoney(order.carPriceValue)],
+        ['Mã xe', order.carId ? `XE-${String(order.carId).padStart(6, '0')}` : 'Chưa cập nhật']
+    ];
+    const paymentRows = [
+        ['Số tiền đặt cọc', formatProfileMoney(order.depositAmount)],
+        ['Số tiền còn lại', remainingAmount ? formatProfileMoney(remainingAmount) : 'Chưa cập nhật'],
+        ['Phương thức thanh toán', paymentLabel],
+        [isVnpayPayment ? 'Mã thanh toán VNPay' : 'Nội dung chuyển khoản', isVnpayPayment ? (order.vnpayTxnRef || 'Chưa ghi nhận') : (transferNote || 'Không có')],
+        ['Mã giao dịch', order.paymentReference || 'Chưa ghi nhận'],
+        ...(isVnpayPayment ? [
+            ['VNPay TransactionNo', order.vnpayTransactionNo || 'Chưa ghi nhận'],
+            ['VNPay Response', [order.vnpayResponseCode, order.vnpayTransactionStatus].filter(Boolean).join(' / ') || 'Chưa ghi nhận']
+        ] : []),
+        ['Thời gian nhận tiền', order.paymentReceivedAt ? formatProfileListingDate(order.paymentReceivedAt) : 'Chưa ghi nhận'],
+        ['Chứng từ chuyển khoản', order.transferProofFileName
+            ? `${order.transferProofFileName}${order.transferProofUploadedAt ? ` - ${formatProfileListingDate(order.transferProofUploadedAt)}` : ''}`
+            : 'Chưa tải chứng từ']
+    ];
+    const refundRows = [
+        ['Số tiền hoàn cọc', Number(order.refundAmount || 0) > 0 ? formatProfileMoney(order.refundAmount) : 'Chưa ghi nhận'],
+        ['Mã giao dịch hoàn cọc', order.refundReference || 'Chưa ghi nhận'],
+        ['Thời gian hoàn cọc', order.refundCompletedAt ? formatProfileListingDate(order.refundCompletedAt) : 'Chưa ghi nhận'],
+        ['Người ghi nhận', order.refundConfirmedByName || 'Chưa ghi nhận'],
+        ['Ghi chú hoàn cọc', order.refundNote || 'Chưa có ghi chú']
+    ];
+    const bankInfo = getProfileDepositBankInfo(order);
+    const bankRows = order.paymentMethod === 'bank'
+        ? [
+            ['Ngân hàng', bankInfo.bankName || 'Chưa cấu hình'],
+            ['Chủ tài khoản', bankInfo.accountName || 'Chưa cấu hình'],
+            ['Số tài khoản', bankInfo.accountNumber || 'Chưa cấu hình'],
+            ['Chi nhánh', bankInfo.branch || 'Không ghi nhận'],
+            ['Nội dung cần ghi', transferNote || 'OKXE COC XE']
+        ]
+        : [];
+    const statusRows = [
+        ['Trạng thái hiện tại', statusLabel],
+        ['Hạn giữ chỗ', order.expiresAt ? formatProfileListingDate(order.expiresAt) : 'Chưa cập nhật'],
+        ['Quá hạn lúc', order.expiredAt ? formatProfileListingDate(order.expiredAt) : 'Chưa quá hạn'],
+        ['Ngày tạo', formatProfileListingDate(order.createdAt)],
+        ['Cập nhật gần nhất', formatProfileListingDate(order.updatedAt)],
+        ['Hệ thống xác nhận', order.paymentConfirmedAt ? formatProfileListingDate(order.paymentConfirmedAt) : 'Chưa ghi nhận'],
+        ['Ghi chú xử lý', order.statusNote || getProfileDepositDescription(order)]
+    ];
+    const actionHref = order.carId ? `/cars/${encodeURIComponent(String(order.carId))}` : '/mua-xe';
+
+    return `
+        <article class="profile-deposit-detail__card">
+            <div class="profile-deposit-detail__hero">
+                <div>
+                    <span>${escapeHtml(order.code || 'Đơn đặt cọc')}</span>
+                    <h4>${escapeHtml(carTitle)}</h4>
+                    <p>${escapeHtml(getProfileDepositDescription(order))}</p>
+                </div>
+                <strong class="profile-listing-status ${getProfileDepositStatusClass(status)}">${escapeHtml(statusLabel)}</strong>
+            </div>
+
+            <div class="profile-deposit-detail__summary">
+                <div>
+                    <span>Số tiền cọc</span>
+                    <strong>${escapeHtml(formatProfileMoney(order.depositAmount))}</strong>
+                </div>
+                <div>
+                    <span>Phương thức</span>
+                    <strong>${escapeHtml(paymentLabel)}</strong>
+                </div>
+                <div>
+                    <span>Mã đơn</span>
+                    <strong>${escapeHtml(order.code || `DC-${String(order.id || '').padStart(6, '0')}`)}</strong>
+                </div>
+            </div>
+
+            ${renderProfileDepositBankTransferPanel(order)}
+
+            ${renderProfileDepositNextSteps(order)}
+
+            <section class="profile-deposit-detail__section">
+                <h4>Thông tin xe</h4>
+                <dl>${renderProfileDepositDetailRows(carRows)}</dl>
+            </section>
+
+            <section class="profile-deposit-detail__section">
+                <h4>Thông tin khách hàng</h4>
+                <dl>${renderProfileDepositDetailRows(customerRows)}</dl>
+            </section>
+
+            <section class="profile-deposit-detail__section">
+                <h4>Thanh toán đặt cọc</h4>
+                <dl>${renderProfileDepositDetailRows(paymentRows)}</dl>
+                ${renderProfileDepositProofPanel(order)}
+            </section>
+
+            ${bankRows.length ? `
+                <section class="profile-deposit-detail__section profile-deposit-detail__section--bank">
+                    <h4>Thông tin ngân hàng</h4>
+                    <dl>${renderProfileDepositDetailRows(bankRows)}</dl>
+                </section>
+            ` : ''}
+
+            ${status === 'cancelled_after_deposit' ? `
+                <section class="profile-deposit-detail__section">
+                    <h4>Thông tin hoàn cọc</h4>
+                    <dl>${renderProfileDepositDetailRows(refundRows)}</dl>
+                </section>
+            ` : ''}
+
+            <section class="profile-deposit-detail__section">
+                <h4>Trạng thái xử lý</h4>
+                <dl>${renderProfileDepositDetailRows(statusRows)}</dl>
+            </section>
+
+            <section class="profile-deposit-detail__section profile-deposit-detail__section--history">
+                <h4>Lịch sử xử lý</h4>
+                ${renderProfileDepositHistory(order.history)}
+            </section>
+
+            <div class="profile-deposit-detail__actions">
+                ${renderProfileDepositVnpayResumeButton(order)}
+                ${canPrintReceipt ? `
+                    <button type="button" data-profile-deposit-receipt="${escapeHtml(order.id)}">
+                        <i class="bx bx-printer" aria-hidden="true"></i>
+                        <span>In biên nhận</span>
+                    </button>
+                ` : ''}
+                <a href="${escapeHtml(actionHref)}">
+                    <i class="bx bx-car" aria-hidden="true"></i>
+                    <span>Xem xe đặt cọc</span>
+                </a>
+                <button type="button" data-profile-deposit-detail-close>
+                    <i class="bx bx-list-ul" aria-hidden="true"></i>
+                    <span>Quay lại danh sách</span>
+                </button>
+            </div>
+        </article>
+    `;
+};
+
+const renderProfileDepositCard = (order = {}) => {
+    const status = String(order.status || 'pending').trim().toLowerCase();
+    const statusLabel = profileDepositStatusLabels[status] || profileDepositStatusLabels.pending;
+    const paymentLabel = profileDepositPaymentLabels[order.paymentMethod] || order.paymentMethod || 'Chưa cập nhật';
+    const carTitle = getProfileDepositCarTitle(order);
+    const actionHref = order.carId ? `/cars/${encodeURIComponent(String(order.carId))}` : '/mua-xe';
+    const transferNote = String(order.bankTransferNote || '').trim();
+    const isVnpayPayment = String(order.paymentMethod || '').trim().toLowerCase() === 'vnpay';
+    const expiryText = getProfileDepositExpiryText(order);
+    const canPrintReceipt = ['confirmed', 'completed'].includes(status);
+    const proofUrl = String(order.transferProofUrl || '').trim();
+    const proofFileName = String(order.transferProofFileName || '').trim();
+    const canUploadProof = canUploadProfileDepositProof(order);
+    const refundCardText = status === 'cancelled_after_deposit' && Number(order.refundAmount || 0) > 0
+        ? `Hoàn cọc: ${formatProfileMoney(order.refundAmount)}${order.refundReference ? ` - ${order.refundReference}` : ''}`
+        : '';
+
+    return `
+        <article class="profile-listing-card profile-deposit-card" role="button" tabindex="0" data-profile-deposit-id="${escapeHtml(order.id)}" aria-label="Xem chi tiết đơn đặt cọc ${escapeHtml(order.code || '')}">
+            <div class="profile-listing-card__top">
+                <div>
+                    <span>${escapeHtml(order.code || 'Đơn đặt cọc')}</span>
+                    <h4>${escapeHtml(carTitle)}</h4>
+                </div>
+                <strong class="profile-listing-status ${getProfileDepositStatusClass(status)}">${escapeHtml(statusLabel)}</strong>
+            </div>
+            <div class="profile-listing-card__meta">
+                <span>Ngày tạo: ${escapeHtml(formatProfileListingDate(order.createdAt))}</span>
+                ${order.updatedAt ? `<span>Cập nhật: ${escapeHtml(formatProfileListingDate(order.updatedAt))}</span>` : ''}
+            </div>
+            <p>${escapeHtml(getProfileDepositDescription(order))}</p>
+            <div class="profile-listing-card__chips">
+                <span>${escapeHtml(formatProfileMoney(order.depositAmount))}</span>
+                <span>${escapeHtml(paymentLabel)}</span>
+                ${order.province ? `<span>${escapeHtml(order.province)}</span>` : ''}
+                ${expiryText ? `<span>${escapeHtml(expiryText)}</span>` : ''}
+            </div>
+            ${isVnpayPayment
+                ? `<small class="profile-listing-card__note">Thanh toán VNPay: ${escapeHtml(order.vnpayTxnRef || order.paymentReference || 'Đang chờ kết quả')}</small>`
+                : transferNote ? `<small class="profile-listing-card__note">Nội dung chuyển khoản: ${escapeHtml(transferNote)}</small>` : ''}
+            ${proofUrl || proofFileName ? `<small class="profile-listing-card__note">Biên lai: ${escapeHtml(proofFileName || 'Đã tải ảnh biên lai')}</small>` : ''}
+            ${canUploadProof ? `<small class="profile-listing-card__note" data-profile-deposit-proof-feedback="${escapeHtml(order.id)}" aria-live="polite"></small>` : ''}
+            ${refundCardText ? `<small class="profile-listing-card__note">${escapeHtml(refundCardText)}</small>` : ''}
+            ${order.statusNote && !['confirmed', 'completed', 'cancelled', 'cancelled_after_deposit'].includes(status) ? `<small class="profile-listing-card__note">Ghi chú: ${escapeHtml(order.statusNote)}</small>` : ''}
+            <div class="profile-listing-card__actions">
+                ${renderProfileDepositVnpayResumeButton(order)}
+                <button type="button" data-profile-deposit-detail="${escapeHtml(order.id)}">
+                    <i class="bx bx-detail" aria-hidden="true"></i>
+                    <span>Chi tiết đơn</span>
+                </button>
+                ${canUploadProof ? `
+                    <button type="button" data-profile-deposit-proof-card-choose="${escapeHtml(order.id)}">
+                        <i class="bx bx-upload" aria-hidden="true"></i>
+                        <span>${proofUrl ? 'Thay biên lai' : 'Tải biên lai'}</span>
+                    </button>
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden data-profile-deposit-proof-card-input="${escapeHtml(order.id)}">
+                ` : ''}
+                ${canPrintReceipt ? `
+                    <button type="button" data-profile-deposit-receipt="${escapeHtml(order.id)}">
+                        <i class="bx bx-printer" aria-hidden="true"></i>
+                        <span>In biên nhận</span>
+                    </button>
+                ` : ''}
+                <a href="${escapeHtml(actionHref)}">
+                    <i class="bx bx-car" aria-hidden="true"></i>
+                    <span>Xem xe đặt cọc</span>
+                </a>
+            </div>
+        </article>
+    `;
+};
+
+const closeProfileDepositDetail = ({ shouldFocusList = true } = {}) => {
+    activeProfileDepositDetailId = null;
+    profileDepositsSection?.classList.remove('is-detail-open');
+
+    if (profileDepositDetail) {
+        profileDepositDetail.hidden = true;
+    }
+
+    if (shouldFocusList) {
+        const firstCard = profileDepositsList?.querySelector('[data-profile-deposit-id]');
+        firstCard?.focus?.();
+    }
+};
+
+const openProfileDepositDetail = (orderId) => {
+    const selectedOrder = depositOrdersState.find((order) =>
+        String(order.id || '') === String(orderId || ''));
+
+    if (!selectedOrder || !profileDepositDetail || !profileDepositDetailContent) {
+        return;
+    }
+
+    activeProfileDepositDetailId = selectedOrder.id;
+    profileDepositDetailContent.innerHTML = renderProfileDepositDetail(selectedOrder);
+    profileDepositDetail.hidden = false;
+    profileDepositsSection?.classList.add('is-detail-open');
+
+    window.setTimeout(() => {
+        profileDepositDetailBackButton?.focus?.();
+    }, 40);
+};
+
+const renderProfileDeposits = ({ isLoading = false } = {}) => {
+    if (!profileDepositsList) {
+        return;
+    }
+
+    if (profileDepositCount) {
+        profileDepositCount.textContent = String(depositOrdersState.length);
+    }
+
+    if (profileDepositsFilter) {
+        profileDepositsFilter.value = activeProfileDepositsFilter;
+    }
+
+    if (isLoading) {
+        closeProfileDepositDetail({ shouldFocusList: false });
+        profileDepositsList.innerHTML = `
+            <article class="profile-listings__empty">
+                <i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i>
+                <strong>Đang tải đơn đặt cọc</strong>
+                <p>OkXe đang kiểm tra các đơn đặt cọc gắn với tài khoản này.</p>
+            </article>
+        `;
+        return;
+    }
+
+    const filteredOrders = activeProfileDepositsFilter === 'all'
+        ? depositOrdersState
+        : depositOrdersState.filter((order) =>
+            String(order.status || '').trim().toLowerCase() === activeProfileDepositsFilter);
+
+    if (!filteredOrders.length) {
+        closeProfileDepositDetail({ shouldFocusList: false });
+        profileDepositsList.innerHTML = renderProfileDepositEmpty(
+            activeProfileDepositsFilter === 'all'
+                ? ''
+                : `Không có đơn ở trạng thái "${profileDepositStatusLabels[activeProfileDepositsFilter] || 'đã chọn'}"`
+        );
+        return;
+    }
+
+    profileDepositsList.innerHTML = filteredOrders.map(renderProfileDepositCard).join('');
+
+    if (activeProfileDepositDetailId) {
+        const activeOrder = depositOrdersState.find((order) =>
+            String(order.id || '') === String(activeProfileDepositDetailId || ''));
+
+        if (activeOrder && profileDepositDetailContent) {
+            profileDepositDetailContent.innerHTML = renderProfileDepositDetail(activeOrder);
+        } else {
+            closeProfileDepositDetail({ shouldFocusList: false });
+        }
+    }
+};
+
+const syncDepositOrders = async ({ isManualRefresh = false } = {}) => {
+    if (!currentUser) {
+        depositOrdersState = [];
+        renderProfileDeposits();
+        return;
+    }
+
+    if (isManualRefresh && profileDepositsRefreshButton) {
+        profileDepositsRefreshButton.disabled = true;
+        profileDepositsRefreshButton.innerHTML = '<i class="bx bx-loader-alt bx-spin" aria-hidden="true"></i><span>Đang tải...</span>';
+    }
+
+    try {
+        const { response, data } = await requestJson('/api/deposit-orders/my');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải đơn đặt cọc của bạn.');
+        }
+
+        depositOrdersState = Array.isArray(data.orders) ? data.orders : [];
+    } catch (error) {
+        depositOrdersState = [];
+        if (profileDepositsList) {
+            profileDepositsList.innerHTML = `
+                <article class="profile-listings__empty">
+                    <i class="bx bx-error-circle" aria-hidden="true"></i>
+                    <strong>Không thể tải đơn đặt cọc</strong>
+                    <p>${escapeHtml(error.message || 'Vui lòng thử lại sau ít phút.')}</p>
+                </article>
+            `;
+            return;
+        }
+    } finally {
+        if (isManualRefresh && profileDepositsRefreshButton) {
+            profileDepositsRefreshButton.disabled = false;
+            profileDepositsRefreshButton.innerHTML = '<i class="bx bx-refresh" aria-hidden="true"></i><span>Làm mới</span>';
+        }
+    }
+
+    renderProfileDeposits();
+};
+
 const syncCarSellRequests = async () => {
     if (!currentUser) {
         carSellRequestsState = [];
@@ -3164,25 +4095,43 @@ const closeProfileModal = () => {
 
     profileModal.classList.remove('is-open');
     profileModal.classList.remove('profile-modal--listings');
+    profileModal.classList.remove('profile-modal--deposits');
     profileModal.setAttribute('aria-hidden', 'true');
     setBodyModalClass('profile-modal-open', false);
     setProfileEditPanelOpen(false);
+    closeProfileDepositDetail({ shouldFocusList: false });
     setFormFeedback(profileFeedback, '');
 };
 
-const setProfileModalContentMode = (isListingsMode) => {
+const setProfileModalContentMode = (mode = 'profile') => {
+    const normalizedMode = mode === true
+        ? 'listings'
+        : String(mode || 'profile').trim().toLowerCase();
+    const isListingsMode = normalizedMode === 'listings';
+    const isDepositsMode = normalizedMode === 'deposits';
+
     if (profileModalEyebrow) {
-        profileModalEyebrow.textContent = isListingsMode ? 'Tin đăng khách hàng' : 'Tài khoản khách hàng';
+        profileModalEyebrow.textContent = isDepositsMode
+            ? 'Đặt cọc xe'
+            : isListingsMode
+                ? 'Tin đăng khách hàng'
+                : 'Tài khoản khách hàng';
     }
 
     if (profileModalTitle) {
-        profileModalTitle.textContent = isListingsMode ? 'Quản lý tin đăng của tôi' : 'Thông tin tài khoản của tôi';
+        profileModalTitle.textContent = isDepositsMode
+            ? 'Quản lý đơn đặt cọc của tôi'
+            : isListingsMode
+                ? 'Quản lý tin đăng của tôi'
+                : 'Thông tin tài khoản của tôi';
     }
 
     if (profileModalDescription) {
-        profileModalDescription.textContent = isListingsMode
-            ? 'Theo dõi tin bán xe, tin mua xe và trạng thái xử lý của từng tin trong tài khoản.'
-            : 'Xem thông tin đang lưu trên hệ thống OkXe và cập nhật hồ sơ liên hệ khi cần.';
+        profileModalDescription.textContent = isDepositsMode
+            ? 'Theo dõi các đơn đặt cọc giữ xe, trạng thái xác nhận tiền và ghi chú xử lý từ OkXe.'
+            : isListingsMode
+                ? 'Theo dõi tin bán xe, tin mua xe và trạng thái xử lý của từng tin trong tài khoản.'
+                : 'Xem thông tin đang lưu trên hệ thống OkXe và cập nhật hồ sơ liên hệ khi cần.';
     }
 };
 
@@ -3204,7 +4153,7 @@ const focusProfileListingsSection = ({ scrollToSection = true } = {}) => {
     }, 120);
 };
 
-const openProfileModal = ({ focusListings = false, listingsOnly = false } = {}) => {
+const openProfileModal = ({ focusListings = false, listingsOnly = false, depositsOnly = false } = {}) => {
     if (!profileModal) {
         return;
     }
@@ -3215,8 +4164,16 @@ const openProfileModal = ({ focusListings = false, listingsOnly = false } = {}) 
     }
 
     fillProfileForm(currentUser);
-    profileModal.classList.toggle('profile-modal--listings', listingsOnly);
-    setProfileModalContentMode(listingsOnly);
+    closeProfileDepositDetail({ shouldFocusList: false });
+    profileModal.classList.toggle('profile-modal--listings', listingsOnly && !depositsOnly);
+    profileModal.classList.toggle('profile-modal--deposits', depositsOnly);
+    if (profileListingsSection) {
+        profileListingsSection.hidden = depositsOnly;
+    }
+    if (profileDepositsSection) {
+        profileDepositsSection.hidden = !depositsOnly;
+    }
+    setProfileModalContentMode(depositsOnly ? 'deposits' : listingsOnly ? 'listings' : 'profile');
     setProfileEditPanelOpen(false);
 
     if (focusListings) {
@@ -3224,13 +4181,25 @@ const openProfileModal = ({ focusListings = false, listingsOnly = false } = {}) 
         activeProfileListingsFilter = 'all';
     }
 
+    if (depositsOnly) {
+        activeProfileDepositsFilter = 'all';
+    }
+
     renderProfileListings();
+    renderProfileDeposits();
     profileModal.classList.add('is-open');
     profileModal.setAttribute('aria-hidden', 'false');
     setBodyModalClass('profile-modal-open', true);
-    syncProfileListings();
+    if (depositsOnly) {
+        renderProfileDeposits({ isLoading: true });
+        syncDepositOrders();
+    } else {
+        syncProfileListings();
+    }
 
-    if (focusListings) {
+    if (depositsOnly) {
+        profileDepositsFilter?.focus();
+    } else if (focusListings) {
         focusProfileListingsSection({ scrollToSection: !listingsOnly });
     } else if (profileEditToggle) {
         profileEditToggle.focus();
@@ -3283,6 +4252,8 @@ const updateAuthUi = (user) => {
 
     if (!isLoggedIn) {
         closeAccountMenu();
+        depositOrdersState = [];
+        renderProfileDeposits();
     }
 };
 
@@ -3584,6 +4555,191 @@ notificationOpenButtons.forEach((button) => {
     });
 });
 
+depositOpenButtons.forEach((button) => {
+    button.addEventListener('click', (event) => {
+        event.preventDefault();
+        closeAccountMenu();
+        openProfileModal({ depositsOnly: true });
+    });
+});
+
+profileDepositsFilter?.addEventListener('change', () => {
+    activeProfileDepositsFilter = profileDepositsFilter.value || 'all';
+    closeProfileDepositDetail({ shouldFocusList: false });
+    renderProfileDeposits();
+});
+
+profileDepositsRefreshButton?.addEventListener('click', () => {
+    syncDepositOrders({ isManualRefresh: true });
+});
+
+profileDepositsList?.addEventListener('click', (event) => {
+    const resumeVnpayButton = event.target.closest('[data-profile-deposit-vnpay-resume]');
+    const receiptButton = event.target.closest('[data-profile-deposit-receipt]');
+    const detailButton = event.target.closest('[data-profile-deposit-detail]');
+    const proofChooseButton = event.target.closest('[data-profile-deposit-proof-card-choose]');
+
+    if (resumeVnpayButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        resumeProfileDepositVnpayPayment(resumeVnpayButton.dataset.profileDepositVnpayResume);
+        return;
+    }
+
+    if (receiptButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        openProfileDepositReceipt(receiptButton.dataset.profileDepositReceipt);
+        return;
+    }
+
+    if (detailButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        openProfileDepositDetail(detailButton.dataset.profileDepositDetail);
+        return;
+    }
+
+    if (proofChooseButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        const orderId = proofChooseButton.dataset.profileDepositProofCardChoose;
+        const proofInput = profileDepositsList.querySelector(`[data-profile-deposit-proof-card-input="${escapeSelectorValue(orderId)}"]`);
+
+        proofInput?.click?.();
+        return;
+    }
+
+    if (event.target.closest('a, button')) {
+        return;
+    }
+
+    const depositCard = event.target.closest('[data-profile-deposit-id]');
+
+    if (depositCard) {
+        openProfileDepositDetail(depositCard.dataset.profileDepositId);
+    }
+});
+
+profileDepositsList?.addEventListener('change', async (event) => {
+    const proofInput = event.target.closest('[data-profile-deposit-proof-card-input]');
+
+    if (!proofInput) {
+        return;
+    }
+
+    const orderId = proofInput.dataset.profileDepositProofCardInput;
+    const file = proofInput.files?.[0] || null;
+    const chooseButton = profileDepositsList.querySelector(`[data-profile-deposit-proof-card-choose="${escapeSelectorValue(orderId)}"]`);
+
+    if (!file) {
+        return;
+    }
+
+    chooseButton?.setAttribute('disabled', 'disabled');
+    setProfileDepositProofFeedback(orderId, 'Đang tải ảnh biên lai...', 'loading');
+
+    try {
+        const data = await uploadProfileDepositProof(orderId, file);
+
+        showToast(data.message || 'Đã tải ảnh biên lai chuyển khoản.', 'success', 'Biên lai đặt cọc');
+    } catch (error) {
+        setProfileDepositProofFeedback(orderId, error.message || 'Không thể tải ảnh biên lai.', 'error');
+        showToast(error.message || 'Không thể tải ảnh biên lai.', 'error', 'Biên lai đặt cọc');
+    } finally {
+        if (proofInput) {
+            proofInput.value = '';
+        }
+        chooseButton?.removeAttribute('disabled');
+    }
+});
+
+profileDepositsList?.addEventListener('keydown', (event) => {
+    if (!['Enter', ' '].includes(event.key)) {
+        return;
+    }
+
+    const depositCard = event.target.closest('[data-profile-deposit-id]');
+
+    if (!depositCard || event.target.closest('a, button')) {
+        return;
+    }
+
+    event.preventDefault();
+    openProfileDepositDetail(depositCard.dataset.profileDepositId);
+});
+
+profileDepositDetailBackButton?.addEventListener('click', () => {
+    closeProfileDepositDetail();
+});
+
+profileDepositDetail?.addEventListener('click', (event) => {
+    const resumeVnpayButton = event.target.closest('[data-profile-deposit-vnpay-resume]');
+    const receiptButton = event.target.closest('[data-profile-deposit-receipt]');
+    const proofChooseButton = event.target.closest('[data-profile-deposit-proof-choose]');
+    const closeButton = event.target.closest('[data-profile-deposit-detail-close]');
+
+    if (resumeVnpayButton) {
+        event.preventDefault();
+        resumeProfileDepositVnpayPayment(resumeVnpayButton.dataset.profileDepositVnpayResume);
+        return;
+    }
+
+    if (receiptButton) {
+        event.preventDefault();
+        openProfileDepositReceipt(receiptButton.dataset.profileDepositReceipt);
+        return;
+    }
+
+    if (proofChooseButton) {
+        event.preventDefault();
+        const orderId = proofChooseButton.dataset.profileDepositProofChoose;
+        const proofInput = profileDepositDetail.querySelector(`[data-profile-deposit-proof-input="${escapeSelectorValue(orderId)}"]`);
+
+        proofInput?.click?.();
+        return;
+    }
+
+    if (closeButton) {
+        event.preventDefault();
+        closeProfileDepositDetail();
+    }
+});
+
+profileDepositDetail?.addEventListener('change', async (event) => {
+    const proofInput = event.target.closest('[data-profile-deposit-proof-input]');
+
+    if (!proofInput) {
+        return;
+    }
+
+    const orderId = proofInput.dataset.profileDepositProofInput;
+    const file = proofInput.files?.[0] || null;
+    const chooseButton = profileDepositDetail.querySelector(`[data-profile-deposit-proof-choose="${escapeSelectorValue(orderId)}"]`);
+
+    if (!file) {
+        return;
+    }
+
+    chooseButton?.setAttribute('disabled', 'disabled');
+    setProfileDepositProofFeedback(orderId, 'Đang tải ảnh biên lai...', 'loading');
+
+    try {
+        const data = await uploadProfileDepositProof(orderId, file);
+
+        showToast(data.message || 'Đã tải ảnh biên lai chuyển khoản.', 'success', 'Biên lai đặt cọc');
+        setProfileDepositProofFeedback(orderId, data.message || 'Đã tải ảnh biên lai chuyển khoản.', 'success');
+    } catch (error) {
+        setProfileDepositProofFeedback(orderId, error.message || 'Không thể tải ảnh biên lai.', 'error');
+        showToast(error.message || 'Không thể tải ảnh biên lai.', 'error', 'Biên lai đặt cọc');
+    } finally {
+        if (proofInput) {
+            proofInput.value = '';
+        }
+        chooseButton?.removeAttribute('disabled');
+    }
+});
+
 testDriveButton?.addEventListener('click', (event) => {
     if (currentUser) {
         return;
@@ -3643,7 +4799,10 @@ if (notificationsModal) {
         if (deleteAppointmentButton) {
             event.preventDefault();
             event.stopPropagation();
-            deleteTestDriveAppointment(deleteAppointmentButton.dataset.deleteTestDriveAppointment);
+            deleteTestDriveAppointment(
+                deleteAppointmentButton.dataset.deleteTestDriveAppointment,
+                deleteAppointmentButton.dataset.relatedNotificationId
+            );
             return;
         }
 
@@ -3663,7 +4822,11 @@ if (notificationsModal) {
                 String(item.id || '') === String(notificationItem.dataset.promotionNotificationId || '')
             );
 
-            openPromotionDetailModal(promotion);
+            if (promotion) {
+                openPromotionDetailModal(promotion);
+            } else {
+                window.location.href = '/khuyen-mai';
+            }
             return;
         }
 
@@ -3688,7 +4851,11 @@ if (notificationsModal) {
             String(item.id || '') === String(notificationItem.dataset.promotionNotificationId || '')
         );
 
-        openPromotionDetailModal(promotion);
+        if (promotion) {
+            openPromotionDetailModal(promotion);
+        } else {
+            window.location.href = '/khuyen-mai';
+        }
     });
 }
 
@@ -3865,7 +5032,9 @@ if (loginForm) {
             loginForm.reset();
 
             window.setTimeout(() => {
-                closeLoginModal();
+                if (!redirectToAuthReturnTarget()) {
+                    closeLoginModal();
+                }
             }, 900);
         } catch (error) {
             setFormFeedback(loginFeedback, error.message || 'Không thể đăng nhập lúc này.');
@@ -3913,7 +5082,9 @@ if (signupForm) {
             signupForm.reset();
 
             window.setTimeout(() => {
-                closeSignupModal();
+                if (!redirectToAuthReturnTarget()) {
+                    closeSignupModal();
+                }
             }, 900);
         } catch (error) {
             setFormFeedback(signupFeedback, error.message || 'Không thể tạo tài khoản lúc này.');
@@ -4084,12 +5255,12 @@ if (logoutButton) {
             await syncCarSellRequests();
             await syncCarBuyRequests();
             await syncUserNotifications();
+            await syncDepositOrders();
             setButtonLoading(logoutButton, false, 'Đăng xuất');
         }
     });
 }
 
-loadDismissedNotificationIds();
 syncCars();
 syncTeamMembers();
 syncPromotions();
@@ -4108,6 +5279,8 @@ const openRequestedHomePanel = () => {
         openProfileModal();
     } else if (accountAction === 'listings') {
         openProfileModal({ focusListings: true, listingsOnly: true });
+    } else if (accountAction === 'deposits') {
+        openProfileModal({ depositsOnly: true });
     } else if (accountAction === 'favorites') {
         openFavoriteCarsModal();
     } else if (accountAction === 'notifications') {

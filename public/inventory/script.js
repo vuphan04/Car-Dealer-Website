@@ -107,9 +107,15 @@ const getCarImages = (car) => {
 const getStatusClass = (status) => {
     const normalizedStatus = normalizeText(status);
 
-    return ['xe da ban', 'het xe', 'het hang'].includes(normalizedStatus)
-        ? 'is-sold'
-        : 'is-available';
+    if (['xe da ban', 'het xe', 'het hang'].includes(normalizedStatus)) {
+        return 'is-sold';
+    }
+
+    if (normalizedStatus.includes('dang giu') || normalizedStatus.includes('giu cho')) {
+        return 'is-held';
+    }
+
+    return 'is-available';
 };
 
 const isSoldCar = (car) => getStatusClass(car.actionText) === 'is-sold';
@@ -387,7 +393,10 @@ const renderInventoryCard = (car) => {
                     <span class="inventory-card__status ${statusClass}">${escapeHtml(statusText)}</span>
                 </div>
                 <div class="inventory-card__actions">
-                    <a class="inventory-card__detail" href="${getCarDetailUrl(car.id)}">Xem chi tiết</a>
+                    <a class="inventory-card__detail" href="${getCarDetailUrl(car.id)}">
+                        <span>Xem chi tiết</span>
+                        <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+                    </a>
                     <button type="button" class="inventory-card__compare${isCompareCar(car.id) ? ' is-active' : ''}" data-compare-car="${escapeHtml(car.id)}" aria-pressed="${isCompareCar(car.id)}" aria-label="So sánh ${escapeHtml(car.name)}">
                         <i class="bx bx-git-compare" aria-hidden="true"></i>
                     </button>

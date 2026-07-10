@@ -24,6 +24,13 @@ const adminCurrentAccountAvatar = document.querySelector('#admin-current-account
 const adminCurrentAccountName = document.querySelector('#admin-current-account-name');
 const adminCurrentAccountEmail = document.querySelector('#admin-current-account-email');
 const adminCurrentAccountRole = document.querySelector('#admin-current-account-role');
+const adminNotificationButton = document.querySelector('#admin-notification-button');
+const adminNotificationBadge = document.querySelector('#admin-notification-badge');
+const adminNotificationNewLabel = document.querySelector('#admin-notification-new-label');
+const adminNotificationStatus = document.querySelector('#admin-notification-status');
+const adminNotificationPanel = document.querySelector('#admin-notification-panel');
+const adminNotificationList = document.querySelector('#admin-notification-list');
+const adminNotificationCloseButtons = document.querySelectorAll('[data-close-admin-notifications]');
 
 const employeeForm = document.querySelector('#employee-form');
 const employeeFormCard = document.querySelector('#employee-form-card');
@@ -141,6 +148,51 @@ const consultationStatusNote = document.querySelector('#consultation-status-note
 const consultationStatusSaveButton = document.querySelector('#consultation-status-save-button');
 const consultationStatusFeedback = document.querySelector('#consultation-status-feedback');
 const consultationStatusCloseButtons = document.querySelectorAll('[data-close-consultation-status]');
+const depositOrderSearchInput = document.querySelector('#deposit-order-search');
+const depositOrderStatusFilter = document.querySelector('#deposit-order-status-filter');
+const depositOrderRefreshButton = document.querySelector('#deposit-order-refresh-button');
+const depositOrderTableBody = document.querySelector('#deposit-order-table-body');
+const depositOrderFeedback = document.querySelector('#deposit-order-feedback');
+const depositOrderStatPending = document.querySelector('#deposit-order-stat-pending');
+const depositOrderStatConfirmed = document.querySelector('#deposit-order-stat-confirmed');
+const depositOrderStatCancelled = document.querySelector('#deposit-order-stat-cancelled');
+const depositOrderStatExpired = document.querySelector('#deposit-order-stat-expired');
+const depositOrderStatTotal = document.querySelector('#deposit-order-stat-total');
+const depositReportExportButton = document.querySelector('#deposit-report-export-button');
+const depositAuditExportButton = document.querySelector('#deposit-audit-export-button');
+const depositReportReceivedAmount = document.querySelector('#deposit-report-received-amount');
+const depositReportRefundAmount = document.querySelector('#deposit-report-refund-amount');
+const depositReportNetAmount = document.querySelector('#deposit-report-net-amount');
+const depositReportCompletedCount = document.querySelector('#deposit-report-completed-count');
+const depositReportPendingCount = document.querySelector('#deposit-report-pending-count');
+const depositReportMissingProofCount = document.querySelector('#deposit-report-missing-proof-count');
+const depositReportDueSoonCount = document.querySelector('#deposit-report-due-soon-count');
+const depositReportRemindedCount = document.querySelector('#deposit-report-reminded-count');
+const depositReportReconciliationCount = document.querySelector('#deposit-report-reconciliation-count');
+const depositConfigForm = document.querySelector('#deposit-config-form');
+const depositConfigReloadButton = document.querySelector('#deposit-config-reload-button');
+const depositConfigResetButton = document.querySelector('#deposit-config-reset-button');
+const depositConfigSaveButton = document.querySelector('#deposit-config-save-button');
+const depositConfigFeedback = document.querySelector('#deposit-config-feedback');
+const depositConfigSummary = document.querySelector('#deposit-config-summary');
+const depositOrderStatusPanel = document.querySelector('#deposit-order-status-panel');
+const depositOrderStatusTitle = document.querySelector('#deposit-order-status-title');
+const depositOrderStatusSummary = document.querySelector('#deposit-order-status-summary');
+const depositOrderStatusSelect = document.querySelector('#deposit-order-status-select');
+const depositOrderStatusNote = document.querySelector('#deposit-order-status-note');
+const depositOrderProofPreview = document.querySelector('#deposit-order-proof-preview');
+const depositOrderConfirmationFields = document.querySelector('#deposit-order-confirmation-fields');
+const depositOrderPaymentReferenceInput = document.querySelector('#deposit-order-payment-reference');
+const depositOrderPaymentReceivedAtInput = document.querySelector('#deposit-order-payment-received-at');
+const depositOrderPaymentConfirmationNoteInput = document.querySelector('#deposit-order-payment-confirmation-note');
+const depositOrderRefundFields = document.querySelector('#deposit-order-refund-fields');
+const depositOrderRefundAmountInput = document.querySelector('#deposit-order-refund-amount');
+const depositOrderRefundReferenceInput = document.querySelector('#deposit-order-refund-reference');
+const depositOrderRefundCompletedAtInput = document.querySelector('#deposit-order-refund-completed-at');
+const depositOrderRefundNoteInput = document.querySelector('#deposit-order-refund-note');
+const depositOrderStatusSaveButton = document.querySelector('#deposit-order-status-save-button');
+const depositOrderStatusFeedback = document.querySelector('#deposit-order-status-feedback');
+const depositOrderStatusCloseButtons = document.querySelectorAll('[data-close-deposit-order-status]');
 const carBuyRequestSearchInput = document.querySelector('#car-buy-request-search');
 const carBuyRequestStatusFilter = document.querySelector('#car-buy-request-status-filter');
 const carBuyRequestRefreshButton = document.querySelector('#car-buy-request-refresh-button');
@@ -172,9 +224,31 @@ const carSellRequestStatusTitle = document.querySelector('#car-sell-request-stat
 const carSellRequestStatusSummary = document.querySelector('#car-sell-request-status-summary');
 const carSellRequestStatusSelect = document.querySelector('#car-sell-request-status-select');
 const carSellRequestStatusNote = document.querySelector('#car-sell-request-status-note');
+const carSellRequestFinalPriceFields = document.querySelector('#car-sell-final-price-fields');
+const carSellRequestCustomerDealPriceTextInput = document.querySelector('#car-sell-request-customer-deal-price-text');
+const carSellRequestCustomerDealPriceValueInput = document.querySelector('#car-sell-request-customer-deal-price-value');
+const carSellRequestFinalPriceTextInput = document.querySelector('#car-sell-request-final-price-text');
+const carSellRequestFinalPriceValueInput = document.querySelector('#car-sell-request-final-price-value');
 const carSellRequestStatusSaveButton = document.querySelector('#car-sell-request-status-save-button');
 const carSellRequestStatusFeedback = document.querySelector('#car-sell-request-status-feedback');
 const carSellRequestStatusCloseButtons = document.querySelectorAll('[data-close-car-sell-request-status]');
+const salesKpiForm = document.querySelector('#sales-kpi-form');
+const salesKpiTypeInput = document.querySelector('#sales-kpi-type');
+const salesKpiSourceInput = document.querySelector('#sales-kpi-source');
+const salesKpiSelectionPreview = document.querySelector('#sales-kpi-selection-preview');
+const salesKpiSaleInput = document.querySelector('#sales-kpi-sale');
+const salesKpiRewardInput = document.querySelector('#sales-kpi-reward');
+const salesKpiRewardStatusInput = document.querySelector('#sales-kpi-reward-status');
+const salesKpiNoteInput = document.querySelector('#sales-kpi-note');
+const salesKpiSaveButton = document.querySelector('#sales-kpi-save-button');
+const salesKpiRefreshButton = document.querySelector('#sales-kpi-refresh-button');
+const salesKpiFeedback = document.querySelector('#sales-kpi-feedback');
+const salesKpiTableBody = document.querySelector('#sales-kpi-table-body');
+const salesKpiStatTotal = document.querySelector('#sales-kpi-stat-total');
+const salesKpiStatAcquisition = document.querySelector('#sales-kpi-stat-acquisition');
+const salesKpiStatSales = document.querySelector('#sales-kpi-stat-sales');
+const salesKpiStatSalesValue = document.querySelector('#sales-kpi-stat-sales-value');
+const salesKpiStatReward = document.querySelector('#sales-kpi-stat-reward');
 
 const totalCarsElement = document.querySelector('#stat-total-cars');
 const totalCarsDetailElement = document.querySelector('#stat-total-cars-detail');
@@ -198,8 +272,16 @@ let blogPostStats = {
 };
 let testDriveAppointments = [];
 let consultationRequests = [];
+let depositOrders = [];
+let depositPaymentConfig = null;
 let carBuyRequests = [];
 let carSellRequests = [];
+let salesKpiRecords = [];
+let salesKpiSources = { acquisitions: [], sales: [] };
+let salesKpiEmployees = [];
+let salesKpiStats = {};
+let editingSalesKpiRecordId = null;
+let adminNotifications = [];
 let currentAdminUser = null;
 let editingEmployeeId = null;
 let editingPromotionId = null;
@@ -207,10 +289,12 @@ let editingBlogPostId = null;
 let activeAccountView = 'staff';
 let selectedCarImages = [];
 let toastId = 0;
+let adminNotificationRefreshTimer = null;
 let modalCloseTimer = null;
 let customerDetailCloseTimer = null;
 let testDriveStatusCloseTimer = null;
 let consultationStatusCloseTimer = null;
+let depositOrderStatusCloseTimer = null;
 let carBuyRequestStatusCloseTimer = null;
 let carSellRequestStatusCloseTimer = null;
 let promotionCropCloseTimer = null;
@@ -218,6 +302,7 @@ let blogPostCropCloseTimer = null;
 let activeTestDriveAppointmentId = null;
 let activeTestDriveStatus = 'approved';
 let activeConsultationRequestId = null;
+let activeDepositOrderId = null;
 let activeCarBuyRequestId = null;
 let activeCarBuyRequestOriginalStatus = 'pending';
 let activeCarBuyRequestOriginalRejectedNote = '';
@@ -326,10 +411,57 @@ const consultationStatusConfig = {
 const consultationTypeLabels = {
     consultation: 'Tư vấn & báo giá',
     quote: 'Yêu cầu báo giá',
+    deposit: 'Đặt cọc xe',
     financing: 'Tư vấn trả góp',
     rolling_cost: 'Chi phí lăn bánh',
     viewing: 'Đặt lịch xem xe',
     similar_car: 'Tư vấn xe tương tự'
+};
+const depositOrderStatusConfig = {
+    pending: {
+        label: 'Chờ xác nhận',
+        className: 'is-pending'
+    },
+    confirmed: {
+        label: 'Đã nhận tiền',
+        className: 'is-approved'
+    },
+    completed: {
+        label: 'Hoàn tất giao dịch',
+        className: 'is-approved'
+    },
+    cancelled_after_deposit: {
+        label: 'Hủy sau đặt cọc',
+        className: 'is-rejected'
+    },
+    cancelled: {
+        label: 'Đã hủy',
+        className: 'is-rejected'
+    },
+    expired: {
+        label: 'Quá hạn giữ chỗ',
+        className: 'is-expired'
+    }
+};
+const depositOrderStatusTransitions = {
+    pending: ['confirmed', 'cancelled', 'expired'],
+    confirmed: ['completed', 'cancelled_after_deposit'],
+    completed: [],
+    cancelled_after_deposit: [],
+    cancelled: [],
+    expired: []
+};
+const getAllowedDepositOrderStatusOptions = (status) => {
+    const normalizedStatus = String(status || 'pending').trim().toLowerCase();
+    const allowedNextStatuses = depositOrderStatusTransitions[normalizedStatus] || [];
+
+    return new Set([normalizedStatus, ...allowedNextStatuses]);
+};
+let depositOrderPaymentMethodLabels = {
+    bank: 'Chuyển khoản ngân hàng',
+    vnpay: 'VNPay sandbox',
+    wallet: 'Ví điện tử',
+    card: 'Thẻ nội địa/quốc tế'
 };
 const carBuyRequestStatusConfig = {
     pending: {
@@ -399,7 +531,7 @@ const carSelectOptions = {
     drivetrain: ['FWD - Dẫn động cầu trước', 'RWD - Dẫn động cầu sau', 'Dẫn động 4 bánh'],
     origin: ['Nhập khẩu', 'Trong nước'],
     condition: ['Xe mới', 'Xe cũ'],
-    actionText: ['Còn xe', 'Xe đã bán']
+    actionText: ['Còn xe', 'Đang giữ chỗ', 'Xe đã bán']
 };
 const carSelectAliases = {
     type: {
@@ -436,6 +568,12 @@ const carSelectAliases = {
     actionText: {
         'mua ngay': 'Còn xe',
         'còn hàng': 'Còn xe',
+        'dang giu': 'Đang giữ chỗ',
+        'dang giu cho': 'Đang giữ chỗ',
+        'đang giữ': 'Đang giữ chỗ',
+        'đang giữ chỗ': 'Đang giữ chỗ',
+        'giu cho': 'Đang giữ chỗ',
+        'giữ chỗ': 'Đang giữ chỗ',
         'het hang': 'Xe đã bán',
         'hết hàng': 'Xe đã bán',
         'het xe': 'Xe đã bán',
@@ -501,6 +639,11 @@ const escapeHtml = (value) =>
         "'": '&#039;'
     }[character]));
 
+const escapeSelectorValue = (value) =>
+    globalThis.CSS?.escape
+        ? globalThis.CSS.escape(String(value ?? ''))
+        : String(value ?? '').replace(/["\\]/g, '\\$&');
+
 const normalizeSearchValue = (value) =>
     String(value || '')
         .normalize('NFD')
@@ -559,21 +702,115 @@ const formatCompactPrice = (value) => {
     return `${currencyFormatter.format(numericValue)} VNĐ`;
 };
 
-const hasCarValue = (value) => String(value ?? '').trim().length > 0;
+const normalizeMoneyAmountInput = (value, fallback = 0) => {
+    const numberValue = Number(String(value ?? '').replace(/[^\d]/g, ''));
 
-const isAvailableCar = (car) => {
-    const normalizedStatus = normalizeSearchValue(car?.actionText || 'Còn xe');
-
-    return !normalizedStatus.includes('da ban')
-        && !normalizedStatus.includes('het hang')
-        && !normalizedStatus.includes('het xe');
+    return Number.isFinite(numberValue) && numberValue > 0
+        ? Math.trunc(numberValue)
+        : fallback;
 };
 
+const normalizeDepositAmountOptionsInput = (value) => {
+    const rawOptions = Array.isArray(value)
+        ? value
+        : String(value || '').split(/[\s,;]+/);
+    const seenAmounts = new Set();
+
+    return rawOptions
+        .map((amount) => normalizeMoneyAmountInput(amount, 0))
+        .filter((amount) => amount > 0)
+        .filter((amount) => {
+            if (seenAmounts.has(amount)) {
+                return false;
+            }
+
+            seenAmounts.add(amount);
+            return true;
+        })
+        .slice(0, 8);
+};
+
+const getDepositAmountOptionsText = (options = []) =>
+    normalizeDepositAmountOptionsInput(options).join(', ');
+
+const findDepositOrderByPaymentReference = (paymentReference = '', excludeOrderId = null) => {
+    const normalizedReference = normalizeSearchValue(paymentReference);
+    const normalizedExcludeId = String(excludeOrderId || '');
+
+    if (!normalizedReference) {
+        return null;
+    }
+
+    return depositOrders.find((order) =>
+        String(order.id || '') !== normalizedExcludeId
+        && normalizeSearchValue(order.paymentReference || '') === normalizedReference
+    ) || null;
+};
+
+const escapeCsvValue = (value) => {
+    const normalizedValue = String(value ?? '').replace(/\r?\n/g, ' ').trim();
+
+    return /[",\n;]/.test(normalizedValue)
+        ? `"${normalizedValue.replace(/"/g, '""')}"`
+        : normalizedValue;
+};
+
+const downloadCsvFile = (fileName, rows = []) => {
+    const csvContent = rows.map((row) => row.map(escapeCsvValue).join(',')).join('\r\n');
+    const blob = new Blob([`\uFEFF${csvContent}`], {
+        type: 'text/csv;charset=utf-8;'
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+};
+
+const hasCarValue = (value) => String(value ?? '').trim().length > 0;
+
+const getInventoryStatusType = (car) => {
+    const normalizedStatus = normalizeSearchValue(car?.actionText || 'Còn xe');
+
+    if (
+        normalizedStatus.includes('dang giu')
+        || normalizedStatus.includes('giu cho')
+    ) {
+        return 'held';
+    }
+
+    if (
+        normalizedStatus.includes('da ban')
+        || normalizedStatus.includes('het hang')
+        || normalizedStatus.includes('het xe')
+    ) {
+        return 'sold';
+    }
+
+    return 'available';
+};
+
+const isAvailableCar = (car) => getInventoryStatusType(car) === 'available';
+const isHeldCar = (car) => getInventoryStatusType(car) === 'held';
+
 const getCarStatusMeta = (car) => {
-    if (isAvailableCar(car)) {
+    const statusType = getInventoryStatusType(car);
+
+    if (statusType === 'available') {
         return {
             label: car?.actionText || 'Còn xe',
             className: 'is-available'
+        };
+    }
+
+    if (statusType === 'held') {
+        return {
+            label: car?.actionText || 'Đang giữ chỗ',
+            className: 'is-held'
         };
     }
 
@@ -670,6 +907,259 @@ const requestJson = async (url, options = {}) => {
     const data = await response.json().catch(() => ({}));
 
     return { response, data };
+};
+
+const adminNotificationViewMap = {
+    'test-drive': 'test-drives',
+    consultation: 'consultations',
+    'deposit-order': 'deposit-orders',
+    'car-buy-request': 'car-buy-requests',
+    'car-buy-request-offer': 'car-buy-requests',
+    'car-sell-request': 'car-sell-requests'
+};
+
+const adminNotificationConfig = {
+    'test-drive': {
+        meta: 'Lái thử',
+        icon: 'bxs-calendar-check',
+        footer: 'Cần kiểm tra và cập nhật trạng thái lịch hẹn.',
+        actionText: 'Xem lịch hẹn'
+    },
+    consultation: {
+        meta: 'Tư vấn',
+        icon: 'bxs-phone-call',
+        footer: 'Cần nhân viên liên hệ và cập nhật trạng thái.',
+        actionText: 'Xem yêu cầu'
+    },
+    'deposit-order': {
+        meta: 'Đặt cọc',
+        icon: 'bxs-credit-card',
+        footer: 'Cần kiểm tra giao dịch và xác nhận giữ xe cho khách.',
+        actionText: 'Xem đơn cọc'
+    },
+    'car-buy-request': {
+        meta: 'Tin mua xe',
+        icon: 'bxs-message-square-edit',
+        footer: 'Cần duyệt hoặc từ chối trước khi hiển thị công khai.',
+        actionText: 'Xem tin mua'
+    },
+    'car-buy-request-offer': {
+        meta: 'Xe phù hợp',
+        icon: 'bxs-car',
+        footer: 'Cần kiểm tra đề xuất trước khi kết nối hai bên.',
+        actionText: 'Xem đề xuất'
+    },
+    'car-sell-request': {
+        meta: 'Đăng bán xe',
+        icon: 'bxs-car-garage',
+        footer: 'Cần kiểm tra thông tin xe trước khi duyệt nhập kho.',
+        actionText: 'Xem bài đăng'
+    },
+    default: {
+        meta: 'Thông báo',
+        icon: 'bxs-bell',
+        footer: 'Cần kiểm tra trong trang quản trị.',
+        actionText: 'Xem xử lý'
+    }
+};
+
+const getAdminNotificationType = (notification = {}) =>
+    String(notification.type || notification.entityType || '').trim();
+
+const getAdminNotificationConfig = (notification = {}) => {
+    const type = getAdminNotificationType(notification);
+
+    return adminNotificationConfig[type] || adminNotificationConfig.default;
+};
+
+const formatAdminNotificationDate = (value, fallback = 'Vừa cập nhật') => {
+    const date = new Date(value || '');
+
+    return Number.isNaN(date.getTime()) ? fallback : dateFormatter.format(date);
+};
+
+const getAdminNotificationItems = () =>
+    [...adminNotifications]
+        .filter((notification) => !notification.deletedAt)
+        .sort((first, second) => {
+            const firstTime = new Date(first.createdAt || 0).getTime();
+            const secondTime = new Date(second.createdAt || 0).getTime();
+
+            return (Number.isNaN(secondTime) ? 0 : secondTime) - (Number.isNaN(firstTime) ? 0 : firstTime);
+        });
+
+const updateAdminNotificationBadge = () => {
+    if (!adminNotificationBadge || !adminNotificationButton) {
+        return;
+    }
+
+    const unreadCount = getAdminNotificationItems()
+        .filter((notification) => !notification.isRead)
+        .length;
+    const hasUnreadNotifications = unreadCount > 0;
+
+    adminNotificationBadge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+    adminNotificationBadge.hidden = !hasUnreadNotifications;
+    adminNotificationButton.classList.toggle('has-unread', hasUnreadNotifications);
+    adminNotificationButton.setAttribute(
+        'aria-label',
+        hasUnreadNotifications
+            ? `Thông báo Admin: có ${unreadCount} phát sinh mới từ khách hàng`
+            : 'Thông báo Admin: chưa có phát sinh mới từ khách hàng'
+    );
+
+    if (adminNotificationNewLabel) {
+        adminNotificationNewLabel.hidden = !hasUnreadNotifications;
+    }
+
+    if (adminNotificationStatus) {
+        adminNotificationStatus.textContent = hasUnreadNotifications
+            ? `Có ${unreadCount > 9 ? '9+' : unreadCount} phát sinh mới từ khách hàng`
+            : 'Phát sinh từ khách hàng';
+    }
+};
+
+const renderAdminNotifications = () => {
+    if (!adminNotificationList) {
+        updateAdminNotificationBadge();
+        return;
+    }
+
+    const notifications = getAdminNotificationItems();
+    updateAdminNotificationBadge();
+
+    if (!notifications.length) {
+        adminNotificationList.innerHTML = `
+            <article class="admin-notification-empty">
+                <i class="bx bx-bell-off" aria-hidden="true"></i>
+                <strong>Chưa có thông báo mới</strong>
+                <p>Các yêu cầu mới từ khách hàng sẽ hiển thị tại đây.</p>
+            </article>
+        `;
+        return;
+    }
+
+    adminNotificationList.innerHTML = notifications.map((notification) => {
+        const config = getAdminNotificationConfig(notification);
+        const type = getAdminNotificationType(notification);
+        const viewName = adminNotificationViewMap[type] || 'cars';
+        const title = notification.title || 'Thông báo mới từ khách hàng';
+        const message = notification.message || 'Có phát sinh mới cần kiểm tra trong trang quản trị.';
+        const createdText = formatAdminNotificationDate(notification.createdAt || notification.updatedAt);
+
+        return `
+            <article class="admin-notification-item${notification.isRead ? '' : ' is-unread'}">
+                <button type="button" class="admin-notification-item__delete" data-delete-admin-notification="${escapeHtml(String(notification.id || ''))}" aria-label="Xóa thông báo ${escapeHtml(title)}">
+                    <i class="bx bx-x" aria-hidden="true"></i>
+                </button>
+                <span class="admin-notification-item__icon">
+                    <i class="bx ${escapeHtml(config.icon)}" aria-hidden="true"></i>
+                </span>
+                <div class="admin-notification-item__body">
+                    <div class="admin-notification-item__meta">
+                        <span>${escapeHtml(config.meta)}</span>
+                        <small>${escapeHtml(createdText)}</small>
+                    </div>
+                    <h3>${escapeHtml(title)}</h3>
+                    <p>${escapeHtml(message)}</p>
+                    <div class="admin-notification-item__footer">
+                        <small>${escapeHtml(config.footer)}</small>
+                        <button type="button" class="admin-notification-item__action" data-open-admin-notification-view="${escapeHtml(viewName)}" data-open-admin-notification-type="${escapeHtml(type)}" data-open-admin-notification-entity-id="${escapeHtml(String(notification.entityId || ''))}">
+                            <span>${escapeHtml(config.actionText)}</span>
+                            <i class="bx bx-right-arrow-alt" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </div>
+            </article>
+        `;
+    }).join('');
+};
+
+const loadAdminNotifications = async () => {
+    try {
+        const { response, data } = await requestJson('/api/admin/notifications');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải thông báo admin.');
+        }
+
+        adminNotifications = Array.isArray(data.notifications) ? data.notifications : [];
+    } catch (error) {
+        adminNotifications = [];
+    }
+
+    renderAdminNotifications();
+};
+
+const markAdminNotificationsRead = async () => {
+    const hasUnreadNotifications = adminNotifications.some((notification) => !notification.isRead);
+
+    if (!hasUnreadNotifications) {
+        return;
+    }
+
+    try {
+        const { response } = await requestJson('/api/admin/notifications/read', { method: 'PATCH' });
+
+        if (!response.ok) {
+            return;
+        }
+
+        adminNotifications = adminNotifications.map((notification) => ({
+            ...notification,
+            isRead: true
+        }));
+        updateAdminNotificationBadge();
+    } catch (error) {
+        // Không chặn admin xem danh sách nếu thao tác đánh dấu đọc thất bại.
+    }
+};
+
+const openAdminNotifications = async () => {
+    if (!adminNotificationPanel) {
+        return;
+    }
+
+    await loadAdminNotifications();
+    adminNotificationPanel.classList.add('is-open');
+    adminNotificationPanel.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    await markAdminNotificationsRead();
+};
+
+const closeAdminNotifications = () => {
+    if (!adminNotificationPanel) {
+        return;
+    }
+
+    adminNotificationPanel.classList.remove('is-open');
+    adminNotificationPanel.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+};
+
+const deleteAdminNotificationItem = async (notificationId) => {
+    const normalizedNotificationId = String(notificationId || '').trim();
+
+    if (!normalizedNotificationId) {
+        return;
+    }
+
+    try {
+        const { response, data } = await requestJson(`/api/admin/notifications/${encodeURIComponent(normalizedNotificationId)}`, {
+            method: 'DELETE'
+        });
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể xóa thông báo admin.');
+        }
+
+        adminNotifications = adminNotifications.filter((notification) =>
+            String(notification.id || '') !== normalizedNotificationId
+        );
+        renderAdminNotifications();
+    } catch (error) {
+        showToast(error.message || 'Không thể xóa thông báo admin lúc này.', 'error');
+    }
 };
 
 const isCurrentUserAdmin = () => currentAdminUser?.role === 'admin';
@@ -851,12 +1341,21 @@ const switchAdminView = (viewName) => {
         loadConsultationRequests();
     }
 
+    if (viewName === 'deposit-orders') {
+        loadAdminDepositPaymentConfig();
+        loadDepositOrders();
+    }
+
     if (viewName === 'car-buy-requests') {
         loadCarBuyRequests();
     }
 
     if (viewName === 'car-sell-requests') {
         loadCarSellRequests();
+    }
+
+    if (viewName === 'sales-kpi' && isCurrentUserAdmin()) {
+        loadSalesKpiRecords();
     }
 };
 
@@ -983,6 +1482,73 @@ const setConsultationStatusLoading = (isLoading) => {
 
     consultationStatusSaveButton.disabled = isLoading;
     consultationStatusSaveButton.innerHTML = isLoading
+        ? '<i class="bx bx-loader-alt bx-spin"></i><span>Đang cập nhật...</span>'
+        : '<i class="bx bx-save"></i><span>Cập nhật trạng thái</span>';
+};
+
+const setDepositOrderFeedback = (message, type = 'success') => {
+    if (!depositOrderFeedback) {
+        return;
+    }
+
+    depositOrderFeedback.textContent = message || '';
+    depositOrderFeedback.className = 'admin-feedback';
+
+    if (message) {
+        depositOrderFeedback.classList.add(type === 'success' ? 'is-success' : 'is-error');
+    }
+};
+
+const setDepositConfigFeedback = (message, type = 'success') => {
+    if (!depositConfigFeedback) {
+        return;
+    }
+
+    depositConfigFeedback.textContent = message || '';
+    depositConfigFeedback.className = 'admin-feedback';
+
+    if (message) {
+        depositConfigFeedback.classList.add(type === 'success' ? 'is-success' : 'is-error');
+    }
+};
+
+const setDepositConfigLoading = (isLoading) => {
+    if (depositConfigSaveButton) {
+        depositConfigSaveButton.disabled = isLoading;
+        depositConfigSaveButton.innerHTML = isLoading
+            ? '<i class="bx bx-loader-alt bx-spin"></i><span>Đang lưu...</span>'
+            : '<i class="bx bx-save"></i><span>Lưu cấu hình</span>';
+    }
+
+    if (depositConfigReloadButton) {
+        depositConfigReloadButton.disabled = isLoading;
+    }
+
+    if (depositConfigResetButton) {
+        depositConfigResetButton.disabled = isLoading;
+    }
+};
+
+const setDepositOrderStatusFeedback = (message, type = 'success') => {
+    if (!depositOrderStatusFeedback) {
+        return;
+    }
+
+    depositOrderStatusFeedback.textContent = message || '';
+    depositOrderStatusFeedback.className = 'admin-feedback';
+
+    if (message) {
+        depositOrderStatusFeedback.classList.add(type === 'success' ? 'is-success' : 'is-error');
+    }
+};
+
+const setDepositOrderStatusLoading = (isLoading) => {
+    if (!depositOrderStatusSaveButton) {
+        return;
+    }
+
+    depositOrderStatusSaveButton.disabled = isLoading;
+    depositOrderStatusSaveButton.innerHTML = isLoading
         ? '<i class="bx bx-loader-alt bx-spin"></i><span>Đang cập nhật...</span>'
         : '<i class="bx bx-save"></i><span>Cập nhật trạng thái</span>';
 };
@@ -1231,6 +1797,43 @@ const uploadEmployeeAvatar = async (file) => {
     }
 
     return data.avatarUrl || '';
+};
+
+const uploadAdminDepositTransferProof = async (orderId, file) => {
+    if (!file) {
+        throw new Error('Vui lòng chọn ảnh biên lai chuyển khoản.');
+    }
+
+    const order = getDepositOrder(orderId);
+
+    if (order && !canUploadDepositOrderProof(order)) {
+        throw new Error('Chỉ đơn đã được xác nhận nhận tiền mới được tải biên lai.');
+    }
+
+    if (!file.type.startsWith('image/')) {
+        throw new Error('Chỉ được chọn file ảnh biên lai.');
+    }
+
+    if (file.size > maxUploadedImageSize) {
+        throw new Error(`Ảnh "${file.name}" vượt quá 5MB.`);
+    }
+
+    const { response, data } = await requestJson(`/api/admin/deposit-orders/${encodeURIComponent(String(orderId))}/transfer-proof`, {
+        method: 'POST',
+        body: JSON.stringify({
+            file: {
+                name: file.name,
+                type: file.type,
+                dataUrl: await readFileAsDataUrl(file)
+            }
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(data.message || 'Không thể tải biên lai chuyển khoản.');
+    }
+
+    return data;
 };
 
 const uploadPromotionImage = async (file) => {
@@ -1854,7 +2457,8 @@ const fillForm = (car) => {
 const updateStats = (items) => {
     const totalCars = items.length;
     const availableCars = items.filter(isAvailableCar);
-    const soldCars = totalCars - availableCars.length;
+    const heldCars = items.filter(isHeldCar);
+    const soldCars = items.filter((car) => getInventoryStatusType(car) === 'sold');
     const newCars = items.filter((car) => normalizeSearchValue(car.condition).includes('moi')).length;
     const inventoryValue = availableCars.reduce((sum, car) => sum + Number(car.priceValue || 0), 0);
     const averageAvailablePrice = availableCars.length ? Math.round(inventoryValue / availableCars.length) : 0;
@@ -1865,8 +2469,8 @@ const updateStats = (items) => {
 
     totalCarsElement.textContent = String(totalCars);
     totalCarsDetailElement.textContent = customerSellCars
-        ? `${availableCars.length} còn hàng, ${soldCars} đã bán, ${customerSellCars} xe khách gửi bán`
-        : `${availableCars.length} còn hàng, ${soldCars} đã bán`;
+        ? `${availableCars.length} còn hàng, ${heldCars.length} đang giữ, ${soldCars.length} đã bán, ${customerSellCars} xe khách gửi bán`
+        : `${availableCars.length} còn hàng, ${heldCars.length} đang giữ, ${soldCars.length} đã bán`;
     availableCarsElement.textContent = String(availableCars.length);
     availableCarsDetailElement.textContent = `${newCars} xe mới, ${Math.max(0, totalCars - newCars)} xe cũ`;
     inventoryValueElement.textContent = formatCompactPrice(inventoryValue);
@@ -2703,6 +3307,276 @@ const closeConsultationStatusPanel = () => {
     }, 280);
 };
 
+const syncDepositOrderStatusNoteField = () => {
+    if (!depositOrderStatusNote) {
+        return;
+    }
+
+    const status = String(depositOrderStatusSelect?.value || '').trim().toLowerCase();
+    const needsCancelledReason = status === 'cancelled' || status === 'cancelled_after_deposit';
+    const needsPaymentConfirmation = status === 'confirmed';
+    const needsRefundFields = status === 'cancelled_after_deposit';
+    const isExpiredStatus = status === 'expired';
+    const isCompletedStatus = status === 'completed';
+
+    depositOrderStatusNote.required = needsCancelledReason;
+    depositOrderStatusNote.placeholder = needsCancelledReason
+        ? status === 'cancelled_after_deposit'
+            ? 'Nhập lý do hủy giao dịch sau đặt cọc để gửi khách hàng...'
+            : 'Nhập lý do hủy đơn đặt cọc để gửi khách hàng...'
+        : isExpiredStatus
+            ? 'Nhập ghi chú quá hạn giữ chỗ, ví dụ khách chưa chuyển khoản đúng hạn...'
+            : isCompletedStatus
+                ? 'Nhập ghi chú chốt giao dịch, ví dụ đã hoàn tất hồ sơ mua xe...'
+                : 'Nhập ghi chú xác nhận đã nhận tiền hoặc hướng dẫn thanh toán nếu cần...';
+
+    if (depositOrderConfirmationFields) {
+        depositOrderConfirmationFields.hidden = !needsPaymentConfirmation;
+    }
+
+    if (depositOrderRefundFields) {
+        depositOrderRefundFields.hidden = !needsRefundFields;
+    }
+
+    if (depositOrderPaymentReferenceInput) {
+        depositOrderPaymentReferenceInput.required = needsPaymentConfirmation;
+    }
+
+    if (depositOrderPaymentReceivedAtInput) {
+        depositOrderPaymentReceivedAtInput.required = needsPaymentConfirmation;
+
+        if (needsPaymentConfirmation && !depositOrderPaymentReceivedAtInput.value) {
+            depositOrderPaymentReceivedAtInput.value = formatDepositDateTimeInputValue();
+        }
+
+        if (!needsPaymentConfirmation) {
+            depositOrderPaymentReceivedAtInput.value = '';
+        }
+    }
+
+    if (depositOrderPaymentReferenceInput && !needsPaymentConfirmation) {
+        depositOrderPaymentReferenceInput.value = '';
+    }
+
+    if (depositOrderPaymentConfirmationNoteInput && !needsPaymentConfirmation) {
+        depositOrderPaymentConfirmationNoteInput.value = '';
+    }
+
+    if (depositOrderRefundAmountInput) {
+        depositOrderRefundAmountInput.required = needsRefundFields;
+        if (needsRefundFields && !depositOrderRefundAmountInput.value) {
+            const order = getDepositOrder(activeDepositOrderId);
+            depositOrderRefundAmountInput.value = order?.refundAmount || order?.depositAmount || 0;
+        }
+        if (!needsRefundFields) {
+            depositOrderRefundAmountInput.value = '';
+        }
+    }
+
+    if (depositOrderRefundReferenceInput) {
+        depositOrderRefundReferenceInput.required =
+            needsRefundFields && Number(depositOrderRefundAmountInput?.value || 0) > 0;
+        if (!needsRefundFields) {
+            depositOrderRefundReferenceInput.value = '';
+        }
+    }
+
+    if (depositOrderRefundCompletedAtInput) {
+        depositOrderRefundCompletedAtInput.required =
+            needsRefundFields && Number(depositOrderRefundAmountInput?.value || 0) > 0;
+        if (needsRefundFields && !depositOrderRefundCompletedAtInput.value && Number(depositOrderRefundAmountInput?.value || 0) > 0) {
+            depositOrderRefundCompletedAtInput.value = formatDepositDateTimeInputValue();
+        }
+        if (!needsRefundFields) {
+            depositOrderRefundCompletedAtInput.value = '';
+        }
+    }
+
+    if (depositOrderRefundNoteInput && !needsRefundFields) {
+        depositOrderRefundNoteInput.value = '';
+    }
+};
+
+const syncDepositOrderStatusOptions = (status) => {
+    if (!depositOrderStatusSelect) {
+        return;
+    }
+
+    const normalizedStatus = String(status || 'pending').trim().toLowerCase();
+    const allowedStatuses = getAllowedDepositOrderStatusOptions(normalizedStatus);
+
+    Array.from(depositOrderStatusSelect.options).forEach((option) => {
+        option.disabled = !allowedStatuses.has(option.value);
+    });
+
+    if (!allowedStatuses.has(depositOrderStatusSelect.value)) {
+        depositOrderStatusSelect.value = normalizedStatus;
+    }
+};
+
+const canUploadDepositOrderProof = (order = {}) =>
+    String(order.status || '').trim().toLowerCase() === 'confirmed';
+
+const renderDepositOrderProofPreview = (order = {}) => {
+    if (!depositOrderProofPreview) {
+        return;
+    }
+
+    const proofUrl = String(order.transferProofUrl || '').trim();
+    const canUploadProof = canUploadDepositOrderProof(order);
+    const uploadControlHtml = canUploadProof
+        ? `
+            <button type="button" class="deposit-order-proof-upload-button" data-admin-deposit-proof-choose="${escapeHtml(order.id)}">
+                <i class="bx bx-upload" aria-hidden="true"></i>
+                <span>${proofUrl ? 'Thay biên lai' : 'Tải biên lai thay khách'}</span>
+            </button>
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden data-admin-deposit-proof-input="${escapeHtml(order.id)}">
+            <small data-admin-deposit-proof-feedback="${escapeHtml(order.id)}" aria-live="polite"></small>
+        `
+        : '<small>Chỉ đơn đã nhận tiền mới được tải biên lai.</small>';
+
+    if (!proofUrl) {
+        depositOrderProofPreview.hidden = false;
+        depositOrderProofPreview.innerHTML = `
+            <div>
+                <strong>Chưa có chứng từ chuyển khoản</strong>
+                <span>${canUploadProof ? 'Có thể tải biên lai sau khi đã xác nhận nhận tiền.' : 'Đơn chưa ở trạng thái đã nhận tiền.'}</span>
+                ${uploadControlHtml}
+            </div>
+        `;
+        return;
+    }
+
+    depositOrderProofPreview.hidden = false;
+    depositOrderProofPreview.innerHTML = `
+        <a href="${escapeHtml(proofUrl)}" target="_blank" rel="noopener" class="deposit-order-proof-preview__thumb">
+            <img src="${escapeHtml(proofUrl)}" alt="Chứng từ chuyển khoản ${escapeHtml(order.code || '')}">
+        </a>
+        <div>
+            <strong>${escapeHtml(order.transferProofFileName || 'Chứng từ chuyển khoản')}</strong>
+            <span>Khách tải lên ${escapeHtml(formatDepositAuditDate(order.transferProofUploadedAt, 'chưa rõ thời gian'))}</span>
+            <a href="${escapeHtml(proofUrl)}" target="_blank" rel="noopener">Mở ảnh chứng từ</a>
+            ${uploadControlHtml}
+        </div>
+    `;
+};
+
+const setAdminDepositProofFeedback = (orderId, message = '', type = '') => {
+    document.querySelectorAll(`[data-admin-deposit-proof-feedback="${escapeSelectorValue(orderId)}"]`).forEach((feedback) => {
+        feedback.textContent = message || '';
+        feedback.className = type ? `is-${type}` : '';
+    });
+};
+
+const syncAdminDepositOrderProofUi = async (orderId) => {
+    await loadDepositOrders();
+    const updatedOrder = getDepositOrder(orderId);
+
+    if (!updatedOrder) {
+        return;
+    }
+
+    if (!depositOrderStatusPanel?.hidden && String(activeDepositOrderId || '') === String(orderId || '')) {
+        renderDepositOrderProofPreview(updatedOrder);
+    }
+
+    if (!customerDetailPanel?.hidden && customerDetailEyebrow?.textContent === 'Đơn đặt cọc') {
+        openDepositOrderDetail(updatedOrder);
+    }
+};
+
+const openDepositOrderStatusPanel = (order) => {
+    if (!depositOrderStatusPanel || !order) {
+        return;
+    }
+
+    const status = depositOrderStatusConfig[String(order.status || '').trim().toLowerCase()]
+        ? String(order.status || '').trim().toLowerCase()
+        : 'pending';
+    const carTitle = getDisplayCarTitle(order.carBrand, order.carName, 'Xe đặt cọc');
+
+    activeDepositOrderId = order.id;
+
+    if (depositOrderStatusTitle) {
+        depositOrderStatusTitle.textContent = `Cập nhật ${order.code || `#${order.id}`}`;
+    }
+
+    if (depositOrderStatusSummary) {
+        depositOrderStatusSummary.textContent = `${order.fullName || 'Khách hàng'} - ${carTitle} - ${formatCompactPrice(order.depositAmount || 0)}`;
+    }
+
+    if (depositOrderStatusSelect) {
+        depositOrderStatusSelect.value = status;
+        syncDepositOrderStatusOptions(status);
+    }
+
+    if (depositOrderStatusNote) {
+        depositOrderStatusNote.value = order.statusNote || '';
+    }
+
+    if (depositOrderPaymentReferenceInput) {
+        depositOrderPaymentReferenceInput.value = order.paymentReference || '';
+    }
+
+    if (depositOrderPaymentReceivedAtInput) {
+        depositOrderPaymentReceivedAtInput.value = order.paymentReceivedAt
+            ? formatDepositDateTimeInputValue(order.paymentReceivedAt)
+            : '';
+    }
+
+    if (depositOrderPaymentConfirmationNoteInput) {
+        depositOrderPaymentConfirmationNoteInput.value = order.paymentConfirmationNote || '';
+    }
+
+    if (depositOrderRefundAmountInput) {
+        depositOrderRefundAmountInput.value = order.refundAmount || '';
+    }
+
+    if (depositOrderRefundReferenceInput) {
+        depositOrderRefundReferenceInput.value = order.refundReference || '';
+    }
+
+    if (depositOrderRefundCompletedAtInput) {
+        depositOrderRefundCompletedAtInput.value = order.refundCompletedAt
+            ? formatDepositDateTimeInputValue(order.refundCompletedAt)
+            : '';
+    }
+
+    if (depositOrderRefundNoteInput) {
+        depositOrderRefundNoteInput.value = order.refundNote || '';
+    }
+
+    renderDepositOrderProofPreview(order);
+    syncDepositOrderStatusNoteField();
+    setDepositOrderStatusFeedback('');
+    depositOrderStatusPanel.hidden = false;
+    depositOrderStatusPanel.setAttribute('aria-hidden', 'false');
+    depositOrderStatusPanel.classList.remove('is-closing');
+    document.body.classList.add('modal-open');
+    window.clearTimeout(depositOrderStatusCloseTimer);
+    window.requestAnimationFrame(() => {
+        depositOrderStatusPanel.classList.add('is-visible');
+        depositOrderStatusSelect?.focus();
+    });
+};
+
+const closeDepositOrderStatusPanel = () => {
+    if (!depositOrderStatusPanel) {
+        return;
+    }
+
+    depositOrderStatusPanel.classList.remove('is-visible');
+    depositOrderStatusPanel.classList.add('is-closing');
+    depositOrderStatusPanel.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    activeDepositOrderId = null;
+    window.clearTimeout(depositOrderStatusCloseTimer);
+    depositOrderStatusCloseTimer = window.setTimeout(() => {
+        depositOrderStatusPanel.hidden = true;
+        depositOrderStatusPanel.classList.remove('is-closing');
+    }, 280);
+};
+
 const syncCarBuyRequestStatusNoteField = () => {
     if (!carBuyRequestStatusNote) {
         return;
@@ -2787,11 +3661,32 @@ const syncCarSellRequestStatusNoteField = () => {
 
     const status = String(carSellRequestStatusSelect?.value || '').trim().toLowerCase();
     const needsRejectedReason = status === 'rejected';
+    const needsFinalPrice = status === 'approved';
 
     carSellRequestStatusNote.required = needsRejectedReason;
     carSellRequestStatusNote.placeholder = needsRejectedReason
         ? 'Nhập lý do từ chối để gửi khách hàng...'
         : 'Nhập ghi chú khi duyệt nhập kho nếu cần...';
+
+    if (carSellRequestFinalPriceFields) {
+        carSellRequestFinalPriceFields.hidden = !needsFinalPrice;
+    }
+
+    if (carSellRequestFinalPriceTextInput) {
+        carSellRequestFinalPriceTextInput.required = needsFinalPrice;
+    }
+
+    if (carSellRequestFinalPriceValueInput) {
+        carSellRequestFinalPriceValueInput.required = needsFinalPrice;
+    }
+
+    if (carSellRequestCustomerDealPriceTextInput) {
+        carSellRequestCustomerDealPriceTextInput.required = needsFinalPrice;
+    }
+
+    if (carSellRequestCustomerDealPriceValueInput) {
+        carSellRequestCustomerDealPriceValueInput.required = needsFinalPrice;
+    }
 };
 
 const openCarSellRequestStatusPanel = (request) => {
@@ -2807,7 +3702,8 @@ const openCarSellRequestStatusPanel = (request) => {
 
     if (carSellRequestStatusSummary) {
         const carTitle = [request.brand, request.name, request.year].filter(Boolean).join(' ');
-        carSellRequestStatusSummary.textContent = `${request.fullName || 'Khách hàng'} - ${carTitle || 'Xe cần bán'} - ${request.phone || 'Chưa có SĐT'}`;
+        const desiredPriceText = request.price || (request.priceValue ? formatCompactPrice(request.priceValue) : 'Chưa có giá khách mong muốn');
+        carSellRequestStatusSummary.textContent = `${request.fullName || 'Khách hàng'} - ${carTitle || 'Xe cần bán'} - Khách mong muốn: ${desiredPriceText} - ${request.phone || 'Chưa có SĐT'}`;
     }
 
     if (carSellRequestStatusSelect) {
@@ -2816,6 +3712,22 @@ const openCarSellRequestStatusPanel = (request) => {
 
     if (carSellRequestStatusNote) {
         carSellRequestStatusNote.value = '';
+    }
+
+    if (carSellRequestCustomerDealPriceTextInput) {
+        carSellRequestCustomerDealPriceTextInput.value = request.customerDealPrice || '';
+    }
+
+    if (carSellRequestCustomerDealPriceValueInput) {
+        carSellRequestCustomerDealPriceValueInput.value = request.customerDealPriceValue || '';
+    }
+
+    if (carSellRequestFinalPriceTextInput) {
+        carSellRequestFinalPriceTextInput.value = request.finalPrice || '';
+    }
+
+    if (carSellRequestFinalPriceValueInput) {
+        carSellRequestFinalPriceValueInput.value = request.finalPriceValue || '';
     }
 
     syncCarSellRequestStatusNoteField();
@@ -3024,6 +3936,25 @@ const formatConsultationDate = (value, fallback = 'Chưa rõ') => {
 
     return Number.isNaN(date.getTime()) ? fallback : dateFormatter.format(date);
 };
+
+const formatDepositDateTimeInputValue = (value = new Date()) => {
+    const date = value instanceof Date ? value : new Date(String(value || '').replace(' ', 'T'));
+
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+const formatDepositAuditDate = (value, fallback = 'Chưa ghi nhận') =>
+    formatConsultationDate(String(value || '').replace(' ', 'T'), fallback);
 
 const updateConsultationStats = () => {
     const totalNew = consultationRequests.filter((request) =>
@@ -3283,6 +4214,925 @@ const openConsultationDetail = (request) => {
     window.requestAnimationFrame(() => {
         customerDetailPanel.classList.add('is-visible');
     });
+};
+
+const getDepositOrderStatusLabel = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+
+    return depositOrderStatusConfig[normalizedStatus]?.label || depositOrderStatusConfig.pending.label;
+};
+
+const getDepositOrderStatusClass = (status) => {
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+
+    return depositOrderStatusConfig[normalizedStatus]?.className || depositOrderStatusConfig.pending.className;
+};
+
+const getDepositOrderDeadline = (order = {}) => {
+    const expiresAt = String(order.expiresAt || '').trim();
+
+    if (!expiresAt) {
+        return null;
+    }
+
+    const date = new Date(expiresAt.replace(' ', 'T'));
+
+    return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getDepositOrderHoursToExpire = (order = {}) => {
+    const deadline = getDepositOrderDeadline(order);
+
+    return deadline ? (deadline.getTime() - Date.now()) / 3600000 : Infinity;
+};
+
+const isDepositOrderDueSoon = (order = {}) => {
+    const status = String(order.status || '').trim().toLowerCase();
+    const hoursToExpire = getDepositOrderHoursToExpire(order);
+
+    return status === 'pending'
+        && !order.isOverdue
+        && Number.isFinite(hoursToExpire)
+        && hoursToExpire > 0
+        && hoursToExpire <= 3;
+};
+
+const isDepositOrderMissingProof = (order = {}) =>
+    String(order.status || '').trim().toLowerCase() === 'confirmed'
+    && !String(order.transferProofUrl || '').trim();
+
+const isDepositOrderReminded = (order = {}) =>
+    Boolean(String(order.paymentReminderSentAt || '').trim());
+
+const needsDepositOrderReconciliation = (order = {}) => {
+    const status = String(order.status || '').trim().toLowerCase();
+    const hasPaymentReference = Boolean(String(order.paymentReference || '').trim());
+    const hasPaymentReceivedAt = Boolean(String(order.paymentReceivedAt || '').trim());
+    const refundAmount = Number(order.refundAmount || 0);
+    const hasRefundReference = Boolean(String(order.refundReference || '').trim());
+    const hasRefundCompletedAt = Boolean(String(order.refundCompletedAt || '').trim());
+
+    return status === 'pending'
+        || (status === 'confirmed' && (!hasPaymentReference || !hasPaymentReceivedAt || isDepositOrderMissingProof(order)))
+        || (status === 'cancelled_after_deposit' && refundAmount > 0 && (!hasRefundReference || !hasRefundCompletedAt));
+};
+
+const getDepositOrderPaymentMethodLabel = (paymentMethod) =>
+    depositOrderPaymentMethodLabels[String(paymentMethod || '').trim()]
+    || depositOrderPaymentMethodLabels.bank;
+
+const getDepositOrder = (orderId) =>
+    depositOrders.find((order) => String(order.id) === String(orderId));
+
+const getDepositOrderExpiryPreview = (order = {}) => {
+    const status = String(order.status || '').trim().toLowerCase();
+
+    if (status === 'expired' && order.expiredAt) {
+        return `Quá hạn: ${formatDepositAuditDate(order.expiredAt, 'Chưa rõ')}`;
+    }
+
+    if (status === 'pending' && order.expiresAt) {
+        if (order.isOverdue) {
+            return `Đã quá hạn: ${formatDepositAuditDate(order.expiresAt, 'Chưa rõ')}`;
+        }
+
+        return `${isDepositOrderDueSoon(order) ? 'Sắp quá hạn' : 'Hạn giữ chỗ'}: ${formatDepositAuditDate(order.expiresAt, 'Chưa rõ')}`;
+    }
+
+    return '';
+};
+
+const renderDepositOrderHistory = (history = []) => {
+    const entries = Array.isArray(history) ? history : [];
+
+    if (!entries.length) {
+        return '<strong>Chưa có lịch sử xử lý.</strong>';
+    }
+
+    return `
+        <div class="deposit-order-history-list">
+            ${entries.map((entry) => {
+                const previousLabel = entry.previousStatus
+                    ? getDepositOrderStatusLabel(entry.previousStatus)
+                    : '';
+                const nextLabel = getDepositOrderStatusLabel(entry.nextStatus);
+                const transitionText = entry.actionType === 'transfer_proof_uploaded'
+                    ? 'Tải chứng từ chuyển khoản'
+                    : entry.actionType === 'refund_recorded'
+                        ? 'Ghi nhận hoàn cọc'
+                    : entry.actionType === 'payment_reminder_sent'
+                        ? 'Nhắc khách chuyển khoản'
+                    : previousLabel
+                        ? `${previousLabel} sang ${nextLabel}`
+                        : `Tạo trạng thái ${nextLabel}`;
+                const actorText = entry.actorName || (entry.actionType === 'auto_expired' ? 'Hệ thống OkXe' : 'OkXe');
+                const noteText = String(entry.note || '').trim();
+
+                return `
+                    <article class="deposit-order-history-item">
+                        <span>${escapeHtml(formatDepositAuditDate(entry.createdAt, 'Chưa rõ'))}</span>
+                        <strong>${escapeHtml(transitionText)}</strong>
+                        <small>${escapeHtml(actorText)}${noteText ? ` - ${escapeHtml(noteText)}` : ''}</small>
+                    </article>
+                `;
+            }).join('')}
+        </div>
+    `;
+};
+
+const updateDepositOrderStats = () => {
+    const pending = depositOrders.filter((order) => order.status === 'pending').length;
+    const confirmed = depositOrders.filter((order) => ['confirmed', 'completed'].includes(order.status)).length;
+    const cancelled = depositOrders.filter((order) =>
+        ['cancelled', 'cancelled_after_deposit'].includes(order.status)).length;
+    const expired = depositOrders.filter((order) => order.status === 'expired').length;
+
+    if (depositOrderStatPending) {
+        depositOrderStatPending.textContent = String(pending);
+    }
+    if (depositOrderStatConfirmed) {
+        depositOrderStatConfirmed.textContent = String(confirmed);
+    }
+    if (depositOrderStatCancelled) {
+        depositOrderStatCancelled.textContent = String(cancelled);
+    }
+    if (depositOrderStatExpired) {
+        depositOrderStatExpired.textContent = String(expired);
+    }
+    if (depositOrderStatTotal) {
+        depositOrderStatTotal.textContent = String(depositOrders.length);
+    }
+
+    updateDepositReport();
+};
+
+const updateDepositReport = () => {
+    const receivedStatuses = new Set(['confirmed', 'completed', 'cancelled_after_deposit']);
+    const receivedAmount = depositOrders
+        .filter((order) => receivedStatuses.has(String(order.status || '').trim().toLowerCase()))
+        .reduce((sum, order) => sum + Number(order.depositAmount || 0), 0);
+    const refundAmount = depositOrders
+        .reduce((sum, order) => sum + Number(order.refundAmount || 0), 0);
+    const completedCount = depositOrders
+        .filter((order) => order.status === 'completed').length;
+    const pendingCount = depositOrders
+        .filter((order) => order.status === 'pending').length;
+    const missingProofCount = depositOrders
+        .filter(isDepositOrderMissingProof).length;
+    const dueSoonCount = depositOrders
+        .filter(isDepositOrderDueSoon).length;
+    const remindedCount = depositOrders
+        .filter(isDepositOrderReminded).length;
+    const reconciliationCount = depositOrders
+        .filter(needsDepositOrderReconciliation).length;
+
+    if (depositReportReceivedAmount) {
+        depositReportReceivedAmount.textContent = formatCompactPrice(receivedAmount);
+    }
+    if (depositReportRefundAmount) {
+        depositReportRefundAmount.textContent = formatCompactPrice(refundAmount);
+    }
+    if (depositReportNetAmount) {
+        depositReportNetAmount.textContent = formatCompactPrice(Math.max(receivedAmount - refundAmount, 0));
+    }
+    if (depositReportCompletedCount) {
+        depositReportCompletedCount.textContent = String(completedCount);
+    }
+    if (depositReportPendingCount) {
+        depositReportPendingCount.textContent = String(pendingCount);
+    }
+    if (depositReportMissingProofCount) {
+        depositReportMissingProofCount.textContent = String(missingProofCount);
+    }
+    if (depositReportDueSoonCount) {
+        depositReportDueSoonCount.textContent = String(dueSoonCount);
+    }
+    if (depositReportRemindedCount) {
+        depositReportRemindedCount.textContent = String(remindedCount);
+    }
+    if (depositReportReconciliationCount) {
+        depositReportReconciliationCount.textContent = String(reconciliationCount);
+    }
+};
+
+const renderDepositConfigSummary = (config = depositPaymentConfig) => {
+    if (!depositConfigSummary || !config) {
+        return;
+    }
+
+    const bank = config.bank || {};
+    const deposit = config.deposit || {};
+    const displayName = bank.displayName || [bank.accountName, bank.bankName].filter(Boolean).join(' - ') || 'Chưa cấu hình';
+    const amountOptionsText = normalizeDepositAmountOptionsInput(deposit.amountOptions)
+        .map(formatCompactPrice)
+        .join(' · ');
+
+    depositConfigSummary.innerHTML = `
+        <div>
+            <span>Tài khoản nhận cọc</span>
+            <strong>${escapeHtml(displayName)}</strong>
+            <small>${escapeHtml(bank.accountNumber || 'Chưa có số tài khoản')}</small>
+        </div>
+        <div>
+            <span>Mức cọc</span>
+            <strong>${escapeHtml(formatCompactPrice(deposit.defaultAmount || 0))}</strong>
+            <small>${escapeHtml(amountOptionsText || 'Chưa cấu hình mức hiển thị')}</small>
+        </div>
+        <div>
+            <span>Giữ xe</span>
+            <strong>${escapeHtml(String(deposit.holdHours || 24))} giờ</strong>
+            <small>${deposit.requireTransferProof ? 'Yêu cầu tải chứng từ' : 'Chứng từ là tùy chọn'}</small>
+        </div>
+        <div>
+            <span>Chính sách</span>
+            <strong>${escapeHtml(deposit.policyText ? 'Đang hiển thị cho khách' : 'Chưa nhập')}</strong>
+            <small>${escapeHtml(deposit.policyText ? getShortNotePreview(deposit.policyText, 90) : 'Khách sẽ phải đồng ý trước khi gửi đơn')}</small>
+        </div>
+    `;
+};
+
+const fillDepositConfigForm = (config = depositPaymentConfig) => {
+    if (!depositConfigForm || !config) {
+        return;
+    }
+
+    const bank = config.bank || {};
+    const deposit = config.deposit || {};
+    const elements = depositConfigForm.elements;
+
+    elements.accountName.value = bank.accountName || '';
+    elements.bankName.value = bank.bankName || '';
+    elements.accountNumber.value = bank.accountNumber || '';
+    elements.branch.value = bank.branch || '';
+    elements.transferPrefix.value = bank.transferPrefix || 'OKXE COC';
+    elements.depositAmountOptions.value = getDepositAmountOptionsText(deposit.amountOptions);
+    elements.defaultDepositAmount.value = deposit.defaultAmount || '';
+    elements.minDepositAmount.value = deposit.minAmount || '';
+    elements.maxDepositAmount.value = deposit.maxAmount || '';
+    elements.holdHours.value = deposit.holdHours || 24;
+    elements.requireTransferProof.checked = Boolean(deposit.requireTransferProof);
+    if (elements.policyText) {
+        elements.policyText.value = deposit.policyText || '';
+    }
+    renderDepositConfigSummary(config);
+};
+
+const getDepositConfigPayloadFromForm = () => {
+    const elements = depositConfigForm?.elements;
+
+    if (!elements) {
+        return null;
+    }
+
+    return {
+        accountName: String(elements.accountName.value || '').trim(),
+        bankName: String(elements.bankName.value || '').trim(),
+        accountNumber: String(elements.accountNumber.value || '').trim(),
+        branch: String(elements.branch.value || '').trim(),
+        transferPrefix: String(elements.transferPrefix.value || '').trim(),
+        depositAmountOptions: normalizeDepositAmountOptionsInput(elements.depositAmountOptions.value),
+        defaultDepositAmount: normalizeMoneyAmountInput(elements.defaultDepositAmount.value, 0),
+        minDepositAmount: normalizeMoneyAmountInput(elements.minDepositAmount.value, 0),
+        maxDepositAmount: normalizeMoneyAmountInput(elements.maxDepositAmount.value, 0),
+        holdHours: Number(elements.holdHours.value || 0),
+        requireTransferProof: Boolean(elements.requireTransferProof.checked),
+        policyText: String(elements.policyText?.value || '')
+            .replace(/\r\n/g, '\n')
+            .replace(/\r/g, '\n')
+            .split('\n')
+            .map((line) => line.trim().replace(/\s+/g, ' '))
+            .filter(Boolean)
+            .join('\n')
+            .slice(0, 4000)
+    };
+};
+
+const loadAdminDepositPaymentConfig = async () => {
+    if (!depositConfigForm) {
+        return;
+    }
+
+    setDepositConfigFeedback('');
+
+    try {
+        const { response, data } = await requestJson('/api/admin/deposit-payment/config');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải cấu hình đặt cọc.');
+        }
+
+        depositPaymentConfig = data.config || null;
+        fillDepositConfigForm(depositPaymentConfig);
+    } catch (error) {
+        setDepositConfigFeedback(error.message || 'Không thể tải cấu hình đặt cọc.', 'error');
+    }
+};
+
+const getFilteredDepositOrders = () => {
+    const keyword = normalizeSearchValue(depositOrderSearchInput?.value || '');
+    const statusFilter = String(depositOrderStatusFilter?.value || '').trim().toLowerCase();
+
+    return depositOrders.filter((order) => {
+        const status = String(order.status || '').trim().toLowerCase();
+
+        if (statusFilter) {
+            const matchesStatusFilter = {
+                due_soon: isDepositOrderDueSoon(order),
+                reminded: isDepositOrderReminded(order),
+                missing_proof: isDepositOrderMissingProof(order),
+                needs_reconciliation: needsDepositOrderReconciliation(order)
+            }[statusFilter] ?? status === statusFilter;
+
+            if (!matchesStatusFilter) {
+                return false;
+            }
+        }
+
+        if (!keyword) {
+            return true;
+        }
+
+        return normalizeSearchValue([
+            order.code,
+            order.fullName,
+            order.phone,
+            order.email,
+            order.userEmail,
+            order.province,
+            order.carBrand,
+            order.carName,
+            order.carPrice,
+            getDepositOrderPaymentMethodLabel(order.paymentMethod),
+            getDepositOrderStatusLabel(order.status),
+            order.bankTransferNote,
+            order.vnpayTxnRef,
+            order.vnpayTransactionNo,
+            order.vnpayResponseCode,
+            order.vnpayTransactionStatus,
+            order.vnpayBankCode,
+            order.vnpayCardType,
+            order.vnpayPayDate,
+            order.paymentReference,
+            order.paymentReceivedAt,
+            order.paymentConfirmationNote,
+            order.paymentConfirmedByName,
+            order.refundAmount,
+            order.refundReference,
+            order.refundCompletedAt,
+            order.refundNote,
+            order.refundConfirmedByName,
+            order.transferProofFileName,
+            order.transferProofUploadedAt,
+            order.expiresAt,
+            order.expiredAt,
+            order.paymentReminderSentAt,
+            isDepositOrderDueSoon(order) ? 'sắp quá hạn sap qua han due soon' : '',
+            isDepositOrderReminded(order) ? 'đã nhắc khách da nhac khach reminded' : '',
+            isDepositOrderMissingProof(order) ? 'chờ chứng từ cho chung tu missing proof' : '',
+            needsDepositOrderReconciliation(order) ? 'cần đối soát can doi soat reconciliation' : '',
+            order.note,
+            order.statusNote,
+            ...(Array.isArray(order.history)
+                ? order.history.flatMap((historyItem) => [
+                    historyItem.previousStatusLabel,
+                    historyItem.nextStatusLabel,
+                    historyItem.note,
+                    historyItem.actorName,
+                    historyItem.actionType,
+                    historyItem.createdAt
+                ])
+                : [])
+        ].join(' ')).includes(keyword);
+    });
+};
+
+const renderDepositOrders = () => {
+    if (!depositOrderTableBody) {
+        return;
+    }
+
+    const filteredOrders = getFilteredDepositOrders();
+
+    if (!filteredOrders.length) {
+        depositOrderTableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="table-empty">Chưa có đơn đặt cọc phù hợp.</td>
+            </tr>
+        `;
+        return;
+    }
+
+    depositOrderTableBody.innerHTML = filteredOrders.map((order) => {
+        const customerInitial = String(order.fullName || order.phone || 'K')
+            .trim()
+            .charAt(0)
+            .toLocaleUpperCase('vi-VN');
+        const customerAvatar = order.userAvatarUrl
+            ? `<img src="${escapeHtml(order.userAvatarUrl)}" alt="Ảnh khách hàng ${escapeHtml(order.fullName || '')}">`
+            : `<span>${escapeHtml(customerInitial || 'K')}</span>`;
+        const phoneHref = getPhoneHref(order.phone);
+        const emailText = order.email || order.userEmail || '';
+        const emailHref = getMailHref(emailText);
+        const status = String(order.status || 'pending').trim().toLowerCase();
+        const statusClass = getDepositOrderStatusClass(status);
+        const statusNotePreview = getShortNotePreview(order.statusNote);
+        const paymentReferencePreview = ['confirmed', 'completed'].includes(status) && order.paymentReference
+            ? `GD: ${getShortNotePreview(order.paymentReference, 48)}`
+            : '';
+        const refundPreview = status === 'cancelled_after_deposit' && Number(order.refundAmount || 0) > 0
+            ? `Hoàn: ${formatCompactPrice(order.refundAmount)}${order.refundReference ? ` · ${getShortNotePreview(order.refundReference, 36)}` : ''}`
+            : '';
+        const transferProofPreview = order.transferProofUrl
+            ? `Có chứng từ${order.transferProofUploadedAt ? `: ${formatDepositAuditDate(order.transferProofUploadedAt, '')}` : ''}`
+            : '';
+        const isVnpayPayment = String(order.paymentMethod || '').trim().toLowerCase() === 'vnpay';
+        const paymentNotePreview = isVnpayPayment
+            ? (order.vnpayTxnRef || order.paymentReference || 'Đang chờ kết quả VNPay')
+            : (order.bankTransferNote || 'Chưa có nội dung chuyển khoản');
+        const expiryPreview = getDepositOrderExpiryPreview(order);
+        const reminderPreview = order.paymentReminderSentAt
+            ? `Đã nhắc khách: ${formatDepositAuditDate(order.paymentReminderSentAt, 'Chưa rõ')}`
+            : '';
+        const needsReconciliation = needsDepositOrderReconciliation(order);
+        const carTitle = getDisplayCarTitle(order.carBrand, order.carName, 'Xe đặt cọc');
+        const createdDate = formatConsultationDate(order.createdAt);
+
+        return `
+            <tr class="deposit-order-row${isDepositOrderDueSoon(order) ? ' is-due-soon' : ''}${needsReconciliation ? ' is-reconciliation-needed' : ''}" data-view-deposit-order="${escapeHtml(order.id)}" tabindex="0" role="button" aria-label="Xem chi tiết đơn đặt cọc ${escapeHtml(order.code || `#${order.id}`)}">
+                <td>
+                    <div class="test-drive-customer-cell">
+                        <span class="test-drive-customer-avatar">${customerAvatar}</span>
+                        <span class="employee-meta">
+                            <strong>${escapeHtml(order.fullName || 'Chưa có tên')}</strong>
+                            <span>${phoneHref ? `<a class="admin-inline-link" href="tel:${escapeHtml(phoneHref)}">${escapeHtml(order.phone || 'Chưa có SĐT')}</a>` : escapeHtml(order.phone || 'Chưa có SĐT')}</span>
+                            <small>${emailHref ? `<a class="admin-inline-link" href="mailto:${escapeHtml(emailHref)}">${escapeHtml(emailText)}</a>` : escapeHtml(emailText || 'Chưa có email')}</small>
+                        </span>
+                    </div>
+                </td>
+                <td>
+                    <div class="employee-meta">
+                        <strong>${escapeHtml(carTitle)}</strong>
+                        <span>${escapeHtml(order.carPrice || 'Giá liên hệ')}</span>
+                        <small>${escapeHtml(order.code || `DC-${order.id}`)} · Tạo ${escapeHtml(createdDate)}</small>
+                    </div>
+                </td>
+                <td>
+                    <div class="employee-meta">
+                        <strong>${escapeHtml(formatCompactPrice(order.depositAmount || 0))}</strong>
+                        <span>${escapeHtml(getDepositOrderPaymentMethodLabel(order.paymentMethod))}</span>
+                        <small>${escapeHtml(paymentNotePreview)}</small>
+                        ${transferProofPreview ? `<small>${escapeHtml(transferProofPreview)}</small>` : ''}
+                    </div>
+                </td>
+                <td>
+                    <div class="consultation-status-cell car-buy-request-status-cell">
+                        <span class="readonly-badge car-buy-request-status-badge ${statusClass}">${escapeHtml(getDepositOrderStatusLabel(status))}</span>
+                        ${paymentReferencePreview ? `<small class="consultation-status-note-preview">${escapeHtml(paymentReferencePreview)}</small>` : ''}
+                        ${refundPreview ? `<small class="consultation-status-note-preview">${escapeHtml(refundPreview)}</small>` : ''}
+                        ${expiryPreview ? `<small class="consultation-status-note-preview">${escapeHtml(expiryPreview)}</small>` : ''}
+                        ${reminderPreview ? `<small class="consultation-status-note-preview">${escapeHtml(reminderPreview)}</small>` : ''}
+                        ${needsReconciliation ? '<small class="consultation-status-note-preview deposit-order-alert-chip">Cần đối soát</small>' : ''}
+                        ${statusNotePreview ? `<small class="consultation-status-note-preview">${escapeHtml(statusNotePreview)}</small>` : ''}
+                    </div>
+                </td>
+                <td>
+                    <div class="table-actions">
+                        ${phoneHref ? `
+                            <a class="icon-btn icon-btn--neutral" href="tel:${escapeHtml(phoneHref)}" aria-label="Gọi khách đặt cọc ${escapeHtml(order.fullName || order.phone || '')}" title="Gọi khách">
+                                <i class="bx bx-phone-call"></i>
+                            </a>
+                        ` : ''}
+                        ${status === 'pending' && order.isOverdue ? `
+                            <button type="button" class="icon-btn icon-btn--warning" data-expire-deposit-order="${escapeHtml(order.id)}" aria-label="Đánh dấu đơn đặt cọc #${escapeHtml(order.id)} quá hạn" title="Đánh dấu quá hạn">
+                                <i class="bx bx-time-five"></i>
+                            </button>
+                        ` : ''}
+                        <button type="button" class="icon-btn icon-btn--edit" data-edit-deposit-order-status="${escapeHtml(order.id)}" aria-label="Cập nhật đơn đặt cọc #${escapeHtml(order.id)}" title="Cập nhật trạng thái">
+                            <i class="bx bx-edit-alt"></i>
+                        </button>
+                        <button type="button" class="icon-btn icon-btn--neutral" data-view-deposit-order="${escapeHtml(order.id)}" aria-label="Xem đơn đặt cọc #${escapeHtml(order.id)}" title="Xem chi tiết">
+                            <i class="bx bx-show"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+};
+
+const exportFilteredDepositOrdersCsv = () => {
+    const filteredOrders = getFilteredDepositOrders();
+
+    if (!filteredOrders.length) {
+        showToast('Không có đơn đặt cọc phù hợp để xuất file.', 'error', 'Xuất báo cáo');
+        return;
+    }
+
+    const rows = [
+        [
+            'Mã đơn',
+            'Khách hàng',
+            'Số điện thoại',
+            'Email',
+            'Xe',
+            'Số tiền cọc',
+            'Trạng thái',
+            'Nội dung chuyển khoản',
+            'Mã giao dịch nhận tiền',
+            'Thời gian nhận tiền',
+            'Số tiền hoàn',
+            'Mã giao dịch hoàn',
+            'Thời gian hoàn',
+            'Ghi chú hoàn cọc',
+            'Đã nhắc khách lúc',
+            'Sắp quá hạn',
+            'Cần đối soát',
+            'Ghi chú trạng thái',
+            'Ngày tạo'
+        ],
+        ...filteredOrders.map((order) => [
+            order.code || `DC-${order.id}`,
+            order.fullName || '',
+            order.phone || '',
+            order.email || order.userEmail || '',
+            getDisplayCarTitle(order.carBrand, order.carName, 'Xe đặt cọc'),
+            Number(order.depositAmount || 0),
+            getDepositOrderStatusLabel(order.status),
+            order.bankTransferNote || '',
+            order.paymentReference || '',
+            order.paymentReceivedAt || '',
+            Number(order.refundAmount || 0),
+            order.refundReference || '',
+            order.refundCompletedAt || '',
+            order.refundNote || '',
+            order.paymentReminderSentAt || '',
+            isDepositOrderDueSoon(order) ? 'Có' : 'Không',
+            needsDepositOrderReconciliation(order) ? 'Có' : 'Không',
+            order.statusNote || '',
+            order.createdAt || ''
+        ])
+    ];
+    const fileName = `bao-cao-dat-coc-${new Date().toISOString().slice(0, 10)}.csv`;
+
+    downloadCsvFile(fileName, rows);
+    showToast('Đã xuất báo cáo đặt cọc CSV.', 'success', 'Xuất báo cáo');
+};
+
+const getDepositOrderHistoryActionLabel = (entry = {}) => {
+    const actionType = String(entry.actionType || '').trim().toLowerCase();
+
+    if (actionType === 'transfer_proof_uploaded') {
+        return 'Tải chứng từ chuyển khoản';
+    }
+
+    if (actionType === 'refund_recorded') {
+        return 'Ghi nhận hoàn cọc';
+    }
+
+    if (actionType === 'payment_reminder_sent') {
+        return 'Nhắc khách chuyển khoản';
+    }
+
+    if (actionType === 'auto_expired') {
+        return 'Tự động quá hạn';
+    }
+
+    if (actionType === 'manual_expired') {
+        return 'Đánh dấu quá hạn thủ công';
+    }
+
+    if (actionType === 'created') {
+        return 'Tạo đơn';
+    }
+
+    return 'Cập nhật trạng thái';
+};
+
+const exportFilteredDepositAuditCsv = () => {
+    const filteredOrders = getFilteredDepositOrders();
+
+    if (!filteredOrders.length) {
+        showToast('Không có đơn đặt cọc phù hợp để xuất lịch sử.', 'error', 'Xuất lịch sử');
+        return;
+    }
+
+    const rows = [
+        [
+            'Mã đơn',
+            'Khách hàng',
+            'Số điện thoại',
+            'Xe',
+            'Trạng thái hiện tại',
+            'Thời gian sự kiện',
+            'Hành động',
+            'Trạng thái trước',
+            'Trạng thái sau',
+            'Người thực hiện',
+            'Ghi chú'
+        ],
+        ...filteredOrders.flatMap((order) => {
+            const historyEntries = Array.isArray(order.history) && order.history.length
+                ? order.history
+                : [{
+                    createdAt: order.createdAt || '',
+                    actionType: 'unknown',
+                    previousStatus: '',
+                    nextStatus: order.status,
+                    actorName: '',
+                    note: 'Chưa có lịch sử xử lý chi tiết.'
+                }];
+
+            return historyEntries.map((entry) => [
+                order.code || `DC-${order.id}`,
+                order.fullName || '',
+                order.phone || '',
+                getDisplayCarTitle(order.carBrand, order.carName, 'Xe đặt cọc'),
+                getDepositOrderStatusLabel(order.status),
+                entry.createdAt || '',
+                getDepositOrderHistoryActionLabel(entry),
+                entry.previousStatus ? getDepositOrderStatusLabel(entry.previousStatus) : '',
+                entry.nextStatus ? getDepositOrderStatusLabel(entry.nextStatus) : '',
+                entry.actorName || '',
+                entry.note || ''
+            ]);
+        })
+    ];
+    const fileName = `lich-su-dat-coc-${new Date().toISOString().slice(0, 10)}.csv`;
+
+    downloadCsvFile(fileName, rows);
+    showToast('Đã xuất lịch sử xử lý đặt cọc CSV.', 'success', 'Xuất lịch sử');
+};
+
+const loadDepositOrders = async () => {
+    if (!depositOrderTableBody) {
+        return;
+    }
+
+    setDepositOrderFeedback('');
+
+    try {
+        const { response, data } = await requestJson('/api/admin/deposit-orders');
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể tải đơn đặt cọc.');
+        }
+
+        depositOrders = data.orders || [];
+        depositOrderPaymentMethodLabels = data.paymentMethods || depositOrderPaymentMethodLabels;
+        updateDepositOrderStats();
+        renderDepositOrders();
+    } catch (error) {
+        setDepositOrderFeedback(error.message || 'Không thể tải đơn đặt cọc.', 'error');
+        depositOrderTableBody.innerHTML = `
+            <tr>
+                <td colspan="5" class="table-empty">Không thể tải đơn đặt cọc.</td>
+            </tr>
+        `;
+    }
+};
+
+const openDepositOrderDetail = (order) => {
+    if (!customerDetailPanel || !customerDetailBody || !order) {
+        return;
+    }
+
+    const createdDate = formatConsultationDate(order.createdAt);
+    const updatedDate = formatConsultationDate(order.updatedAt);
+    const expiresDate = formatDepositAuditDate(order.expiresAt, 'Chưa đặt hạn');
+    const expiredDate = formatDepositAuditDate(order.expiredAt, 'Chưa quá hạn');
+    const reminderSentDate = formatDepositAuditDate(order.paymentReminderSentAt, 'Chưa nhắc');
+    const phoneHref = getPhoneHref(order.phone);
+    const emailText = order.email || order.userEmail || '';
+    const emailHref = getMailHref(emailText);
+    const carTitle = getDisplayCarTitle(order.carBrand, order.carName, 'Xe đặt cọc');
+    const paymentReceivedDate = formatDepositAuditDate(order.paymentReceivedAt);
+    const paymentConfirmedDate = formatDepositAuditDate(order.paymentConfirmedAt);
+    const refundCompletedDate = formatDepositAuditDate(order.refundCompletedAt, 'Chưa ghi nhận');
+    const refundConfirmedDate = formatDepositAuditDate(order.refundConfirmedAt, 'Chưa ghi nhận');
+    const transferProofUrl = String(order.transferProofUrl || '').trim();
+    const transferProofUploadedDate = formatDepositAuditDate(order.transferProofUploadedAt, 'Chưa tải chứng từ');
+    const canUploadProof = canUploadDepositOrderProof(order);
+    const proofUploadControlHtml = canUploadProof
+        ? `
+            <button type="button" class="deposit-order-proof-upload-button" data-admin-deposit-proof-choose="${escapeHtml(order.id)}">
+                <i class="bx bx-upload" aria-hidden="true"></i>
+                <span>${transferProofUrl ? 'Thay biên lai' : 'Tải biên lai thay khách'}</span>
+            </button>
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden data-admin-deposit-proof-input="${escapeHtml(order.id)}">
+            <small data-admin-deposit-proof-feedback="${escapeHtml(order.id)}" aria-live="polite"></small>
+        `
+        : '<small>Chỉ đơn đã nhận tiền mới được tải biên lai.</small>';
+    const isVnpayPayment = String(order.paymentMethod || '').trim().toLowerCase() === 'vnpay';
+    const vnpayDetailsHtml = isVnpayPayment ? `
+            <div class="customer-detail__item">
+                <span>VNPay TxnRef</span>
+                <strong>${escapeHtml(order.vnpayTxnRef || 'Chưa ghi nhận')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>VNPay TransactionNo</span>
+                <strong>${escapeHtml(order.vnpayTransactionNo || 'Chưa ghi nhận')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>VNPay Response</span>
+                <strong>${escapeHtml([order.vnpayResponseCode, order.vnpayTransactionStatus].filter(Boolean).join(' / ') || 'Chưa ghi nhận')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Ngân hàng/thẻ VNPay</span>
+                <strong>${escapeHtml([order.vnpayBankCode, order.vnpayCardType].filter(Boolean).join(' · ') || 'Chưa ghi nhận')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>PayDate VNPay</span>
+                <strong>${escapeHtml(order.vnpayPayDate || 'Chưa ghi nhận')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>VNPay xác nhận</span>
+                <strong>${escapeHtml(formatDepositAuditDate(order.vnpayConfirmedAt, 'Chưa xác nhận'))}</strong>
+            </div>
+    ` : '';
+
+    if (customerDetailEyebrow) {
+        customerDetailEyebrow.textContent = 'Đơn đặt cọc';
+    }
+
+    if (customerDetailTitle) {
+        customerDetailTitle.textContent = `Chi tiết ${order.code || `#${order.id}`}`;
+    }
+
+    customerDetailBody.innerHTML = `
+        <div class="customer-detail__profile">
+            <span class="customer-detail__avatar"><i class="bx bx-credit-card"></i></span>
+            <div>
+                <h4>${escapeHtml(carTitle)}</h4>
+                <p>${escapeHtml(formatCompactPrice(order.depositAmount || 0))} · ${escapeHtml(getDepositOrderStatusLabel(order.status))} · Tạo ${escapeHtml(createdDate)}</p>
+            </div>
+        </div>
+        <div class="customer-detail__grid">
+            <div class="customer-detail__item">
+                <span>Khách hàng</span>
+                <strong>${escapeHtml(order.fullName || 'Chưa có tên')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Số điện thoại</span>
+                <strong>${phoneHref ? `<a class="admin-inline-link" href="tel:${escapeHtml(phoneHref)}">${escapeHtml(order.phone || 'Chưa có SĐT')}</a>` : escapeHtml(order.phone || 'Chưa có SĐT')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Email</span>
+                <strong>${emailHref ? `<a class="admin-inline-link" href="mailto:${escapeHtml(emailHref)}">${escapeHtml(emailText)}</a>` : escapeHtml(emailText || 'Chưa có email')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Tỉnh/thành</span>
+                <strong>${escapeHtml(order.province || 'Chưa cập nhật')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Mã đơn</span>
+                <strong>${escapeHtml(order.code || `DC-${order.id}`)}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Xe đặt cọc</span>
+                <strong>${escapeHtml(carTitle)}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Giá xe</span>
+                <strong>${escapeHtml(order.carPrice || 'Giá liên hệ')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>ID xe</span>
+                <strong>${order.carId ? `#${escapeHtml(order.carId)}` : 'Không còn liên kết'}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Số tiền cọc</span>
+                <strong>${escapeHtml(formatCompactPrice(order.depositAmount || 0))}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Phương thức</span>
+                <strong>${escapeHtml(getDepositOrderPaymentMethodLabel(order.paymentMethod))}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>${isVnpayPayment ? 'Mã thanh toán' : 'Nội dung chuyển khoản'}</span>
+                <strong>${escapeHtml(isVnpayPayment ? (order.vnpayTxnRef || order.paymentReference || 'Thanh toán qua VNPay') : (order.bankTransferNote || 'Chưa có nội dung'))}</strong>
+            </div>
+            ${vnpayDetailsHtml}
+            <div class="customer-detail__item customer-detail__item--wide">
+                <span>Chứng từ chuyển khoản</span>
+                ${transferProofUrl ? `
+                    <div class="deposit-order-proof-detail">
+                        <a href="${escapeHtml(transferProofUrl)}" target="_blank" rel="noopener">
+                            <img src="${escapeHtml(transferProofUrl)}" alt="Chứng từ chuyển khoản ${escapeHtml(order.code || '')}">
+                        </a>
+                        <strong>
+                            <a class="admin-inline-link" href="${escapeHtml(transferProofUrl)}" target="_blank" rel="noopener">${escapeHtml(order.transferProofFileName || 'Mở chứng từ')}</a>
+                            <small>${escapeHtml(transferProofUploadedDate)}</small>
+                            ${proofUploadControlHtml}
+                        </strong>
+                    </div>
+                ` : `
+                    <strong>Khách chưa tải chứng từ chuyển khoản.</strong>
+                    ${proofUploadControlHtml}
+                `}
+            </div>
+            <div class="customer-detail__item">
+                <span>Hạn giữ chỗ</span>
+                <strong>${escapeHtml(expiresDate)}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Quá hạn lúc</span>
+                <strong>${escapeHtml(expiredDate)}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Đã nhắc khách</span>
+                <strong>${escapeHtml(reminderSentDate)}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Mã giao dịch</span>
+                <strong>${escapeHtml(order.paymentReference || 'Chưa ghi nhận')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Thời gian nhận tiền</span>
+                <strong>${escapeHtml(paymentReceivedDate)}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Người xác nhận</span>
+                <strong>${escapeHtml(order.paymentConfirmedByName || 'Chưa ghi nhận')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Hệ thống ghi nhận</span>
+                <strong>${escapeHtml(paymentConfirmedDate)}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Cập nhật</span>
+                <strong>${escapeHtml(updatedDate)}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Số tiền hoàn cọc</span>
+                <strong>${Number(order.refundAmount || 0) > 0 ? escapeHtml(formatCompactPrice(order.refundAmount)) : 'Chưa ghi nhận'}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Mã giao dịch hoàn cọc</span>
+                <strong>${escapeHtml(order.refundReference || 'Chưa ghi nhận')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Thời gian hoàn cọc</span>
+                <strong>${escapeHtml(refundCompletedDate)}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Người ghi nhận hoàn cọc</span>
+                <strong>${escapeHtml(order.refundConfirmedByName || 'Chưa ghi nhận')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Hệ thống ghi nhận hoàn cọc</span>
+                <strong>${escapeHtml(refundConfirmedDate)}</strong>
+            </div>
+            <div class="customer-detail__item customer-detail__item--wide">
+                <span>Ghi chú khách hàng</span>
+                <strong>${escapeHtml(order.note || 'Khách hàng chưa nhập ghi chú.')}</strong>
+            </div>
+            <div class="customer-detail__item customer-detail__item--wide">
+                <span>Ghi chú xử lý</span>
+                <strong>${escapeHtml(order.statusNote || 'Chưa có ghi chú xử lý.')}</strong>
+            </div>
+            <div class="customer-detail__item customer-detail__item--wide">
+                <span>Ghi chú nội bộ xác nhận tiền</span>
+                <strong>${escapeHtml(order.paymentConfirmationNote || 'Chưa có ghi chú nội bộ.')}</strong>
+            </div>
+            <div class="customer-detail__item customer-detail__item--wide">
+                <span>Ghi chú hoàn cọc</span>
+                <strong>${escapeHtml(order.refundNote || 'Chưa có ghi chú hoàn cọc.')}</strong>
+            </div>
+            <div class="customer-detail__item customer-detail__item--wide">
+                <span>Lịch sử xử lý</span>
+                ${renderDepositOrderHistory(order.history)}
+            </div>
+        </div>
+    `;
+
+    customerDetailPanel.hidden = false;
+    customerDetailPanel.setAttribute('aria-hidden', 'false');
+    customerDetailPanel.classList.remove('is-closing');
+    document.body.classList.add('modal-open');
+    window.clearTimeout(customerDetailCloseTimer);
+    window.requestAnimationFrame(() => {
+        customerDetailPanel.classList.add('is-visible');
+    });
+};
+
+const openDepositOrderDetailById = (orderId) => {
+    const order = getDepositOrder(orderId);
+
+    if (!order) {
+        setDepositOrderFeedback('Không tìm thấy đơn đặt cọc cần xem chi tiết.', 'error');
+        return;
+    }
+
+    openDepositOrderDetail(order);
+};
+
+const openDepositOrderDetailAfterRefresh = async (orderId) => {
+    if (!orderId) {
+        return;
+    }
+
+    await loadDepositOrders();
+    openDepositOrderDetailById(orderId);
 };
 
 const getCarBuyRequestStatusLabel = (status) => {
@@ -3727,6 +5577,8 @@ const getFilteredCarSellRequests = () => {
             request.name,
             request.category,
             request.price,
+            request.customerDealPrice,
+            request.finalPrice,
             request.year,
             request.fuel,
             request.mileage,
@@ -3766,6 +5618,9 @@ const renderCarSellRequests = () => {
         const createdDate = formatConsultationDate(request.createdAt);
         const statusNotePreview = getShortNotePreview(request.statusNote);
         const carTitle = [request.brand, request.name].filter(Boolean).join(' ') || 'Xe khách gửi bán';
+        const desiredPriceText = request.price || (request.priceValue ? formatCompactPrice(request.priceValue) : 'Chưa có giá');
+        const customerDealPriceText = request.customerDealPrice || (request.customerDealPriceValue ? formatCompactPrice(request.customerDealPriceValue) : '');
+        const finalPriceText = request.finalPrice || (request.finalPriceValue ? formatCompactPrice(request.finalPriceValue) : '');
         const phoneHref = getPhoneHref(request.phone);
         const specs = [
             request.year ? `${request.year}` : '',
@@ -3789,8 +5644,8 @@ const renderCarSellRequests = () => {
                 <td>
                     <div class="employee-meta">
                         <strong>${escapeHtml(carTitle)}</strong>
-                        <span>${escapeHtml(request.price || 'Chưa có giá')}</span>
-                        <small>${escapeHtml(request.code || `BX-${request.id}`)} · Tạo ${escapeHtml(createdDate)}</small>
+                        <span>Khách mong muốn: ${escapeHtml(desiredPriceText)}</span>
+                        <small>${customerDealPriceText ? `Chốt với khách: ${escapeHtml(customerDealPriceText)} · ` : ''}${finalPriceText ? `Bán hệ thống: ${escapeHtml(finalPriceText)} · ` : ''}${escapeHtml(request.code || `BX-${request.id}`)} · Tạo ${escapeHtml(createdDate)}</small>
                     </div>
                 </td>
                 <td>
@@ -3856,6 +5711,197 @@ const loadCarSellRequests = async () => {
     }
 };
 
+const setSalesKpiFeedback = (message = '', type = '') => {
+    if (!salesKpiFeedback) return;
+    salesKpiFeedback.textContent = message;
+    salesKpiFeedback.className = 'admin-feedback';
+    if (type) salesKpiFeedback.classList.add(type === 'success' ? 'is-success' : 'is-error');
+};
+
+const getSalesKpiTypeLabel = (type) =>
+    ({
+        acquisition: 'Nhập xe thành công',
+        sale: 'Bán xe qua đặt cọc',
+        direct_sale: 'Bán trực tiếp tại cửa hàng'
+    }[String(type || '').trim().toLowerCase()] || 'Bán xe thành công');
+
+const getSalesKpiSourcesForType = () => {
+    const type = String(salesKpiTypeInput?.value || 'acquisition').trim().toLowerCase();
+    const sourceGroups = {
+        acquisition: salesKpiSources.acquisitions || [],
+        sale: salesKpiSources.sales || [],
+        direct_sale: salesKpiSources.directSales || []
+    };
+    const sources = [...(sourceGroups[type] || [])];
+    const record = salesKpiRecords.find((item) => String(item.id) === String(editingSalesKpiRecordId));
+
+    if (record && !sources.some((source) => String(source.id) === String(record.sourceId))) {
+        sources.unshift({
+            id: record.sourceId, code: record.sourceCode, name: record.carName, brand: record.carBrand,
+            customerDealPriceValue: record.purchasePriceValue, carPriceValue: record.salePriceValue,
+            salePriceValue: record.salePriceValue,
+        });
+    }
+
+    return sources;
+};
+
+const renderSalesKpiSourceOptions = () => {
+    if (!salesKpiSourceInput) return;
+    const type = String(salesKpiTypeInput?.value || 'acquisition').trim().toLowerCase();
+    const sources = getSalesKpiSourcesForType();
+    const currentValue = String(salesKpiSourceInput.value || '');
+
+    if (!sources.length) {
+        salesKpiSourceInput.innerHTML = '<option value="">Không có giao dịch đủ điều kiện</option>';
+        salesKpiSourceInput.disabled = true;
+        renderSalesKpiSelectionPreview();
+        return;
+    }
+
+    salesKpiSourceInput.disabled = false;
+    salesKpiSourceInput.innerHTML = [
+        '<option value="">Chọn giao dịch thành công</option>',
+        ...sources.map((source) => {
+            const carTitle = [source.carBrand || source.brand, source.carName || source.name].filter(Boolean).join(' ') || 'Xe chưa rõ tên';
+            const value = type === 'acquisition'
+                ? Number(source.customerDealPriceValue || 0)
+                : Number(source.salePriceValue || source.carPriceValue || 0);
+            return `<option value="` + escapeHtml(source.id) + `">` + escapeHtml(source.code || ('#' + source.id)) + ` · ` + escapeHtml(carTitle) + ` · ` + escapeHtml(formatCompactPrice(value)) + `</option>`;
+        })
+    ].join('');
+
+    if (currentValue && sources.some((source) => String(source.id) === currentValue)) salesKpiSourceInput.value = currentValue;
+    renderSalesKpiSelectionPreview();
+};
+
+const renderSalesKpiSaleOptions = () => {
+    if (!salesKpiSaleInput) return;
+    const currentValue = String(salesKpiSaleInput.value || '');
+    salesKpiSaleInput.innerHTML = [
+        '<option value="">Chọn sale</option>',
+        ...salesKpiEmployees.map((employee) =>
+            `<option value="` + escapeHtml(employee.id) + `">` + escapeHtml(employee.fullName || employee.email || ('Sale #' + employee.id)) + (employee.salesTitle ? ' · ' + escapeHtml(employee.salesTitle) : '') + `</option>`
+        )
+    ].join('');
+    if (currentValue && salesKpiEmployees.some((employee) => String(employee.id) === currentValue)) salesKpiSaleInput.value = currentValue;
+};
+
+const renderSalesKpiSelectionPreview = () => {
+    if (!salesKpiSelectionPreview) return;
+
+    const sourceId = String(salesKpiSourceInput?.value || '');
+    const type = String(salesKpiTypeInput?.value || 'acquisition').trim().toLowerCase();
+    const source = getSalesKpiSourcesForType().find((item) => String(item.id) === sourceId);
+
+    if (!source) {
+        salesKpiSelectionPreview.innerHTML = '<i class="bx bx-info-circle"></i><p>Chọn giao dịch để xem nhanh xe và giá trị ghi nhận.</p>';
+        return;
+    }
+
+    const carTitle = [source.carBrand || source.brand, source.carName || source.name]
+        .filter(Boolean)
+        .join(' ') || 'Xe chưa rõ tên';
+    const value = type === 'acquisition'
+        ? Number(source.customerDealPriceValue || 0)
+        : Number(source.salePriceValue || source.carPriceValue || 0);
+    const valueLabel = type === 'acquisition'
+        ? 'Giá nhập ghi nhận'
+        : type === 'direct_sale'
+            ? 'Doanh số bán trực tiếp'
+            : 'Doanh số ghi nhận';
+
+    salesKpiSelectionPreview.innerHTML = `
+        <i class="bx bx-check-circle"></i>
+        <div>
+            <span>Đã chọn ` + escapeHtml(source.code || ('#' + source.id)) + ` · ` + escapeHtml(carTitle) + `</span>
+            <strong>` + escapeHtml(valueLabel) + `: ` + escapeHtml(formatCompactPrice(value)) + `</strong>
+        </div>`;
+};
+
+const renderSalesKpiStats = () => {
+    const stats = salesKpiStats || {};
+    if (salesKpiStatTotal) salesKpiStatTotal.textContent = String(stats.total || 0);
+    if (salesKpiStatAcquisition) salesKpiStatAcquisition.textContent = String(stats.acquisitionCount || 0);
+    if (salesKpiStatSales) salesKpiStatSales.textContent = String(stats.saleCount || 0);
+    if (salesKpiStatSalesValue) salesKpiStatSalesValue.textContent = formatCompactPrice(stats.salesValue || 0);
+    if (salesKpiStatReward) salesKpiStatReward.textContent = formatCompactPrice(stats.rewardAmount || 0);
+};
+
+const renderSalesKpiRecords = () => {
+    if (!salesKpiTableBody) return;
+    if (!salesKpiRecords.length) {
+        salesKpiTableBody.innerHTML = '<tr><td colspan="6" class="table-empty">Chưa có KPI nào được ghi nhận.</td></tr>';
+        return;
+    }
+
+    salesKpiTableBody.innerHTML = salesKpiRecords.map((record) => {
+        const isActive = record.recordStatus === 'active';
+        const carTitle = [record.carBrand, record.carName].filter(Boolean).join(' ') || 'Xe chưa rõ tên';
+        const statusClass = isActive ? 'consultation-status-badge--closed' : 'consultation-status-badge--failed';
+        const statusLabel = isActive ? (record.rewardStatus === 'paid' ? 'Đã chi' : 'Chờ chi') : 'Đã hủy';
+        const valueLabel = record.kpiType === 'acquisition' ? 'Giá nhập' : 'Giá bán';
+        return `
+            <tr>
+                <td><div class="employee-meta"><strong>` + escapeHtml(isActive ? getSalesKpiTypeLabel(record.kpiType) : 'KPI đã hủy') + `</strong><span>` + escapeHtml(carTitle) + `</span><small>` + escapeHtml(record.sourceCode || ('Giao dịch #' + record.sourceId)) + (record.cancellationNote ? ' · Hủy: ' + escapeHtml(record.cancellationNote) : '') + `</small></div></td>
+                <td><div class="employee-meta"><strong>` + escapeHtml(record.saleName || 'Chưa rõ sale') + `</strong><small>` + escapeHtml(record.saleEmail || '') + `</small></div></td>
+                <td><div class="employee-meta"><strong>` + escapeHtml(formatCompactPrice(record.transactionValue || 0)) + `</strong><small>` + escapeHtml(valueLabel) + `</small></div></td>
+                <td><div class="consultation-status-cell"><strong>` + escapeHtml(formatCompactPrice(record.rewardAmount || 0)) + `</strong><span class="readonly-badge ` + statusClass + `">` + escapeHtml(statusLabel) + `</span></div></td>
+                <td><div class="employee-meta"><strong>` + escapeHtml(formatConsultationDate(record.recordedAt)) + `</strong><small>` + escapeHtml(record.recordedByName || '') + `</small></div></td>
+                <td><div class="table-actions">` + (isActive
+                    ? `<button type="button" class="icon-btn icon-btn--edit" data-edit-sales-kpi="` + escapeHtml(record.id) + `" title="Cập nhật KPI"><i class="bx bx-edit-alt"></i></button><button type="button" class="icon-btn icon-btn--delete" data-cancel-sales-kpi="` + escapeHtml(record.id) + `" title="Hủy KPI"><i class="bx bx-x-circle"></i></button>`
+                    : '<span class="readonly-badge consultation-status-badge--failed">Đã hủy</span>') + `</div></td>
+            </tr>`;
+    }).join('');
+};
+
+const resetSalesKpiForm = () => {
+    editingSalesKpiRecordId = null;
+    salesKpiForm?.reset();
+    if (salesKpiTypeInput) salesKpiTypeInput.value = 'acquisition';
+    if (salesKpiRewardInput) salesKpiRewardInput.value = '0';
+    if (salesKpiRewardStatusInput) salesKpiRewardStatusInput.value = 'pending';
+    if (salesKpiSaveButton) salesKpiSaveButton.innerHTML = '<i class="bx bx-plus-circle"></i><span>Ghi nhận KPI</span>';
+    renderSalesKpiSourceOptions();
+    renderSalesKpiSaleOptions();
+};
+
+const loadSalesKpiRecords = async () => {
+    if (!salesKpiTableBody || !isCurrentUserAdmin()) return;
+    setSalesKpiFeedback('');
+    try {
+        const { response, data } = await requestJson('/api/admin/sales-kpi-records');
+        if (!response.ok) throw new Error(data.message || 'Không thể tải dữ liệu KPI.');
+        salesKpiRecords = data.records || [];
+        salesKpiSources = data.availableSources || { acquisitions: [], sales: [] };
+        salesKpiEmployees = data.salesEmployees || [];
+        salesKpiStats = data.stats || {};
+        resetSalesKpiForm();
+        renderSalesKpiStats();
+        renderSalesKpiRecords();
+    } catch (error) {
+        setSalesKpiFeedback(error.message || 'Không thể tải dữ liệu KPI.', 'error');
+        salesKpiTableBody.innerHTML = '<tr><td colspan="6" class="table-empty">Không thể tải dữ liệu KPI.</td></tr>';
+    }
+};
+
+const editSalesKpiRecord = (record) => {
+    if (!record || record.recordStatus !== 'active') return;
+    editingSalesKpiRecordId = record.id;
+    if (salesKpiTypeInput) salesKpiTypeInput.value = record.kpiType;
+    renderSalesKpiSourceOptions();
+    renderSalesKpiSaleOptions();
+    if (salesKpiSourceInput) salesKpiSourceInput.value = String(record.sourceId);
+    if (salesKpiSaleInput) salesKpiSaleInput.value = String(record.saleUserId);
+    if (salesKpiRewardInput) salesKpiRewardInput.value = String(record.rewardAmount || 0);
+    if (salesKpiRewardStatusInput) salesKpiRewardStatusInput.value = record.rewardStatus || 'pending';
+    if (salesKpiNoteInput) salesKpiNoteInput.value = record.note || '';
+    renderSalesKpiSelectionPreview();
+    if (salesKpiSaveButton) salesKpiSaveButton.innerHTML = '<i class="bx bx-save"></i><span>Cập nhật KPI</span>';
+    setSalesKpiFeedback(`Đang chỉnh KPI #` + record.id + '. Có thể đổi sale, tiền thưởng, trạng thái chi và ghi chú.', 'success');
+    salesKpiForm?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
 const openCarSellRequestDetail = (request) => {
     if (!customerDetailPanel || !customerDetailBody || !request) {
         return;
@@ -3867,6 +5913,9 @@ const openCarSellRequestDetail = (request) => {
     const emailText = request.email || request.userEmail || '';
     const emailHref = getMailHref(emailText);
     const images = Array.isArray(request.images) ? request.images : [];
+    const desiredPriceText = request.price || (request.priceValue ? formatCompactPrice(request.priceValue) : 'Chưa cập nhật');
+    const customerDealPriceText = request.customerDealPrice || (request.customerDealPriceValue ? formatCompactPrice(request.customerDealPriceValue) : '');
+    const finalPriceText = request.finalPrice || (request.finalPriceValue ? formatCompactPrice(request.finalPriceValue) : '');
     const imageList = images.length
         ? images.map((image, index) => `
             <a class="car-sell-request-image" href="${escapeHtml(image)}" target="_blank" rel="noopener noreferrer">
@@ -3888,7 +5937,7 @@ const openCarSellRequestDetail = (request) => {
             <span class="customer-detail__avatar"><i class="bx bx-car"></i></span>
             <div>
                 <h4>${escapeHtml([request.brand, request.name].filter(Boolean).join(' ') || 'Xe khách gửi bán')}</h4>
-                <p>${escapeHtml(request.price || 'Chưa có giá')} · ${escapeHtml(getCarSellRequestStatusLabel(request.status))} · Tạo ${escapeHtml(createdDate)}</p>
+                <p>Khách mong muốn: ${escapeHtml(desiredPriceText)}${customerDealPriceText ? ` · Chốt với khách: ${escapeHtml(customerDealPriceText)}` : ''}${finalPriceText ? ` · Bán hệ thống: ${escapeHtml(finalPriceText)}` : ''} · ${escapeHtml(getCarSellRequestStatusLabel(request.status))} · Tạo ${escapeHtml(createdDate)}</p>
             </div>
         </div>
         <div class="customer-detail__grid">
@@ -3922,7 +5971,15 @@ const openCarSellRequestDetail = (request) => {
             </div>
             <div class="customer-detail__item">
                 <span>Giá khách mong muốn</span>
-                <strong>${escapeHtml(request.price || 'Chưa cập nhật')}</strong>
+                <strong>${escapeHtml(desiredPriceText)}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Giá chốt với khách</span>
+                <strong>${escapeHtml(customerDealPriceText || 'Chưa chốt')}</strong>
+            </div>
+            <div class="customer-detail__item">
+                <span>Giá bán trên hệ thống</span>
+                <strong>${escapeHtml(finalPriceText || 'Chưa chốt')}</strong>
             </div>
             <div class="customer-detail__item">
                 <span>Năm sản xuất</span>
@@ -4632,6 +6689,46 @@ adminNavLinks.forEach((link) => {
     });
 });
 
+adminNotificationButton?.addEventListener('click', openAdminNotifications);
+
+adminNotificationCloseButtons.forEach((button) => {
+    button.addEventListener('click', closeAdminNotifications);
+});
+
+adminNotificationPanel?.addEventListener('click', (event) => {
+    if (event.target === adminNotificationPanel || event.target.closest('[data-close-admin-notifications]')) {
+        closeAdminNotifications();
+        return;
+    }
+
+    const deleteButton = event.target.closest('[data-delete-admin-notification]');
+
+    if (deleteButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        deleteAdminNotificationItem(deleteButton.dataset.deleteAdminNotification);
+        return;
+    }
+
+    const viewButton = event.target.closest('[data-open-admin-notification-view]');
+
+    if (viewButton) {
+        event.preventDefault();
+        const viewName = viewButton.dataset.openAdminNotificationView || 'cars';
+        const notificationType = viewButton.dataset.openAdminNotificationType || '';
+        const entityId = viewButton.dataset.openAdminNotificationEntityId || '';
+
+        closeAdminNotifications();
+        switchAdminView(viewName);
+
+        if (notificationType === 'deposit-order' && entityId) {
+            window.setTimeout(() => {
+                openDepositOrderDetailAfterRefresh(entityId);
+            }, 0);
+        }
+    }
+});
+
 employeeRefreshButton?.addEventListener('click', loadEmployees);
 employeeResetButton?.addEventListener('click', resetEmployeeForm);
 employeeSearchInput?.addEventListener('input', renderEmployees);
@@ -4911,6 +7008,96 @@ testDriveSearchInput?.addEventListener('input', renderTestDriveAppointments);
 consultationRefreshButton?.addEventListener('click', loadConsultationRequests);
 consultationSearchInput?.addEventListener('input', renderConsultationRequests);
 consultationStatusFilter?.addEventListener('change', renderConsultationRequests);
+depositConfigReloadButton?.addEventListener('click', loadAdminDepositPaymentConfig);
+depositConfigResetButton?.addEventListener('click', () => {
+    fillDepositConfigForm(depositPaymentConfig);
+    setDepositConfigFeedback('');
+});
+depositConfigForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const payload = getDepositConfigPayloadFromForm();
+
+    if (!payload) {
+        return;
+    }
+
+    if (!payload.accountName || payload.accountName.length < 2) {
+        setDepositConfigFeedback('Vui lòng nhập chủ tài khoản nhận cọc.', 'error');
+        depositConfigForm.elements.accountName?.focus();
+        return;
+    }
+
+    if (!payload.bankName || payload.bankName.length < 2) {
+        setDepositConfigFeedback('Vui lòng nhập ngân hàng nhận cọc.', 'error');
+        depositConfigForm.elements.bankName?.focus();
+        return;
+    }
+
+    if (!payload.accountNumber || payload.accountNumber.length < 3) {
+        setDepositConfigFeedback('Vui lòng nhập số tài khoản nhận cọc.', 'error');
+        depositConfigForm.elements.accountNumber?.focus();
+        return;
+    }
+
+    if (payload.depositAmountOptions.length < 1) {
+        setDepositConfigFeedback('Vui lòng nhập ít nhất một mức cọc hiển thị.', 'error');
+        depositConfigForm.elements.depositAmountOptions?.focus();
+        return;
+    }
+
+    if (payload.defaultDepositAmount < payload.minDepositAmount || payload.defaultDepositAmount > payload.maxDepositAmount) {
+        setDepositConfigFeedback('Mức cọc mặc định phải nằm trong khoảng tối thiểu và tối đa.', 'error');
+        depositConfigForm.elements.defaultDepositAmount?.focus();
+        return;
+    }
+
+    if (payload.depositAmountOptions.some((amount) => amount < payload.minDepositAmount || amount > payload.maxDepositAmount)) {
+        setDepositConfigFeedback('Các mức cọc hiển thị phải nằm trong khoảng tối thiểu và tối đa.', 'error');
+        depositConfigForm.elements.depositAmountOptions?.focus();
+        return;
+    }
+
+    if (!Number.isFinite(payload.holdHours) || payload.holdHours < 1 || payload.holdHours > 168) {
+        setDepositConfigFeedback('Thời gian giữ xe phải từ 1 đến 168 giờ.', 'error');
+        depositConfigForm.elements.holdHours?.focus();
+        return;
+    }
+
+    if (payload.policyText.length < 20) {
+        setDepositConfigFeedback('Vui lòng nhập chính sách đặt cọc tối thiểu 20 ký tự.', 'error');
+        depositConfigForm.elements.policyText?.focus();
+        return;
+    }
+
+    setDepositConfigLoading(true);
+    setDepositConfigFeedback('');
+
+    try {
+        const { response, data } = await requestJson('/api/admin/deposit-payment/config', {
+            method: 'PATCH',
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể lưu cấu hình đặt cọc.');
+        }
+
+        depositPaymentConfig = data.config || null;
+        fillDepositConfigForm(depositPaymentConfig);
+        setDepositConfigFeedback(data.message || 'Đã lưu cấu hình đặt cọc.', 'success');
+        showToast(data.message || 'Đã lưu cấu hình đặt cọc.', 'success', 'Cấu hình đặt cọc');
+    } catch (error) {
+        setDepositConfigFeedback(error.message || 'Không thể lưu cấu hình đặt cọc.', 'error');
+    } finally {
+        setDepositConfigLoading(false);
+    }
+});
+depositReportExportButton?.addEventListener('click', exportFilteredDepositOrdersCsv);
+depositAuditExportButton?.addEventListener('click', exportFilteredDepositAuditCsv);
+depositOrderRefreshButton?.addEventListener('click', loadDepositOrders);
+depositOrderSearchInput?.addEventListener('input', renderDepositOrders);
+depositOrderStatusFilter?.addEventListener('change', renderDepositOrders);
 carBuyRequestRefreshButton?.addEventListener('click', loadCarBuyRequests);
 carBuyRequestSearchInput?.addEventListener('input', renderCarBuyRequests);
 carBuyRequestStatusFilter?.addEventListener('change', renderCarBuyRequests);
@@ -5020,6 +7207,136 @@ consultationStatusSaveButton?.addEventListener('click', async () => {
         setConsultationStatusFeedback(error.message || 'Không thể cập nhật trạng thái yêu cầu tư vấn.', 'error');
     } finally {
         setConsultationStatusLoading(false);
+    }
+});
+
+depositOrderStatusSelect?.addEventListener('change', () => {
+    syncDepositOrderStatusNoteField();
+    setDepositOrderStatusFeedback('');
+});
+
+depositOrderRefundAmountInput?.addEventListener('input', () => {
+    syncDepositOrderStatusNoteField();
+    setDepositOrderStatusFeedback('');
+});
+
+depositOrderStatusSaveButton?.addEventListener('click', async () => {
+    const order = getDepositOrder(activeDepositOrderId);
+    const status = String(depositOrderStatusSelect?.value || '').trim().toLowerCase();
+    const statusNote = String(depositOrderStatusNote?.value || '').trim();
+    const paymentReference = String(depositOrderPaymentReferenceInput?.value || '').trim();
+    const paymentReceivedAt = String(depositOrderPaymentReceivedAtInput?.value || '').trim();
+    const paymentConfirmationNote = String(depositOrderPaymentConfirmationNoteInput?.value || '').trim();
+    const refundAmount = normalizeMoneyAmountInput(depositOrderRefundAmountInput?.value, 0);
+    const refundReference = String(depositOrderRefundReferenceInput?.value || '').trim();
+    const refundCompletedAt = String(depositOrderRefundCompletedAtInput?.value || '').trim();
+    const refundNote = String(depositOrderRefundNoteInput?.value || '').trim();
+
+    if (!order) {
+        setDepositOrderStatusFeedback('Không tìm thấy đơn đặt cọc cần cập nhật.', 'error');
+        return;
+    }
+
+    if (!depositOrderStatusConfig[status]) {
+        setDepositOrderStatusFeedback('Trạng thái đơn đặt cọc không hợp lệ.', 'error');
+        depositOrderStatusSelect?.focus();
+        return;
+    }
+
+    if (status === 'confirmed' && paymentReference.length < 3) {
+        setDepositOrderStatusFeedback('Vui lòng nhập mã giao dịch hoặc mã tham chiếu khi xác nhận đã nhận tiền.', 'error');
+        depositOrderPaymentReferenceInput?.focus();
+        return;
+    }
+
+    if (status === 'confirmed') {
+        const duplicateReferenceOrder = findDepositOrderByPaymentReference(paymentReference, order.id);
+
+        if (duplicateReferenceOrder) {
+            setDepositOrderStatusFeedback(`Mã giao dịch này đã dùng cho ${duplicateReferenceOrder.code || `#${duplicateReferenceOrder.id}`}. Vui lòng kiểm tra lại sao kê.`, 'error');
+            depositOrderPaymentReferenceInput?.focus();
+            return;
+        }
+    }
+
+    if (status === 'confirmed' && !paymentReceivedAt) {
+        setDepositOrderStatusFeedback('Vui lòng chọn thời gian nhận tiền.', 'error');
+        depositOrderPaymentReceivedAtInput?.focus();
+        return;
+    }
+
+    if (status === 'cancelled' && statusNote.length < 3) {
+        setDepositOrderStatusFeedback('Vui lòng nhập lý do khi hủy đơn đặt cọc.', 'error');
+        depositOrderStatusNote?.focus();
+        return;
+    }
+
+    if (status === 'cancelled_after_deposit' && statusNote.length < 3) {
+        setDepositOrderStatusFeedback('Vui lòng nhập lý do khi hủy giao dịch sau đặt cọc.', 'error');
+        depositOrderStatusNote?.focus();
+        return;
+    }
+
+    if (status === 'cancelled_after_deposit' && refundAmount > Number(order.depositAmount || 0)) {
+        setDepositOrderStatusFeedback('Số tiền hoàn cọc không được lớn hơn số tiền đặt cọc đã nhận.', 'error');
+        depositOrderRefundAmountInput?.focus();
+        return;
+    }
+
+    if (status === 'cancelled_after_deposit' && refundAmount > 0 && refundReference.length < 3) {
+        setDepositOrderStatusFeedback('Vui lòng nhập mã giao dịch hoàn cọc khi có số tiền hoàn.', 'error');
+        depositOrderRefundReferenceInput?.focus();
+        return;
+    }
+
+    if (status === 'cancelled_after_deposit' && refundAmount > 0 && !refundCompletedAt) {
+        setDepositOrderStatusFeedback('Vui lòng chọn thời gian hoàn cọc.', 'error');
+        depositOrderRefundCompletedAtInput?.focus();
+        return;
+    }
+
+    if (['completed', 'cancelled_after_deposit'].includes(status)
+        && order.status !== 'confirmed'
+        && status !== order.status) {
+        setDepositOrderStatusFeedback('Chỉ có thể chốt hoặc hủy sau đặt cọc khi đơn đang ở trạng thái đã nhận tiền.', 'error');
+        depositOrderStatusSelect?.focus();
+        return;
+    }
+
+    const submittedStatusNote = status === 'expired' && statusNote.length < 3
+        ? `Đơn đặt cọc ${order.code || `#${order.id}`} đã quá hạn giữ chỗ.`
+        : statusNote;
+
+    setDepositOrderStatusLoading(true);
+    setDepositOrderStatusFeedback('');
+
+    try {
+        const { response, data } = await requestJson(`/api/admin/deposit-orders/${order.id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+                status,
+                statusNote: submittedStatusNote,
+                paymentReference,
+                paymentReceivedAt,
+                paymentConfirmationNote,
+                refundAmount,
+                refundReference,
+                refundCompletedAt,
+                refundNote
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(data.message || 'Không thể cập nhật trạng thái đơn đặt cọc.');
+        }
+
+        await loadDepositOrders();
+        closeDepositOrderStatusPanel();
+        showToast(data.message || 'Cập nhật trạng thái đơn đặt cọc thành công.', 'success', 'Đã cập nhật đơn cọc');
+    } catch (error) {
+        setDepositOrderStatusFeedback(error.message || 'Không thể cập nhật trạng thái đơn đặt cọc.', 'error');
+    } finally {
+        setDepositOrderStatusLoading(false);
     }
 });
 
@@ -5206,6 +7523,81 @@ consultationTableBody?.addEventListener('click', async (event) => {
     }
 });
 
+depositOrderTableBody?.addEventListener('click', async (event) => {
+    const expireButton = event.target.closest('[data-expire-deposit-order]');
+    const editStatusButton = event.target.closest('[data-edit-deposit-order-status]');
+    const explicitViewButton = event.target.closest('button[data-view-deposit-order]');
+    const rowTarget = event.target.closest('tr[data-view-deposit-order]');
+
+    if (expireButton) {
+        const order = getDepositOrder(expireButton.dataset.expireDepositOrder);
+
+        if (!order) {
+            setDepositOrderFeedback('Không tìm thấy đơn đặt cọc cần xử lý.', 'error');
+            return;
+        }
+
+        expireButton.disabled = true;
+        setDepositOrderFeedback('');
+
+        try {
+            const { response, data } = await requestJson(`/api/admin/deposit-orders/${order.id}/status`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                    status: 'expired',
+                    statusNote: `Đơn đặt cọc ${order.code || `#${order.id}`} đã quá hạn giữ chỗ và được mở lại để xử lý tiếp.`
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Không thể đánh dấu đơn đặt cọc quá hạn.');
+            }
+
+            await loadDepositOrders();
+            showToast(data.message || 'Đã đánh dấu đơn đặt cọc quá hạn.', 'success', 'Đã cập nhật đơn cọc');
+        } catch (error) {
+            setDepositOrderFeedback(error.message || 'Không thể đánh dấu đơn đặt cọc quá hạn.', 'error');
+        } finally {
+            expireButton.disabled = false;
+        }
+
+        return;
+    }
+
+    if (editStatusButton) {
+        const order = getDepositOrder(editStatusButton.dataset.editDepositOrderStatus);
+        openDepositOrderStatusPanel(order);
+        return;
+    }
+
+    const target = explicitViewButton || rowTarget;
+
+    if (!target) {
+        return;
+    }
+
+    if (event.target.closest('button, select, a, input, textarea') && !explicitViewButton) {
+        return;
+    }
+
+    openDepositOrderDetailById(target.dataset.viewDepositOrder);
+});
+
+depositOrderTableBody?.addEventListener('keydown', (event) => {
+    if (!['Enter', ' '].includes(event.key)) {
+        return;
+    }
+
+    const rowTarget = event.target.closest('tr[data-view-deposit-order]');
+
+    if (!rowTarget || event.target.closest('button, select, a, input, textarea')) {
+        return;
+    }
+
+    event.preventDefault();
+    openDepositOrderDetailById(rowTarget.dataset.viewDepositOrder);
+});
+
 carBuyRequestTableBody?.addEventListener('click', async (event) => {
     const editStatusButton = event.target.closest('[data-edit-car-buy-request-status]');
     const explicitViewButton = event.target.closest('button[data-view-car-buy-request]');
@@ -5269,6 +7661,97 @@ carBuyRequestTableBody?.addEventListener('click', async (event) => {
     }
 });
 
+salesKpiTypeInput?.addEventListener('change', () => {
+    if (editingSalesKpiRecordId) {
+        salesKpiTypeInput.value = salesKpiRecords.find((record) => String(record.id) === String(editingSalesKpiRecordId))?.kpiType || 'acquisition';
+        return;
+    }
+    renderSalesKpiSourceOptions();
+    setSalesKpiFeedback('');
+});
+
+salesKpiSourceInput?.addEventListener('change', () => {
+    renderSalesKpiSelectionPreview();
+    setSalesKpiFeedback('');
+});
+
+salesKpiRefreshButton?.addEventListener('click', () => {
+    loadSalesKpiRecords();
+});
+
+salesKpiForm?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const kpiType = String(salesKpiTypeInput?.value || '').trim().toLowerCase();
+    const sourceId = Number(salesKpiSourceInput?.value || 0);
+    const saleUserId = Number(salesKpiSaleInput?.value || 0);
+    const rewardAmount = normalizeMoneyAmountInput(salesKpiRewardInput?.value, 0);
+    const rewardStatus = String(salesKpiRewardStatusInput?.value || 'pending').trim().toLowerCase();
+    const note = String(salesKpiNoteInput?.value || '').trim();
+
+    if (!sourceId || !saleUserId) {
+        setSalesKpiFeedback('Vui lòng chọn giao dịch thành công và sale chịu trách nhiệm.', 'error');
+        return;
+    }
+
+    salesKpiSaveButton.disabled = true;
+    setSalesKpiFeedback('');
+    const isEditing = Boolean(editingSalesKpiRecordId);
+
+    try {
+        const { response, data } = await requestJson(
+            isEditing ? `/api/admin/sales-kpi-records/${editingSalesKpiRecordId}` : '/api/admin/sales-kpi-records',
+            {
+                method: isEditing ? 'PATCH' : 'POST',
+                body: JSON.stringify({ kpiType, sourceId, saleUserId, rewardAmount, rewardStatus, note })
+            }
+        );
+
+        if (!response.ok) throw new Error(data.message || 'Không thể lưu KPI.');
+        await loadSalesKpiRecords();
+        showToast(data.message || 'Đã ghi nhận KPI.', 'success', 'KPI sale');
+    } catch (error) {
+        setSalesKpiFeedback(error.message || 'Không thể lưu KPI.', 'error');
+    } finally {
+        salesKpiSaveButton.disabled = false;
+    }
+});
+
+salesKpiTableBody?.addEventListener('click', async (event) => {
+    const editButton = event.target.closest('[data-edit-sales-kpi]');
+    const cancelButton = event.target.closest('[data-cancel-sales-kpi]');
+
+    if (editButton) {
+        const record = salesKpiRecords.find((item) => String(item.id) === String(editButton.dataset.editSalesKpi));
+        editSalesKpiRecord(record);
+        return;
+    }
+
+    if (!cancelButton) return;
+    const record = salesKpiRecords.find((item) => String(item.id) === String(cancelButton.dataset.cancelSalesKpi));
+    if (!record) return;
+
+    const cancellationNote = window.prompt('Nhập lý do hủy ghi nhận KPI (bắt buộc):', '');
+    if (cancellationNote === null) return;
+    if (String(cancellationNote).trim().length < 3) {
+        setSalesKpiFeedback('Vui lòng nhập lý do hủy KPI ít nhất 3 ký tự.', 'error');
+        return;
+    }
+
+    cancelButton.disabled = true;
+    try {
+        const { response, data } = await requestJson(`/api/admin/sales-kpi-records/${record.id}/cancel`, {
+            method: 'PATCH',
+            body: JSON.stringify({ cancellationNote })
+        });
+        if (!response.ok) throw new Error(data.message || 'Không thể hủy KPI.');
+        await loadSalesKpiRecords();
+        showToast(data.message || 'Đã hủy KPI.', 'success', 'KPI sale');
+    } catch (error) {
+        setSalesKpiFeedback(error.message || 'Không thể hủy KPI.', 'error');
+        cancelButton.disabled = false;
+    }
+});
+
 carSellRequestTableBody?.addEventListener('click', async (event) => {
     const editStatusButton = event.target.closest('[data-edit-car-sell-request-status]');
     const explicitViewButton = event.target.closest('button[data-view-car-sell-request]');
@@ -5306,6 +7789,10 @@ carSellRequestStatusSaveButton?.addEventListener('click', async () => {
     const request = getCarSellRequest(activeCarSellRequestId);
     const status = String(carSellRequestStatusSelect?.value || '').trim().toLowerCase();
     const statusNote = String(carSellRequestStatusNote?.value || '').trim();
+    const customerDealPriceText = String(carSellRequestCustomerDealPriceTextInput?.value || '').trim();
+    const customerDealPriceValue = normalizeMoneyAmountInput(carSellRequestCustomerDealPriceValueInput?.value, 0);
+    const finalPriceText = String(carSellRequestFinalPriceTextInput?.value || '').trim();
+    const finalPriceValue = normalizeMoneyAmountInput(carSellRequestFinalPriceValueInput?.value, 0);
 
     if (!request) {
         setCarSellRequestStatusFeedback('Không tìm thấy thông tin đăng bán xe cần xử lý.', 'error');
@@ -5315,6 +7802,30 @@ carSellRequestStatusSaveButton?.addEventListener('click', async () => {
     if (!['approved', 'rejected'].includes(status)) {
         setCarSellRequestStatusFeedback('Trạng thái xử lý đăng bán xe không hợp lệ.', 'error');
         carSellRequestStatusSelect?.focus();
+        return;
+    }
+
+    if (status === 'approved' && customerDealPriceText.length < 2) {
+        setCarSellRequestStatusFeedback('Vui lòng nhập giá chốt với khách trước khi duyệt nhập kho.', 'error');
+        carSellRequestCustomerDealPriceTextInput?.focus();
+        return;
+    }
+
+    if (status === 'approved' && customerDealPriceValue <= 0) {
+        setCarSellRequestStatusFeedback('Vui lòng nhập giá chốt với khách dạng số lớn hơn 0.', 'error');
+        carSellRequestCustomerDealPriceValueInput?.focus();
+        return;
+    }
+
+    if (status === 'approved' && finalPriceText.length < 2) {
+        setCarSellRequestStatusFeedback('Vui lòng nhập giá bán trên hệ thống trước khi duyệt nhập kho.', 'error');
+        carSellRequestFinalPriceTextInput?.focus();
+        return;
+    }
+
+    if (status === 'approved' && finalPriceValue <= 0) {
+        setCarSellRequestStatusFeedback('Vui lòng nhập giá bán trên hệ thống dạng số lớn hơn 0.', 'error');
+        carSellRequestFinalPriceValueInput?.focus();
         return;
     }
 
@@ -5331,7 +7842,11 @@ carSellRequestStatusSaveButton?.addEventListener('click', async () => {
         const { response, data } = await requestJson(`/api/admin/car-sell-requests/${request.id}/${status === 'approved' ? 'approve' : 'reject'}`, {
             method: 'PATCH',
             body: JSON.stringify({
-                statusNote
+                statusNote,
+                customerDealPriceText: status === 'approved' ? customerDealPriceText : '',
+                customerDealPriceValue: status === 'approved' ? customerDealPriceValue : 0,
+                finalPriceText: status === 'approved' ? finalPriceText : '',
+                finalPriceValue: status === 'approved' ? finalPriceValue : 0
             })
         });
 
@@ -5354,6 +7869,17 @@ carSellRequestStatusSaveButton?.addEventListener('click', async () => {
 });
 
 customerDetailBody?.addEventListener('click', async (event) => {
+    const proofChooseButton = event.target.closest('[data-admin-deposit-proof-choose]');
+
+    if (proofChooseButton) {
+        event.preventDefault();
+        const orderId = proofChooseButton.dataset.adminDepositProofChoose;
+        const proofInput = customerDetailBody.querySelector(`[data-admin-deposit-proof-input="${escapeSelectorValue(orderId)}"]`);
+
+        proofInput?.click?.();
+        return;
+    }
+
     const updateOfferButton = event.target.closest('[data-update-car-buy-request-offer]');
 
     if (!updateOfferButton) {
@@ -6060,6 +8586,86 @@ editorPanel?.addEventListener('click', (event) => {
     }
 });
 
+customerDetailBody?.addEventListener('change', async (event) => {
+    const proofInput = event.target.closest('[data-admin-deposit-proof-input]');
+
+    if (!proofInput) {
+        return;
+    }
+
+    const orderId = proofInput.dataset.adminDepositProofInput;
+    const file = proofInput.files?.[0] || null;
+    const chooseButton = customerDetailBody.querySelector(`[data-admin-deposit-proof-choose="${escapeSelectorValue(orderId)}"]`);
+
+    if (!file) {
+        return;
+    }
+
+    chooseButton?.setAttribute('disabled', 'disabled');
+    setAdminDepositProofFeedback(orderId, 'Đang tải biên lai...', 'loading');
+
+    try {
+        const data = await uploadAdminDepositTransferProof(orderId, file);
+
+        await syncAdminDepositOrderProofUi(orderId);
+        showToast(data.message || 'Đã tải biên lai chuyển khoản.', 'success', 'Biên lai đặt cọc');
+        setAdminDepositProofFeedback(orderId, data.message || 'Đã tải biên lai chuyển khoản.', 'success');
+    } catch (error) {
+        setAdminDepositProofFeedback(orderId, error.message || 'Không thể tải biên lai.', 'error');
+        showToast(error.message || 'Không thể tải biên lai.', 'error', 'Biên lai đặt cọc');
+    } finally {
+        proofInput.value = '';
+        chooseButton?.removeAttribute('disabled');
+    }
+});
+
+depositOrderStatusPanel?.addEventListener('click', (event) => {
+    const proofChooseButton = event.target.closest('[data-admin-deposit-proof-choose]');
+
+    if (!proofChooseButton) {
+        return;
+    }
+
+    event.preventDefault();
+    const orderId = proofChooseButton.dataset.adminDepositProofChoose;
+    const proofInput = depositOrderStatusPanel.querySelector(`[data-admin-deposit-proof-input="${escapeSelectorValue(orderId)}"]`);
+
+    proofInput?.click?.();
+});
+
+depositOrderStatusPanel?.addEventListener('change', async (event) => {
+    const proofInput = event.target.closest('[data-admin-deposit-proof-input]');
+
+    if (!proofInput) {
+        return;
+    }
+
+    const orderId = proofInput.dataset.adminDepositProofInput;
+    const file = proofInput.files?.[0] || null;
+    const chooseButton = depositOrderStatusPanel.querySelector(`[data-admin-deposit-proof-choose="${escapeSelectorValue(orderId)}"]`);
+
+    if (!file) {
+        return;
+    }
+
+    chooseButton?.setAttribute('disabled', 'disabled');
+    setAdminDepositProofFeedback(orderId, 'Đang tải biên lai...', 'loading');
+
+    try {
+        const data = await uploadAdminDepositTransferProof(orderId, file);
+
+        await syncAdminDepositOrderProofUi(orderId);
+        setDepositOrderStatusFeedback(data.message || 'Đã tải biên lai chuyển khoản.', 'success');
+        showToast(data.message || 'Đã tải biên lai chuyển khoản.', 'success', 'Biên lai đặt cọc');
+    } catch (error) {
+        setAdminDepositProofFeedback(orderId, error.message || 'Không thể tải biên lai.', 'error');
+        setDepositOrderStatusFeedback(error.message || 'Không thể tải biên lai.', 'error');
+    } finally {
+        proofInput.value = '';
+        chooseButton?.removeAttribute('disabled');
+    }
+});
+
 customerDetailCloseButtons.forEach((button) => {
     button.addEventListener('click', closeCustomerDetail);
 });
@@ -6070,6 +8676,10 @@ testDriveStatusCloseButtons.forEach((button) => {
 
 consultationStatusCloseButtons.forEach((button) => {
     button.addEventListener('click', closeConsultationStatusPanel);
+});
+
+depositOrderStatusCloseButtons.forEach((button) => {
+    button.addEventListener('click', closeDepositOrderStatusPanel);
 });
 
 carBuyRequestStatusCloseButtons.forEach((button) => {
@@ -6105,6 +8715,12 @@ consultationStatusPanel?.addEventListener('click', (event) => {
     }
 });
 
+depositOrderStatusPanel?.addEventListener('click', (event) => {
+    if (event.target === depositOrderStatusPanel) {
+        closeDepositOrderStatusPanel();
+    }
+});
+
 carBuyRequestStatusPanel?.addEventListener('click', (event) => {
     if (event.target === carBuyRequestStatusPanel) {
         closeCarBuyRequestStatusPanel();
@@ -6118,6 +8734,11 @@ carSellRequestStatusPanel?.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && adminNotificationPanel?.classList.contains('is-open')) {
+        closeAdminNotifications();
+        return;
+    }
+
     if (event.key === 'Escape' && !promotionCropPanel?.hidden) {
         closePromotionCropPanel();
         return;
@@ -6140,6 +8761,11 @@ document.addEventListener('keydown', (event) => {
 
     if (event.key === 'Escape' && !consultationStatusPanel?.hidden) {
         closeConsultationStatusPanel();
+        return;
+    }
+
+    if (event.key === 'Escape' && !depositOrderStatusPanel?.hidden) {
+        closeDepositOrderStatusPanel();
         return;
     }
 
@@ -6216,6 +8842,10 @@ const initializeAdminPage = async () => {
         return;
     }
 
+    await loadAdminNotifications();
+    if (!adminNotificationRefreshTimer) {
+        adminNotificationRefreshTimer = window.setInterval(loadAdminNotifications, 60000);
+    }
     await loadCars();
 };
 

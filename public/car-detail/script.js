@@ -73,6 +73,7 @@ let dealershipHotline = DEFAULT_DEALERSHIP_HOTLINE;
 const consultationRequestTypeLabels = {
     consultation: 'Nhận tư vấn & báo giá',
     quote: 'Yêu cầu báo giá',
+    deposit: 'Đặt cọc xe',
     financing: 'Tư vấn trả góp',
     rolling_cost: 'Chi phí lăn bánh',
     viewing: 'Đặt lịch xem xe',
@@ -180,9 +181,7 @@ const updateCarSeo = (car, images, description) => {
             url: canonicalUrl,
             priceCurrency: 'VND',
             price: Number(car.priceValue || 0),
-            availability: getCarStatusClass(car.actionText) === 'is-available'
-                ? 'https://schema.org/InStock'
-                : 'https://schema.org/OutOfStock',
+            availability: getCarSchemaAvailability(car),
             itemCondition: 'https://schema.org/UsedCondition',
             seller: {
                 '@type': 'Organization',
@@ -242,9 +241,31 @@ const setFavoriteCars = (cars = []) => {
 const getCarStatusClass = (status) => {
     const normalizedStatus = String(status || '').trim().toLocaleLowerCase('vi-VN');
 
-    return ['xe đã bán', 'hết xe', 'hết hàng'].includes(normalizedStatus)
-        ? 'is-sold'
-        : 'is-available';
+    if (['xe đã bán', 'hết xe', 'hết hàng'].includes(normalizedStatus)) {
+        return 'is-sold';
+    }
+
+    if (normalizedStatus.includes('đang giữ') || normalizedStatus.includes('giữ chỗ')) {
+        return 'is-held';
+    }
+
+    return 'is-available';
+};
+
+const isCarHeldForDeposit = (car) => getCarStatusClass(car?.actionText) === 'is-held';
+
+const getCarSchemaAvailability = (car) => {
+    const statusClass = getCarStatusClass(car?.actionText);
+
+    if (statusClass === 'is-available') {
+        return 'https://schema.org/InStock';
+    }
+
+    if (statusClass === 'is-held') {
+        return 'https://schema.org/LimitedAvailability';
+    }
+
+    return 'https://schema.org/OutOfStock';
 };
 
 const normalizeTextForCompare = (value) =>
@@ -637,7 +658,9 @@ const setConsultationSubmitLoading = (isLoading) => {
     const requestType = String(consultationRequestTypeInput?.value || '').trim();
     const label = requestType === 'similar_car'
         ? 'Gửi yêu cầu tư vấn xe tương tự'
-        : 'Gửi yêu cầu tư vấn';
+        : requestType === 'deposit'
+            ? 'Gửi yêu cầu đặt cọc'
+            : 'Gửi yêu cầu tư vấn';
 
     consultationSubmitButton.disabled = isLoading;
     consultationSubmitButton.innerHTML = isLoading
@@ -739,18 +762,23 @@ const openConsultationModal = (requestType = 'consultation') => {
     const normalizedType = getConsultationRequestType(requestType);
     const carTitle = getCarDisplayName(currentCar);
     const isAvailableCar = isCarAvailableForTestDrive(currentCar);
+    const isHeldCar = isCarHeldForDeposit(currentCar);
     const effectiveType = isAvailableCar ? normalizedType : 'similar_car';
 
     if (consultationModalTitle) {
         consultationModalTitle.textContent = isAvailableCar
             ? `${consultationRequestTypeLabels[effectiveType]} ${carTitle}`.trim()
-            : 'Xe này hiện đã hết hàng';
+            : isHeldCar
+                ? 'Xe này đang được giữ chỗ'
+                : 'Xe này hiện đã hết hàng';
     }
 
     if (consultationModalSummary) {
         consultationModalSummary.textContent = isAvailableCar
             ? `${carTitle} - ${currentCar.price || 'Giá liên hệ'}`
-            : 'Để lại thông tin, OkXe sẽ tư vấn xe tương tự hoặc báo khi có xe phù hợp.';
+            : isHeldCar
+                ? 'Để lại thông tin, OkXe sẽ tư vấn xe tương tự hoặc báo lại nếu đơn giữ chỗ thay đổi.'
+                : 'Để lại thông tin, OkXe sẽ tư vấn xe tương tự hoặc báo khi có xe phù hợp.';
     }
 
     if (consultationCarIdInput) {
@@ -1048,11 +1076,39 @@ const renderCarDetail = (car, cars) => {
     const description = car.description || 'Xe đang được cập nhật mô tả chi tiết. Vui lòng liên hệ OkXe để nhận tư vấn tình trạng xe, hồ sơ và lịch xem xe.';
     const isFavorite = isFavoriteCar(car.id);
     const canRegisterTestDrive = isCarAvailableForTestDrive(car);
+    const isHeldCar = isCarHeldForDeposit(car);
     const primaryConsultationType = canRegisterTestDrive ? 'consultation' : 'similar_car';
     const primaryConsultationLabel = canRegisterTestDrive ? 'Nhận tư vấn & báo giá' : 'Tư vấn xe tương tự';
+    const primaryConsultationNote = canRegisterTestDrive
+        ? 'Gọi lại nhanh, báo giá rõ ràng'
+        : isHeldCar
+            ? 'Xe đang có khách giữ chỗ'
+            : 'Gợi ý xe còn hàng phù hợp';
+    const unavailableDepositText = isHeldCar
+        ? 'Xe đang có đơn đặt cọc giữ chỗ'
+        : 'Xe hiện đã hết hàng';
+    const depositButton = canRegisterTestDrive
+        ? `
+            <a class="detail-action detail-action--deposit" href="/thanh-toan-dat-coc?carId=${encodeURIComponent(car.id)}">
+                <i class="bx bxs-wallet" aria-hidden="true"></i>
+                <span class="detail-action__content">
+                    <strong>Đặt cọc xe</strong>
+                    <small>Chuyển đến trang thanh toán giữ xe</small>
+                </span>
+            </a>
+        `
+        : `
+            <button type="button" class="detail-action detail-action--deposit detail-action--deposit-disabled" disabled title="${escapeHtml(unavailableDepositText)}">
+                <i class="bx bx-block" aria-hidden="true"></i>
+                <span class="detail-action__content">
+                    <strong>Không nhận đặt cọc</strong>
+                    <small>${escapeHtml(unavailableDepositText)}</small>
+                </span>
+            </button>
+        `;
     const testDriveButton = canRegisterTestDrive
         ? `
-            <a class="detail-contact-button detail-contact-button--accent" href="/dang-ky-lai-thu?carId=${encodeURIComponent(car.id)}">
+            <a class="detail-contact-button detail-contact-button--accent detail-contact-button--test-drive" href="/dang-ky-lai-thu?carId=${encodeURIComponent(car.id)}">
                 <span class="detail-contact-button__icon">
                     <svg class="detail-contact-button__svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
                         <circle cx="12" cy="12" r="8.5"></circle>
@@ -1123,14 +1179,18 @@ const renderCarDetail = (car, cars) => {
                 <div class="detail-price">${escapeHtml(car.price)}</div>
                 <p class="detail-description">${escapeHtml(description)}</p>
                 <div class="detail-actions">
-                    <button type="button" class="detail-action detail-action--primary" data-open-consultation="${escapeHtml(primaryConsultationType)}">
-                        <i class="bx bx-phone-call"></i>
-                        <span>${escapeHtml(primaryConsultationLabel)}</span>
+                    ${depositButton}
+                    <button type="button" class="detail-action detail-action--primary detail-action--consultation" data-open-consultation="${escapeHtml(primaryConsultationType)}">
+                        <i class="bx bx-phone-call" aria-hidden="true"></i>
+                        <span class="detail-action__content">
+                            <strong>${escapeHtml(primaryConsultationLabel)}</strong>
+                            <small>${escapeHtml(primaryConsultationNote)}</small>
+                        </span>
                     </button>
                 </div>
                 <div class="detail-contact-panel" aria-label="Tùy chọn liên hệ nhanh">
                     ${testDriveButton}
-                    <button type="button" class="detail-contact-button detail-contact-button--soft" data-open-compare="${escapeHtml(car.id)}">
+                    <button type="button" class="detail-contact-button detail-contact-button--soft detail-contact-button--compare" data-open-compare="${escapeHtml(car.id)}">
                         <span class="detail-contact-button__icon">
                             <i class="bx bx-git-compare" aria-hidden="true"></i>
                         </span>
@@ -1138,7 +1198,7 @@ const renderCarDetail = (car, cars) => {
                             <strong>So sánh</strong>
                         </span>
                     </button>
-                    <button type="button" class="detail-contact-button detail-contact-button--accent" data-open-rolling-cost>
+                    <button type="button" class="detail-contact-button detail-contact-button--calculator" data-open-rolling-cost>
                         <span class="detail-contact-button__icon">
                             <i class="bx bx-calculator" aria-hidden="true"></i>
                         </span>
@@ -1146,7 +1206,7 @@ const renderCarDetail = (car, cars) => {
                             <strong>Chi phí lăn bánh</strong>
                         </span>
                     </button>
-                    <a class="detail-contact-button detail-contact-button--soft" href="/mua-xe">
+                    <a class="detail-contact-button detail-contact-button--soft detail-contact-button--browse" href="/mua-xe">
                         <span class="detail-contact-button__icon">
                             <i class="bx bx-left-arrow-alt" aria-hidden="true"></i>
                         </span>

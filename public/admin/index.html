@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OkXe Quản trị</title>
     <link rel="stylesheet" href="/global/typography.css">
-    <link rel="stylesheet" href="/admin/style.css">
+    <link rel="stylesheet" href="/admin/style.css?v=admin-stat-counters-repair-20260710">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
 </head>
 <body>
@@ -28,6 +28,10 @@
                     <i class="bx bxs-phone-call" aria-hidden="true"></i>
                     <span>Yêu cầu tư vấn</span>
                 </a>
+                <a href="#" class="admin-sidebar__link" data-admin-nav="deposit-orders">
+                    <i class="bx bxs-credit-card" aria-hidden="true"></i>
+                    <span>Quản lý đặt cọc</span>
+                </a>
                 <a href="#" class="admin-sidebar__link" data-admin-nav="car-buy-requests">
                     <i class="bx bxs-message-square-edit" aria-hidden="true"></i>
                     <span>Quản lý tin mua xe</span>
@@ -35,6 +39,10 @@
                 <a href="#" class="admin-sidebar__link" data-admin-nav="car-sell-requests">
                     <i class="bx bxs-car" aria-hidden="true"></i>
                     <span>Quản lý đăng bán xe</span>
+                </a>
+                <a href="#" class="admin-sidebar__link" data-admin-nav="sales-kpi" data-requires-admin hidden>
+                    <i class="bx bxs-bar-chart-alt-2" aria-hidden="true"></i>
+                    <span>KPI / Hiệu quả kinh doanh</span>
                 </a>
                 <a href="#" class="admin-sidebar__link" data-admin-nav="customers">
                     <i class="bx bxs-user-account" aria-hidden="true"></i>
@@ -57,6 +65,22 @@
                     <span>Tài khoản quản trị viên</span>
                 </a>
             </nav>
+            <button type="button" class="admin-notification-button" id="admin-notification-button" aria-haspopup="dialog" aria-controls="admin-notification-panel">
+                <span class="admin-notification-button__icon">
+                    <i class="bx bxs-bell" aria-hidden="true"></i>
+                    <span class="admin-notification-badge" id="admin-notification-badge" hidden>0</span>
+                </span>
+                <span class="admin-notification-button__text">
+                    <strong>
+                        <span>Thông báo</span>
+                        <span class="admin-notification-new-label" id="admin-notification-new-label" hidden>
+                            <i class="bx bxs-error-circle" aria-hidden="true"></i>
+                            <span>Mới</span>
+                        </span>
+                    </strong>
+                    <small id="admin-notification-status">Phát sinh từ khách hàng</small>
+                </span>
+            </button>
             <section class="admin-sidebar__account" id="admin-current-account" aria-label="Tài khoản đang đăng nhập" hidden>
                 <span class="admin-sidebar__account-avatar" id="admin-current-account-avatar">A</span>
                 <span class="admin-sidebar__account-body">
@@ -343,6 +367,230 @@
                 </section>
             </section>
 
+            <section class="admin-view" data-admin-view="deposit-orders" hidden>
+                <section class="employee-shell deposit-order-admin-shell">
+                    <div class="employee-shell__header">
+                        <div>
+                            <p class="eyebrow">Đặt cọc xe</p>
+                            <h1>Quản lý đơn đặt cọc</h1>
+                            <p>Theo dõi yêu cầu giữ xe, thông tin khách hàng, số tiền đặt cọc và trạng thái xác nhận của nhân viên.</p>
+                        </div>
+                    </div>
+
+                    <div class="admin-overview__stats car-buy-request-stats deposit-order-stats" aria-label="Thống kê đơn đặt cọc">
+                        <article class="overview-stat car-buy-request-stat-item car-buy-request-stat-item--pending">
+                            <span>Chờ xác nhận</span>
+                            <strong id="deposit-order-stat-pending">0</strong>
+                        </article>
+                        <article class="overview-stat car-buy-request-stat-item car-buy-request-stat-item--approved">
+                            <span>Đã nhận/chốt</span>
+                            <strong id="deposit-order-stat-confirmed">0</strong>
+                        </article>
+                        <article class="overview-stat car-buy-request-stat-item car-buy-request-stat-item--rejected">
+                            <span>Đã hủy</span>
+                            <strong id="deposit-order-stat-cancelled">0</strong>
+                        </article>
+                        <article class="overview-stat car-buy-request-stat-item">
+                            <span>Quá hạn</span>
+                            <strong id="deposit-order-stat-expired">0</strong>
+                        </article>
+                        <article class="overview-stat car-buy-request-stat-item">
+                            <span>Tổng đơn</span>
+                            <strong id="deposit-order-stat-total">0</strong>
+                        </article>
+                    </div>
+
+                    <section class="employee-card deposit-report-card">
+                        <div class="employee-card__header">
+                            <div>
+                                <p class="eyebrow">Báo cáo đặt cọc</p>
+                                <h2>Tổng hợp tiền cọc và hoàn cọc</h2>
+                            </div>
+                            <div class="deposit-report-actions">
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="deposit-report-export-button">
+                                    <i class="bx bx-download"></i>
+                                    <span>Xuất CSV</span>
+                                </button>
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="deposit-audit-export-button">
+                                    <i class="bx bx-history"></i>
+                                    <span>Xuất lịch sử</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="deposit-report-grid" aria-label="Báo cáo nhanh đơn đặt cọc">
+                            <article>
+                                <span>Tiền cọc đã nhận</span>
+                                <strong id="deposit-report-received-amount">0 VNĐ</strong>
+                            </article>
+                            <article>
+                                <span>Tiền đã hoàn</span>
+                                <strong id="deposit-report-refund-amount">0 VNĐ</strong>
+                            </article>
+                            <article>
+                                <span>Cọc ròng</span>
+                                <strong id="deposit-report-net-amount">0 VNĐ</strong>
+                            </article>
+                            <article>
+                                <span>Giao dịch hoàn tất</span>
+                                <strong id="deposit-report-completed-count">0</strong>
+                            </article>
+                            <article>
+                                <span>Chờ xác nhận</span>
+                                <strong id="deposit-report-pending-count">0</strong>
+                            </article>
+                            <article>
+                                <span>Chờ chứng từ</span>
+                                <strong id="deposit-report-missing-proof-count">0</strong>
+                            </article>
+                            <article>
+                                <span>Sắp quá hạn</span>
+                                <strong id="deposit-report-due-soon-count">0</strong>
+                            </article>
+                            <article>
+                                <span>Đã nhắc khách</span>
+                                <strong id="deposit-report-reminded-count">0</strong>
+                            </article>
+                            <article>
+                                <span>Cần đối soát</span>
+                                <strong id="deposit-report-reconciliation-count">0</strong>
+                            </article>
+                        </div>
+                    </section>
+
+                    <section class="employee-card deposit-config-card">
+                        <div class="employee-card__header">
+                            <div>
+                                <p class="eyebrow">Cấu hình thanh toán</p>
+                                <h2>Thông tin ngân hàng và quy tắc đặt cọc</h2>
+                            </div>
+                            <button type="button" class="toolbar-btn toolbar-btn--soft" id="deposit-config-reload-button">
+                                <i class="bx bx-refresh"></i>
+                                <span>Tải cấu hình</span>
+                            </button>
+                        </div>
+
+                        <form class="employee-form deposit-config-form" id="deposit-config-form">
+                            <label>
+                                <span>Chủ tài khoản</span>
+                                <input type="text" name="accountName" maxlength="100" placeholder="OKXE AUTO" required>
+                            </label>
+                            <label>
+                                <span>Ngân hàng</span>
+                                <input type="text" name="bankName" maxlength="100" placeholder="Vietcombank" required>
+                            </label>
+                            <label>
+                                <span>Số tài khoản</span>
+                                <input type="text" name="accountNumber" maxlength="60" placeholder="0123 456 789" required>
+                            </label>
+                            <label>
+                                <span>Chi nhánh</span>
+                                <input type="text" name="branch" maxlength="100" placeholder="Ví dụ: Hà Nội">
+                            </label>
+                            <label>
+                                <span>Tiền tố chuyển khoản</span>
+                                <input type="text" name="transferPrefix" maxlength="60" placeholder="OKXE COC" required>
+                            </label>
+                            <label>
+                                <span>Các mức cọc hiển thị</span>
+                                <input type="text" name="depositAmountOptions" placeholder="5000000, 10000000, 20000000" required>
+                            </label>
+                            <label>
+                                <span>Mức cọc mặc định</span>
+                                <input type="number" name="defaultDepositAmount" min="100000" step="100000" required>
+                            </label>
+                            <label>
+                                <span>Cọc tối thiểu</span>
+                                <input type="number" name="minDepositAmount" min="100000" step="100000" required>
+                            </label>
+                            <label>
+                                <span>Cọc tối đa</span>
+                                <input type="number" name="maxDepositAmount" min="100000" step="100000" required>
+                            </label>
+                            <label>
+                                <span>Thời gian giữ xe</span>
+                                <input type="number" name="holdHours" min="1" max="168" step="1" required>
+                            </label>
+                            <label class="employee-form__switch deposit-config-form__switch">
+                                <input type="checkbox" name="requireTransferProof" value="1">
+                                <span>Bắt buộc khách tải chứng từ</span>
+                                <small>Khi bật, giao diện sẽ nhắc khách tải biên lai để nhân viên đối chiếu nhanh hơn.</small>
+                            </label>
+                            <label class="employee-form__field--wide">
+                                <span>Chính sách đặt cọc hiển thị cho khách</span>
+                                <textarea name="policyText" rows="7" maxlength="4000" placeholder="Nhập điều khoản đặt cọc, thời gian giữ xe, hủy cọc và hoàn cọc..." required></textarea>
+                            </label>
+                            <div class="deposit-config-summary" id="deposit-config-summary" aria-live="polite"></div>
+                            <div class="employee-form__actions">
+                                <button type="submit" class="toolbar-btn toolbar-btn--primary" id="deposit-config-save-button">
+                                    <i class="bx bx-save"></i>
+                                    <span>Lưu cấu hình</span>
+                                </button>
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="deposit-config-reset-button">
+                                    <i class="bx bx-eraser"></i>
+                                    <span>Khôi phục form</span>
+                                </button>
+                            </div>
+                            <p class="admin-feedback" id="deposit-config-feedback" aria-live="polite"></p>
+                        </form>
+                    </section>
+
+                    <section class="employee-card">
+                        <div class="employee-card__header">
+                            <div>
+                                <p class="eyebrow">Danh sách đặt cọc</p>
+                                <h2>Yêu cầu giữ xe của khách hàng</h2>
+                            </div>
+                            <div class="inventory-shell__actions">
+                                <label class="inventory-search employee-search consultation-status-filter">
+                                    <i class="bx bx-filter-alt"></i>
+                                    <select id="deposit-order-status-filter" aria-label="Lọc trạng thái đơn đặt cọc">
+                                        <option value="">Tất cả trạng thái</option>
+                                        <option value="pending">Chờ xác nhận</option>
+                                        <option value="confirmed">Đã nhận tiền</option>
+                                        <option value="completed">Hoàn tất giao dịch</option>
+                                        <option value="cancelled_after_deposit">Hủy sau đặt cọc</option>
+                                        <option value="cancelled">Đã hủy</option>
+                                        <option value="expired">Quá hạn giữ chỗ</option>
+                                        <option value="due_soon">Sắp quá hạn</option>
+                                        <option value="reminded">Đã nhắc khách</option>
+                                        <option value="missing_proof">Chờ chứng từ</option>
+                                        <option value="needs_reconciliation">Cần đối soát</option>
+                                    </select>
+                                </label>
+                                <label class="inventory-search employee-search">
+                                    <i class="bx bx-search"></i>
+                                    <input type="search" id="deposit-order-search" placeholder="Tìm mã đơn, khách, SĐT hoặc xe">
+                                </label>
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="deposit-order-refresh-button">
+                                    <i class="bx bx-refresh"></i>
+                                    <span>Tải lại</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="inventory-table-wrap">
+                            <table class="inventory-table deposit-order-table">
+                                <thead>
+                                    <tr>
+                                        <th>Khách hàng</th>
+                                        <th>Xe đặt cọc</th>
+                                        <th>Thanh toán</th>
+                                        <th>Trạng thái</th>
+                                        <th>Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="deposit-order-table-body">
+                                    <tr>
+                                        <td colspan="5" class="table-empty">Đang tải đơn đặt cọc...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="admin-feedback" id="deposit-order-feedback" aria-live="polite"></p>
+                    </section>
+                </section>
+            </section>
+
             <section class="admin-view" data-admin-view="car-buy-requests" hidden>
                 <section class="employee-shell car-buy-request-admin-shell">
                     <div class="employee-shell__header">
@@ -496,6 +744,117 @@
                             </table>
                         </div>
                         <p class="admin-feedback" id="car-sell-request-feedback" aria-live="polite"></p>
+                    </section>
+                </section>
+            </section>
+
+            <section class="admin-view" data-admin-view="sales-kpi" hidden>
+                <section class="employee-shell sales-kpi-shell">
+                    <header class="sales-kpi-hero">
+                        <div class="sales-kpi-hero__copy">
+                            <span class="sales-kpi-hero__icon"><i class="bx bx-line-chart"></i></span>
+                            <div>
+                                <p class="eyebrow">Hiệu quả kinh doanh</p>
+                                <h1>KPI sale</h1>
+                                <p>Ghi nhận công bằng từng xe sau khi giao dịch đã hoàn tất, từ đó theo dõi doanh số và thưởng của đội ngũ.</p>
+                            </div>
+                        </div>
+                        <div class="sales-kpi-hero__policy" aria-label="Quy tắc ghi nhận KPI">
+                            <span><i class="bx bx-shield-quarter"></i> Chỉ admin ghi nhận</span>
+                            <span><i class="bx bx-check-double"></i> Không tính cọc chưa chốt</span>
+                        </div>
+                    </header>
+
+                    <div class="sales-kpi-stats" aria-label="Thống kê KPI sale">
+                        <article class="sales-kpi-stat sales-kpi-stat--primary">
+                            <span class="sales-kpi-stat__icon"><i class="bx bx-award"></i></span>
+                            <div><span>Tổng KPI hợp lệ</span><strong id="sales-kpi-stat-total">0</strong><small>Thành tích đang được tính</small></div>
+                        </article>
+                        <article class="sales-kpi-stat sales-kpi-stat--acquisition">
+                            <span class="sales-kpi-stat__icon"><i class="bx bx-import"></i></span>
+                            <div><span>Xe nhập thành công</span><strong id="sales-kpi-stat-acquisition">0</strong><small>Nguồn xe đã vào kho</small></div>
+                        </article>
+                        <article class="sales-kpi-stat sales-kpi-stat--sale">
+                            <span class="sales-kpi-stat__icon"><i class="bx bx-car"></i></span>
+                            <div><span>Xe bán thành công</span><strong id="sales-kpi-stat-sales">0</strong><small>Đã hoàn tất bàn giao</small></div>
+                        </article>
+                        <article class="sales-kpi-stat sales-kpi-stat--revenue">
+                            <span class="sales-kpi-stat__icon"><i class="bx bx-wallet"></i></span>
+                            <div><span>Doanh số đã chốt</span><strong id="sales-kpi-stat-sales-value">0 VNĐ</strong><small>Chỉ tính xe đã bán</small></div>
+                        </article>
+                        <article class="sales-kpi-stat sales-kpi-stat--reward">
+                            <span class="sales-kpi-stat__icon"><i class="bx bx-gift"></i></span>
+                            <div><span>Tổng thưởng</span><strong id="sales-kpi-stat-reward">0 VNĐ</strong><small>Đã ghi nhận trong KPI</small></div>
+                        </article>
+                    </div>
+
+                    <div class="sales-kpi-workspace">
+                        <section class="employee-card sales-kpi-entry-card">
+                            <div class="sales-kpi-card-heading">
+                                <span class="sales-kpi-card-heading__step">01</span>
+                                <div><p class="eyebrow">Ghi nhận thành tích</p><h2>Chọn giao dịch và sale</h2><p>Chỉ cần chọn giao dịch thành công, sale phụ trách và mức thưởng cần ghi nhận.</p></div>
+                            </div>
+                            <form class="employee-form sales-kpi-form" id="sales-kpi-form">
+                                <div class="sales-kpi-form__fields">
+                                    <label>
+                                        <span><i class="bx bx-category-alt"></i> Loại thành tích</span>
+                                        <select id="sales-kpi-type" name="kpiType" required><option value="acquisition">Nhập xe thành công</option><option value="sale">Bán xe qua đặt cọc</option><option value="direct_sale">Bán trực tiếp tại cửa hàng</option></select>
+                                    </label>
+                                    <label class="sales-kpi-form__source">
+                                        <span><i class="bx bx-receipt"></i> Giao dịch thành công</span>
+                                        <select id="sales-kpi-source" name="sourceId" required><option value="">Đang tải giao dịch đủ điều kiện...</option></select>
+                                    </label>
+                                    <div class="sales-kpi-selection-preview" id="sales-kpi-selection-preview" aria-live="polite">
+                                        <i class="bx bx-info-circle"></i>
+                                        <p>Chọn giao dịch để xem nhanh xe và giá trị ghi nhận.</p>
+                                    </div>
+                                    <label>
+                                        <span><i class="bx bx-user-check"></i> Sale chịu trách nhiệm</span>
+                                        <select id="sales-kpi-sale" name="saleUserId" required><option value="">Chọn sale</option></select>
+                                    </label>
+                                    <label>
+                                        <span><i class="bx bx-money"></i> Tiền thưởng (VNĐ)</span>
+                                        <input type="number" id="sales-kpi-reward" name="rewardAmount" min="0" step="100000" value="0">
+                                    </label>
+                                    <label>
+                                        <span><i class="bx bx-credit-card-front"></i> Trạng thái thưởng</span>
+                                        <select id="sales-kpi-reward-status" name="rewardStatus"><option value="pending">Chờ chi</option><option value="paid">Đã chi</option></select>
+                                    </label>
+                                    <label class="sales-kpi-form__note">
+                                        <span><i class="bx bx-notepad"></i> Ghi chú nội bộ <small>Không bắt buộc</small></span>
+                                        <textarea id="sales-kpi-note" name="note" rows="3" maxlength="500" placeholder="Ví dụ: Thưởng theo chính sách tháng 7..."></textarea>
+                                    </label>
+                                </div>
+                                <div class="employee-form__actions employee-form__field--wide">
+                                    <button type="submit" class="toolbar-btn toolbar-btn--primary" id="sales-kpi-save-button"><i class="bx bx-plus-circle"></i><span>Ghi nhận KPI</span></button>
+                                    <button type="button" class="toolbar-btn toolbar-btn--soft" id="sales-kpi-refresh-button"><i class="bx bx-refresh"></i><span>Làm mới dữ liệu</span></button>
+                                </div>
+                                <p class="admin-feedback employee-form__field--wide" id="sales-kpi-feedback" aria-live="polite"></p>
+                            </form>
+                        </section>
+
+                        <aside class="sales-kpi-guide" aria-label="Hướng dẫn KPI">
+                            <div class="sales-kpi-guide__top"><span class="sales-kpi-guide__icon"><i class="bx bx-bulb"></i></span><div><p class="eyebrow">Quy trình</p><h2>Ghi nhận đúng thời điểm</h2></div></div>
+                            <ol class="sales-kpi-guide__steps">
+                                <li><span>1</span><div><strong>Giao dịch hoàn tất</strong><p>Xe được nhập kho hoặc đơn bán xe chuyển sang hoàn tất.</p></div></li>
+                                <li><span>2</span><div><strong>Chọn sale phụ trách</strong><p>Admin xác nhận người trực tiếp tạo thành tích.</p></div></li>
+                                <li><span>3</span><div><strong>Chốt thưởng & lưu</strong><p>KPI xuất hiện ngay trong sổ theo dõi bên dưới.</p></div></li>
+                            </ol>
+                            <div class="sales-kpi-guide__notice"><i class="bx bx-info-circle"></i><p>Đơn mới xác nhận đặt cọc chưa được tính doanh số hoặc thưởng bán xe.</p></div>
+                        </aside>
+                    </div>
+
+                    <section class="employee-card sales-kpi-ledger">
+                        <div class="sales-kpi-ledger__header">
+                            <div><p class="eyebrow">Sổ KPI</p><h2>Thành tích đã ghi nhận</h2><p>Kiểm tra sale, giá trị giao dịch và trạng thái chi thưởng của từng xe.</p></div>
+                            <span class="sales-kpi-ledger__badge"><i class="bx bx-history"></i> Lưu lịch sử điều chỉnh</span>
+                        </div>
+                        <div class="inventory-table-wrap">
+                            <table class="inventory-table car-buy-request-table sales-kpi-table">
+                                <thead><tr><th>Thành tích / xe</th><th>Sale phụ trách</th><th>Giá trị giao dịch</th><th>Thưởng</th><th>Ghi nhận</th><th>Thao tác</th></tr></thead>
+                                <tbody id="sales-kpi-table-body"><tr><td colspan="6" class="table-empty">Đang tải dữ liệu KPI...</td></tr></tbody>
+                            </table>
+                        </div>
                     </section>
                 </section>
             </section>
@@ -1130,6 +1489,7 @@
                     <span>Nút hành động</span>
                     <select name="actionText" required>
                         <option value="Còn xe" selected>Còn xe</option>
+                        <option value="Đang giữ chỗ">Đang giữ chỗ</option>
                         <option value="Xe đã bán">Xe đã bán</option>
                     </select>
                 </label>
@@ -1272,6 +1632,82 @@
         </div>
     </section>
 
+    <section class="modal-backdrop" id="deposit-order-status-panel" hidden aria-hidden="true">
+        <div class="customer-detail-modal test-drive-status-modal consultation-status-update-panel" role="dialog" aria-modal="true" aria-labelledby="deposit-order-status-title">
+            <div class="customer-detail__header">
+                <div>
+                    <p class="eyebrow">Đơn đặt cọc</p>
+                    <h3 id="deposit-order-status-title">Cập nhật đơn đặt cọc</h3>
+                </div>
+                <button type="button" class="icon-btn icon-btn--neutral" data-close-deposit-order-status aria-label="Đóng cập nhật đơn đặt cọc">
+                    <i class="bx bx-x"></i>
+                </button>
+            </div>
+            <div class="test-drive-status-body">
+                <p id="deposit-order-status-summary">Chọn trạng thái xử lý đơn đặt cọc.</p>
+                <label class="test-drive-status-note consultation-status-select-field">
+                    <span>Trạng thái đơn</span>
+                    <select id="deposit-order-status-select">
+                        <option value="pending">Chờ xác nhận</option>
+                        <option value="confirmed">Đã nhận tiền</option>
+                        <option value="completed">Hoàn tất giao dịch</option>
+                        <option value="cancelled_after_deposit">Hủy sau đặt cọc</option>
+                        <option value="cancelled">Đã hủy</option>
+                        <option value="expired">Quá hạn giữ chỗ</option>
+                    </select>
+                </label>
+                <div class="deposit-order-proof-preview" id="deposit-order-proof-preview" hidden></div>
+                <div class="deposit-order-confirmation-fields" id="deposit-order-confirmation-fields" hidden>
+                    <label class="test-drive-status-note">
+                        <span>Mã giao dịch / tham chiếu</span>
+                        <input type="text" id="deposit-order-payment-reference" maxlength="120" placeholder="VD: FT2523456789 hoặc mã sao kê ngân hàng">
+                    </label>
+                    <label class="test-drive-status-note">
+                        <span>Thời gian nhận tiền</span>
+                        <input type="datetime-local" id="deposit-order-payment-received-at">
+                    </label>
+                    <label class="test-drive-status-note deposit-order-confirmation-fields__note">
+                        <span>Ghi chú nội bộ</span>
+                        <textarea id="deposit-order-payment-confirmation-note" rows="3" maxlength="500" placeholder="Ghi lại tài khoản nhận, người đối soát hoặc lưu ý nội bộ nếu có..."></textarea>
+                    </label>
+                </div>
+                <div class="deposit-order-refund-fields" id="deposit-order-refund-fields" hidden>
+                    <label class="test-drive-status-note">
+                        <span>Số tiền hoàn cọc</span>
+                        <input type="number" id="deposit-order-refund-amount" min="0" step="100000" placeholder="VD: 5000000">
+                    </label>
+                    <label class="test-drive-status-note">
+                        <span>Mã giao dịch hoàn tiền</span>
+                        <input type="text" id="deposit-order-refund-reference" maxlength="120" placeholder="VD: REFUND2523456789">
+                    </label>
+                    <label class="test-drive-status-note">
+                        <span>Thời gian hoàn tiền</span>
+                        <input type="datetime-local" id="deposit-order-refund-completed-at">
+                    </label>
+                    <label class="test-drive-status-note deposit-order-refund-fields__note">
+                        <span>Ghi chú hoàn cọc</span>
+                        <textarea id="deposit-order-refund-note" rows="3" maxlength="500" placeholder="Nhập ghi chú hoàn cọc, tài khoản hoàn hoặc chính sách áp dụng..."></textarea>
+                    </label>
+                </div>
+                <label class="test-drive-status-note">
+                    <span>Ghi chú gửi khách hàng</span>
+                    <textarea id="deposit-order-status-note" rows="5" maxlength="500" placeholder="Nhập ghi chú xác nhận hoặc lý do hủy đơn đặt cọc..."></textarea>
+                </label>
+                <div class="employee-form__actions">
+                    <button type="button" class="toolbar-btn toolbar-btn--primary" id="deposit-order-status-save-button">
+                        <i class="bx bx-save"></i>
+                        <span>Cập nhật trạng thái</span>
+                    </button>
+                    <button type="button" class="toolbar-btn toolbar-btn--soft" data-close-deposit-order-status>
+                        <i class="bx bx-x"></i>
+                        <span>Hủy thao tác</span>
+                    </button>
+                </div>
+                <p class="admin-feedback" id="deposit-order-status-feedback" aria-live="polite"></p>
+            </div>
+        </div>
+    </section>
+
     <section class="modal-backdrop" id="car-buy-request-status-panel" hidden aria-hidden="true">
         <div class="customer-detail-modal test-drive-status-modal consultation-status-update-panel" role="dialog" aria-modal="true" aria-labelledby="car-buy-request-status-title">
             <div class="customer-detail__header">
@@ -1332,6 +1768,24 @@
                         <option value="rejected">Từ chối và xóa bài</option>
                     </select>
                 </label>
+                <div class="car-sell-final-price-fields" id="car-sell-final-price-fields">
+                    <label class="test-drive-status-note">
+                        <span>Giá chốt với khách</span>
+                        <input type="text" id="car-sell-request-customer-deal-price-text" maxlength="80" placeholder="Ví dụ: 456 triệu VNĐ">
+                    </label>
+                    <label class="test-drive-status-note">
+                        <span>Giá chốt với khách dạng số</span>
+                        <input type="number" id="car-sell-request-customer-deal-price-value" min="1" step="1000000" placeholder="456000000">
+                    </label>
+                    <label class="test-drive-status-note">
+                        <span>Giá bán trên hệ thống</span>
+                        <input type="text" id="car-sell-request-final-price-text" maxlength="80" placeholder="Ví dụ: 1,85 tỷ VNĐ">
+                    </label>
+                    <label class="test-drive-status-note">
+                        <span>Giá bán hệ thống dạng số</span>
+                        <input type="number" id="car-sell-request-final-price-value" min="1" step="1000000" placeholder="1850000000">
+                    </label>
+                </div>
                 <label class="test-drive-status-note">
                     <span>Ghi chú / lý do gửi khách hàng</span>
                     <textarea id="car-sell-request-status-note" rows="5" maxlength="500" placeholder="Nhập ghi chú khi duyệt hoặc lý do khi từ chối..."></textarea>
@@ -1443,6 +1897,28 @@
 
     <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
-    <script src="/admin/script.js?v=blog-home-20260627"></script>
+    <div class="admin-notification-panel" id="admin-notification-panel" aria-hidden="true">
+        <div class="admin-notification-panel__overlay" data-close-admin-notifications></div>
+        <section class="admin-notification-panel__dialog" role="dialog" aria-modal="true" aria-labelledby="admin-notification-title">
+            <div class="admin-notification-panel__header">
+                <div>
+                    <span>Thông báo Admin</span>
+                    <h2 id="admin-notification-title">Phát sinh từ khách hàng</h2>
+                </div>
+                <button type="button" class="admin-notification-panel__close" data-close-admin-notifications aria-label="Đóng thông báo admin">
+                    <i class="bx bx-x" aria-hidden="true"></i>
+                </button>
+            </div>
+            <div class="admin-notification-list" id="admin-notification-list">
+                <article class="admin-notification-empty">
+                    <i class="bx bx-bell-off" aria-hidden="true"></i>
+                    <strong>Chưa có thông báo mới</strong>
+                    <p>Các yêu cầu mới từ khách hàng sẽ hiển thị tại đây.</p>
+                </article>
+            </div>
+        </section>
+    </div>
+
+    <script src="/admin/script.js?v=direct-sale-kpi-20260710"></script>
 </body>
 </html>

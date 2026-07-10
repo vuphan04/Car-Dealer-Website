@@ -1,9 +1,10 @@
 require('dotenv').config();
+process.env.TZ = process.env.TZ || 'Asia/Ho_Chi_Minh';
 
 const express = require('express');
 const fs = require('node:fs');
 const path = require('path');
-const { randomUUID } = require('node:crypto');
+const { createHmac, randomUUID } = require('node:crypto');
 const {
   addFavoriteCarForUser,
   authenticateUser,
@@ -14,12 +15,15 @@ const {
   createCarSellRequest,
   createCarBuyRequestOffer,
   createConsultationRequest,
+  createDepositOrder,
   createPasswordResetOtp,
   createPromotion,
+  createSalesKpiRecord,
   createSession,
   createTestDriveAppointment,
   createUser,
   countAdminUsers,
+  deleteAdminNotification,
   deleteCar,
   deleteBlogPost,
   deleteCarBuyRequest,
@@ -27,24 +31,35 @@ const {
   deletePromotion,
   deleteSession,
   deleteTestDriveAppointment,
+  deleteUserNotificationForUser,
   deleteUser,
   employeeRoles,
+  expireOverdueDepositOrders,
   getCarById,
   getBlogPostStats,
   getCarBuyRequestById,
   getTestDriveAppointmentById,
   getCarSellRequestById,
+  getActiveDepositOrderForCar,
+  getDepositOrderById,
+  getDepositPaymentSettings,
+  getSalesKpiRecordById,
+  getSalesKpiStats,
   getUserById,
   getPublicBlogPostBySlug,
   getUserBySession,
   isFavoriteCarByUser,
   listAvailableTestDriveCars,
+  listAvailableSalesKpiSources,
   listAdminCars,
+  listAdminNotifications,
   listAdminBlogPosts,
   listCarBuyRequests,
   listCarBuyRequestsByUser,
   listCarSellRequests,
   listCarSellRequestsByUser,
+  listDepositOrders,
+  listDepositOrdersByUser,
   listConsultationRequests,
   listCars,
   listFavoriteCarsByUser,
@@ -55,26 +70,41 @@ const {
   listPublicBlogPosts,
   listPublicTeamMembers,
   listPromotions,
+  listSalesKpiRecords,
   listPublicCarBuyRequests,
   listTestDriveAppointments,
   listTestDriveAppointmentsByUser,
   listUserNotificationsByUser,
   listUsers,
+  markAllAdminNotificationsRead,
+  markAllUserNotificationsRead,
+  markAdminNotificationRead,
+  markUserNotificationRead,
   removeFavoriteCarForUser,
+  remindPendingDepositOrders,
   resetPasswordWithOtp,
+  cancelSalesKpiRecord,
   rejectCarSellRequest,
   updateBlogPost,
   updateCar,
   updateCarBuyRequestStatus,
   updateCarBuyRequestOfferStatus,
   updateConsultationRequestStatus,
+  updateDepositPaymentSettings,
+  updateDepositOrderTransferProof,
+  updateDepositOrderVnpayPayment,
+  updateDepositOrderStatus,
   updatePromotion,
+  updateSalesKpiRecord,
   updateTestDriveAppointmentStatus,
   updateUserProfile,
   updateUserSelfProfile,
   updateUserRole,
 } = require('./db');
-const { sendPasswordResetEmail } = require('./mailer');
+const {
+  sendDepositOrderEmail,
+  sendPasswordResetEmail,
+} = require('./mailer');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -89,6 +119,9 @@ const dealershipHotline = String(process.env.OKXE_HOTLINE || '0854955761')
   .trim()
   .replace(/[^\d+]/g, '')
   .slice(0, 30) || '0854955761';
+const carHeldStatusText = 'Đang giữ chỗ';
+const carSoldStatusText = 'Xe đã bán';
+const carAvailableStatusText = 'Còn xe';
 
 const publicPath = path.join(__dirname, 'public');
 const imagesPath = path.join(__dirname, 'images');
@@ -110,6 +143,7 @@ const publicPages = {
   sellCarForm: 'sell-car',
   salesTeam: 'sales-team',
   blog: 'blog',
+  depositPayment: 'deposit-payment',
 };
 const legacyImageAliases = new Map([
   ['Gemini_Generated_Image_y6mz6my6mz6my6mz.png', 'homepage-carousel-car.png'],
@@ -129,6 +163,7 @@ const carUploadsPath = path.join(uploadsPath, 'cars');
 const avatarUploadsPath = path.join(uploadsPath, 'avatars');
 const promotionUploadsPath = path.join(uploadsPath, 'promotions');
 const blogUploadsPath = path.join(uploadsPath, 'blog');
+const depositProofUploadsPath = path.join(uploadsPath, 'deposit-proofs');
 const uploadJsonParser = express.json({ limit: '80mb' });
 const profileJsonParser = express.json({ limit: '8mb' });
 const maxCarImages = 10;
@@ -281,7 +316,7 @@ const requireUser = (req, res, next) => {
   const user = getRequestUser(req);
 
   if (!user) {
-    res.status(401).json({ message: 'Bạn cần đăng nhập để cập nhật thông tin.' });
+    res.status(401).json({ message: 'Bạn cần đăng nhập để thực hiện thao tác này.' });
     return;
   }
 
@@ -427,6 +462,22 @@ const consultationRequestRateLimit = createRateLimiter({
   message: 'Bạn gửi yêu cầu tư vấn quá nhanh. Vui lòng thử lại sau ít phút.',
 });
 
+const depositOrderRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 6,
+  keyPrefix: 'deposit-order',
+  getKey: (req) => req.body?.phone,
+  message: 'Bạn gửi yêu cầu đặt cọc quá nhanh. Vui lòng thử lại sau ít phút.',
+});
+
+const depositOrderStatusCheckRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 80,
+  keyPrefix: 'deposit-order-status',
+  getKey: (req) => req.body?.phone || req.body?.orderCode || req.body?.code,
+  message: 'Bạn kiểm tra trạng thái đơn đặt cọc quá nhanh. Vui lòng thử lại sau ít phút.',
+});
+
 const carBuyRequestRateLimit = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   max: 6,
@@ -543,6 +594,18 @@ const saveUploadedBlogImage = (file, fallbackBaseName = 'blog-cover') => {
   return `/uploads/blog/${fileName}`;
 };
 
+const saveUploadedDepositProof = (file, fallbackBaseName = 'deposit-proof') => {
+  const parsedImage = parseUploadedImage(file, fallbackBaseName);
+  fs.mkdirSync(depositProofUploadsPath, { recursive: true });
+
+  const fileName = `${Date.now()}-${randomUUID()}-${parsedImage.baseName}${parsedImage.extension}`;
+  const filePath = path.join(depositProofUploadsPath, fileName);
+
+  fs.writeFileSync(filePath, parsedImage.buffer);
+
+  return `/uploads/deposit-proofs/${fileName}`;
+};
+
 const carOptionFields = {
   category: ['Sedan', 'SUV', 'Thể thao'],
   type: ['Tự động', 'Số sàn'],
@@ -552,7 +615,7 @@ const carOptionFields = {
   drivetrain: ['FWD - Dẫn động cầu trước', 'RWD - Dẫn động cầu sau', 'Dẫn động 4 bánh'],
   origin: ['Nhập khẩu', 'Trong nước'],
   condition: ['Xe mới', 'Xe cũ'],
-  actionText: ['Còn xe', 'Xe đã bán'],
+  actionText: ['Còn xe', 'Đang giữ chỗ', 'Xe đã bán'],
 };
 
 const carOptionAliases = {
@@ -590,6 +653,12 @@ const carOptionAliases = {
   actionText: {
     'mua ngay': 'Còn xe',
     'còn hàng': 'Còn xe',
+    'dang giu': 'Đang giữ chỗ',
+    'dang giu cho': 'Đang giữ chỗ',
+    'đang giữ': 'Đang giữ chỗ',
+    'đang giữ chỗ': 'Đang giữ chỗ',
+    'giu cho': 'Đang giữ chỗ',
+    'giữ chỗ': 'Đang giữ chỗ',
     'het hang': 'Xe đã bán',
     'hết hàng': 'Xe đã bán',
     'het xe': 'Xe đã bán',
@@ -710,6 +779,77 @@ const validateCarPayload = (car = {}) => {
   }
 
   return { car: normalizedCar };
+};
+
+const buildDepositLockedCarStatusMessage = (activeOrder, nextActionText) => {
+  const orderStatus = String(activeOrder?.status || '').trim().toLowerCase();
+  const orderIdText = activeOrder?.id ? ` #${activeOrder.id}` : '';
+
+  if (orderStatus === 'confirmed') {
+    if (nextActionText === carSoldStatusText) {
+      return `Xe đang có đơn đặt cọc${orderIdText} đã nhận tiền. Vui lòng vào Quản lý đặt cọc và chuyển đơn sang "Hoàn tất giao dịch" để hệ thống tự đổi xe thành "Xe đã bán".`;
+    }
+
+    return `Xe đang có đơn đặt cọc${orderIdText} đã nhận tiền. Muốn mở bán lại xe, hãy hủy sau đặt cọc trong Quản lý đặt cọc và ghi nhận thông tin hoàn cọc trước.`;
+  }
+
+  if (nextActionText === carSoldStatusText) {
+    return `Xe đang có đơn đặt cọc${orderIdText} chờ thanh toán/xác nhận. Vui lòng hủy hoặc để đơn quá hạn trước khi đổi xe thành "Xe đã bán".`;
+  }
+
+  return `Xe đang có đơn đặt cọc${orderIdText} chờ thanh toán/xác nhận. Vui lòng hủy hoặc để đơn quá hạn trước khi mở bán lại xe.`;
+};
+
+const buildDepositLockedCarDeleteMessage = (activeOrder) => {
+  const orderStatus = String(activeOrder?.status || '').trim().toLowerCase();
+  const orderIdText = activeOrder?.id ? ` #${activeOrder.id}` : '';
+
+  if (orderStatus === 'confirmed') {
+    return `Không thể xóa xe vì đang có đơn đặt cọc${orderIdText} đã nhận tiền. Vui lòng chốt "Hoàn tất giao dịch" hoặc hủy sau đặt cọc trong Quản lý đặt cọc trước.`;
+  }
+
+  return `Không thể xóa xe vì đang có đơn đặt cọc${orderIdText} chờ thanh toán/xác nhận. Vui lòng hủy hoặc để đơn quá hạn trước khi xóa xe.`;
+};
+
+const serializeActiveDepositLockOrder = (activeOrder) => ({
+  id: activeOrder.id,
+  status: activeOrder.status,
+  statusLabel: depositOrderStatusLabels[activeOrder.status] || activeOrder.status,
+  carId: activeOrder.carId,
+  carName: activeOrder.carName,
+  fullName: activeOrder.fullName,
+  phone: activeOrder.phone,
+  expiresAt: activeOrder.expiresAt,
+});
+
+const validateManualCarStatusChange = (carId, nextActionText) => {
+  const activeOrder = getActiveDepositOrderForCar(carId);
+
+  if (!activeOrder || nextActionText === carHeldStatusText) {
+    return null;
+  }
+
+  return {
+    statusCode: 409,
+    code: 'CAR_HAS_ACTIVE_DEPOSIT_ORDER',
+    message: buildDepositLockedCarStatusMessage(activeOrder, nextActionText),
+    order: serializeActiveDepositLockOrder(activeOrder),
+  };
+};
+
+const validateManualCarDelete = (carId) => {
+  const activeOrder = getActiveDepositOrderForCar(carId);
+
+  if (!activeOrder) {
+    return null;
+  }
+
+  return {
+    statusCode: 409,
+    code: 'CAR_HAS_ACTIVE_DEPOSIT_ORDER',
+    message: buildDepositLockedCarDeleteMessage(activeOrder),
+    order: serializeActiveDepositLockOrder(activeOrder),
+  };
 };
 
 const normalizeShortText = (value, maxLength = 120) =>
@@ -948,6 +1088,7 @@ const validateTestDriveAppointmentPayload = (appointment = {}) => {
 const consultationRequestTypeLabels = {
   consultation: 'Tư vấn & báo giá',
   quote: 'Yêu cầu báo giá',
+  deposit: 'Đặt cọc xe',
   financing: 'Tư vấn trả góp',
   rolling_cost: 'Chi phí lăn bánh',
   viewing: 'Đặt lịch xem xe',
@@ -960,6 +1101,505 @@ const consultationRequestStatusLabels = {
   appointment: 'Đã hẹn xem xe',
   closed: 'Đã chốt',
   failed: 'Không thành công',
+};
+
+const depositOrderPaymentMethodLabels = {
+  bank: 'Chuyển khoản ngân hàng',
+  vnpay: 'VNPay sandbox',
+  wallet: 'Ví điện tử (sắp hỗ trợ)',
+  card: 'Thẻ nội địa/quốc tế (sắp hỗ trợ)',
+};
+const depositOrderSupportedPaymentMethods = new Set(['bank', 'vnpay']);
+const getActiveDepositPaymentSettings = () => getDepositPaymentSettings();
+const getDepositBankDisplayName = (settings = getActiveDepositPaymentSettings()) =>
+  [settings.accountName, settings.bankName]
+    .filter(Boolean)
+    .join(' - ');
+const createDepositTransferNote = ({ carId, phone } = {}, settings = getActiveDepositPaymentSettings()) => {
+  const normalizedCarId = Number(carId || 0);
+  const carText = Number.isInteger(normalizedCarId) && normalizedCarId > 0
+    ? `XE${normalizedCarId}`
+    : 'XE';
+  const phoneDigits = normalizePhoneDigits(phone);
+  const phoneSuffix = phoneDigits ? ` ${phoneDigits.slice(-4)}` : '';
+  const transferPrefix = normalizeShortText(settings.transferPrefix, 60) || 'OKXE COC';
+
+  return normalizeShortText(`${transferPrefix} ${carText}${phoneSuffix}`, 120);
+};
+
+const getBooleanEnv = (name, fallback = false) => {
+  const rawValue = process.env[name];
+
+  if (rawValue === undefined || rawValue === null || String(rawValue).trim() === '') {
+    return fallback;
+  }
+
+  return !['0', 'false', 'no', 'off'].includes(String(rawValue).trim().toLowerCase());
+};
+
+const vnpaySandboxPaymentUrl = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
+const vnpayLocalMockPaymentPath = '/api/deposit-payment/vnpay/mock-pay';
+const vnpayPlaceholderCredentials = new Set([
+  'your-vnpay-sandbox-tmn-code',
+  'your-vnpay-sandbox-hash-secret',
+  'okxedev1',
+  'okxe-vnpay-dev-secret-change-me',
+]);
+
+const isLocalVnpayMockPaymentUrl = (paymentUrl = '') => {
+  const normalizedUrl = String(paymentUrl || '').trim().toLowerCase();
+
+  return normalizedUrl === vnpayLocalMockPaymentPath
+    || normalizedUrl.endsWith(vnpayLocalMockPaymentPath);
+};
+
+const isVnpayPlaceholderCredential = (value = '') =>
+  vnpayPlaceholderCredentials.has(String(value || '').trim().toLowerCase())
+  || String(value || '').trim().toLowerCase().startsWith('your-');
+
+const appendQueryToPaymentUrl = (paymentUrl = '', query = '') => {
+  const normalizedPaymentUrl = String(paymentUrl || '').trim();
+  const separator = normalizedPaymentUrl.includes('?') ? '&' : '?';
+
+  return `${normalizedPaymentUrl}${separator}${query}`;
+};
+
+const getDepositVnpayConfig = () => {
+  const testMode = getBooleanEnv('OKXE_VNPAY_SANDBOX_TEST_MODE', false)
+    && process.env.NODE_ENV !== 'production';
+  const tmnCode = String(process.env.OKXE_VNPAY_TMN_CODE || '').trim();
+  const hashSecret = String(process.env.OKXE_VNPAY_HASH_SECRET || '').trim();
+  const enabled = getBooleanEnv('OKXE_VNPAY_ENABLED', true);
+  const paymentUrl = String(
+    process.env.OKXE_VNPAY_PAYMENT_URL
+    || (testMode ? vnpayLocalMockPaymentPath : vnpaySandboxPaymentUrl)
+  ).trim();
+  const localMock = testMode && isLocalVnpayMockPaymentUrl(paymentUrl);
+  const hasCredentials = Boolean(tmnCode && hashSecret);
+  const hasOfficialCredentials =
+    hasCredentials
+    && !isVnpayPlaceholderCredential(tmnCode)
+    && !isVnpayPlaceholderCredential(hashSecret);
+  const configured = enabled && (localMock ? hasCredentials : hasOfficialCredentials);
+  const sandbox = paymentUrl.includes('sandbox.vnpayment.vn') || localMock;
+
+  return {
+    enabled,
+    configured,
+    testMode,
+    localMock,
+    officialSandbox: sandbox && !localMock,
+    missingOfficialCredentials: enabled && !localMock && !hasOfficialCredentials,
+    tmnCode,
+    hashSecret,
+    paymentUrl,
+    returnUrl: String(process.env.OKXE_VNPAY_RETURN_URL || '').trim(),
+    orderType: normalizeShortText(process.env.OKXE_VNPAY_ORDER_TYPE || 'other', 30) || 'other',
+    bankCode: normalizeShortText(process.env.OKXE_VNPAY_BANK_CODE || '', 20),
+    locale: normalizeShortText(process.env.OKXE_VNPAY_LOCALE || 'vn', 5) || 'vn',
+    expireMinutes: Math.max(5, Math.min(60, Number(process.env.OKXE_VNPAY_EXPIRE_MINUTES || 15) || 15)),
+    sandbox,
+  };
+};
+
+const isDepositVnpayReady = () => getDepositVnpayConfig().configured;
+
+const getSupportedDepositPaymentMethods = () => {
+  const supportedMethods = ['bank'];
+
+  if (isDepositVnpayReady()) {
+    supportedMethods.push('vnpay');
+  }
+
+  return supportedMethods;
+};
+
+const getPublicBaseUrl = (req) => {
+  const configuredBaseUrl = String(process.env.APP_BASE_URL || '').trim().replace(/\/+$/, '');
+
+  if (configuredBaseUrl) {
+    return configuredBaseUrl;
+  }
+
+  const protocol = String(req.headers['x-forwarded-proto'] || req.protocol || 'http')
+    .split(',')[0]
+    .trim();
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || `localhost:${port}`)
+    .split(',')[0]
+    .trim();
+
+  return `${protocol}://${host}`.replace(/\/+$/, '');
+};
+
+const formatVnpayDate = (date = new Date()) => {
+  const vietnamTime = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+  const pad = (value) => String(value).padStart(2, '0');
+
+  return [
+    vietnamTime.getUTCFullYear(),
+    pad(vietnamTime.getUTCMonth() + 1),
+    pad(vietnamTime.getUTCDate()),
+    pad(vietnamTime.getUTCHours()),
+    pad(vietnamTime.getUTCMinutes()),
+    pad(vietnamTime.getUTCSeconds()),
+  ].join('');
+};
+
+const parseVnpayDate = (value) => {
+  const normalizedValue = String(value || '').trim();
+  const match = normalizedValue.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
+
+  if (!match) {
+    return '';
+  }
+
+  const [, year, month, day, hour, minute, second] = match;
+
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+};
+
+const normalizeVnpayOrderInfo = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .replace(/[^a-zA-Z0-9 ._:-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 255);
+
+const buildVnpaySearchParams = (params = {}) => {
+  const searchParams = new URLSearchParams();
+
+  Object.keys(params)
+    .sort()
+    .forEach((key) => {
+      const value = params[key];
+
+      if (value !== undefined && value !== null && String(value) !== '') {
+        searchParams.append(key, String(value));
+      }
+    });
+
+  return searchParams;
+};
+
+const stringifyVnpayParams = (params = {}) =>
+  buildVnpaySearchParams(params).toString();
+
+const signVnpayParams = (params = {}, hashSecret = '') =>
+  createHmac('sha512', String(hashSecret || '').trim())
+    .update(Buffer.from(stringifyVnpayParams(params), 'utf-8'))
+    .digest('hex');
+
+const buildSignedVnpayUrl = (paymentUrl = '', params = {}, secureHash = '') => {
+  const signedQuery = stringifyVnpayParams(params);
+
+  if (/^https?:\/\//i.test(paymentUrl)) {
+    const redirectUrl = new URL(paymentUrl);
+    redirectUrl.search = signedQuery;
+    redirectUrl.searchParams.append('vnp_SecureHash', secureHash);
+    return redirectUrl.toString();
+  }
+
+  return appendQueryToPaymentUrl(paymentUrl, `${signedQuery}&vnp_SecureHash=${secureHash}`);
+};
+
+const getClientIpAddress = (req) => {
+  const forwardedFor = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const rawIp = forwardedFor || req.socket?.remoteAddress || req.ip || '127.0.0.1';
+  const normalizedIp = String(rawIp).replace('::ffff:', '').trim();
+
+  return normalizedIp === '::1' ? '127.0.0.1' : normalizedIp.slice(0, 45);
+};
+
+const getDepositOrderIdFromVnpayTxnRef = (txnRef = '') => {
+  const normalizedTxnRef = String(txnRef || '').trim();
+  const match = normalizedTxnRef.match(/^(\d+)(?:[-_].+)?$/);
+  const orderId = Number(match?.[1] || 0);
+
+  return Number.isInteger(orderId) && orderId > 0 ? orderId : 0;
+};
+
+const createDepositVnpayPaymentUrl = (order, req, { uniqueTxnRef = false } = {}) => {
+  const vnpayConfig = getDepositVnpayConfig();
+
+  if (!vnpayConfig.configured) {
+    const error = new Error('VNPay sandbox chưa được cấu hình đầy đủ.');
+    error.code = 'VNPAY_NOT_CONFIGURED';
+    throw error;
+  }
+
+  const now = new Date();
+  const expireAt = new Date(now.getTime() + vnpayConfig.expireMinutes * 60 * 1000);
+  const returnUrl = vnpayConfig.returnUrl || `${getPublicBaseUrl(req)}/api/deposit-payment/vnpay/return`;
+  const txnRef = uniqueTxnRef ? `${String(order.id)}-${formatVnpayDate(now)}` : String(order.id);
+  const orderCode = order.code || `DC-${String(order.id).padStart(6, '0')}`;
+  const params = {
+    vnp_Version: '2.1.0',
+    vnp_Command: 'pay',
+    vnp_TmnCode: vnpayConfig.tmnCode,
+    vnp_Amount: Math.trunc(Number(order.depositAmount || 0) * 100),
+    vnp_CreateDate: formatVnpayDate(now),
+    vnp_CurrCode: 'VND',
+    vnp_IpAddr: getClientIpAddress(req),
+    vnp_Locale: vnpayConfig.locale,
+    vnp_OrderInfo: normalizeVnpayOrderInfo(`Thanh toan dat coc OkXe ${orderCode}`),
+    vnp_OrderType: vnpayConfig.orderType,
+    vnp_ReturnUrl: returnUrl,
+    vnp_TxnRef: txnRef,
+    vnp_ExpireDate: formatVnpayDate(expireAt),
+  };
+
+  if (vnpayConfig.bankCode) {
+    params.vnp_BankCode = vnpayConfig.bankCode;
+  }
+
+  const secureHash = signVnpayParams(params, vnpayConfig.hashSecret);
+
+  return {
+    provider: 'vnpay',
+    txnRef,
+    paymentUrl: buildSignedVnpayUrl(vnpayConfig.paymentUrl, params, secureHash),
+    expiresAt: expireAt.toISOString(),
+  };
+};
+
+const verifyVnpayCallbackSignature = (query = {}) => {
+  const vnpayConfig = getDepositVnpayConfig();
+  const callbackParams = Object.entries(query || {}).reduce((params, [key, value]) => {
+    if (String(key || '').startsWith('vnp_')) {
+      params[key] = value;
+    }
+
+    return params;
+  }, {});
+  const secureHash = String(callbackParams.vnp_SecureHash || '').trim().toLowerCase();
+
+  delete callbackParams.vnp_SecureHash;
+  delete callbackParams.vnp_SecureHashType;
+
+  if (!vnpayConfig.configured || !secureHash) {
+    return false;
+  }
+
+  return signVnpayParams(callbackParams, vnpayConfig.hashSecret).toLowerCase() === secureHash;
+};
+
+const serializeDepositPaymentConfig = (settings = getActiveDepositPaymentSettings()) => {
+  const amountOptions = Array.isArray(settings.depositAmountOptions)
+    ? settings.depositAmountOptions
+    : [];
+  const vnpayConfig = getDepositVnpayConfig();
+  const supportedPaymentMethods = getSupportedDepositPaymentMethods();
+  const paymentMethods = supportedPaymentMethods.reduce((labels, paymentMethod) => {
+    labels[paymentMethod] = depositOrderPaymentMethodLabels[paymentMethod] || paymentMethod;
+    return labels;
+  }, {});
+
+  return {
+    supportedPaymentMethods,
+    paymentMethods,
+    bank: {
+      accountName: settings.accountName,
+      bankName: settings.bankName,
+      accountNumber: settings.accountNumber,
+      branch: settings.branch,
+      transferPrefix: settings.transferPrefix,
+      displayName: getDepositBankDisplayName(settings),
+    },
+    deposit: {
+      amountOptions,
+      defaultAmount: settings.defaultDepositAmount,
+      minAmount: settings.minDepositAmount,
+      maxAmount: settings.maxDepositAmount,
+      holdHours: settings.holdHours,
+      requireTransferProof: Boolean(settings.requireTransferProof),
+      policyText: settings.policyText || '',
+    },
+    vnpay: {
+      enabled: vnpayConfig.configured,
+      sandbox: vnpayConfig.sandbox,
+      testMode: vnpayConfig.testMode,
+      localMock: vnpayConfig.localMock,
+      officialSandbox: vnpayConfig.officialSandbox,
+      paymentUrl: vnpayConfig.configured ? vnpayConfig.paymentUrl : '',
+      expireMinutes: vnpayConfig.expireMinutes,
+      setupMessage: vnpayConfig.configured
+        ? (vnpayConfig.localMock
+          ? 'VNPay sandbox mô phỏng nội bộ đã sẵn sàng.'
+          : 'VNPay sandbox chính thức đã sẵn sàng.')
+        : (vnpayConfig.missingOfficialCredentials
+          ? 'Cần thay OKXE_VNPAY_TMN_CODE và OKXE_VNPAY_HASH_SECRET bằng thông tin merchant sandbox do VNPay cấp.'
+          : 'Cần cấu hình OKXE_VNPAY_TMN_CODE và OKXE_VNPAY_HASH_SECRET trong .env để bật VNPay sandbox.'),
+    },
+    updatedAt: settings.updatedAt || '',
+    updatedByName: settings.updatedByName || '',
+  };
+};
+
+const normalizeMoneyAmountInput = (value, fallback = 0) => {
+  const normalizedNumber = Number(String(value ?? '').replace(/[^\d]/g, ''));
+
+  return Number.isFinite(normalizedNumber) && normalizedNumber > 0
+    ? Math.trunc(normalizedNumber)
+    : fallback;
+};
+
+const normalizeDepositAmountOptionsInput = (value) => {
+  const rawOptions = Array.isArray(value)
+    ? value
+    : String(value || '').split(/[\s,;]+/);
+  const seenAmounts = new Set();
+
+  return rawOptions
+    .map((amount) => normalizeMoneyAmountInput(amount, 0))
+    .filter((amount) => amount > 0)
+    .filter((amount) => {
+      if (seenAmounts.has(amount)) {
+        return false;
+      }
+
+      seenAmounts.add(amount);
+      return true;
+    })
+    .slice(0, 8);
+};
+
+const validateDepositPaymentSettingsPayload = (payload = {}) => {
+  const accountName = normalizeShortText(payload.accountName || payload.account_name, 100);
+  const bankName = normalizeShortText(payload.bankName || payload.bank_name, 100);
+  const accountNumber = normalizeShortText(payload.accountNumber || payload.account_number, 60);
+  const branch = normalizeShortText(payload.branch, 100);
+  const transferPrefix = normalizeShortText(payload.transferPrefix || payload.transfer_prefix, 60);
+  const minDepositAmount = normalizeMoneyAmountInput(payload.minDepositAmount || payload.min_deposit_amount, 0);
+  const maxDepositAmount = normalizeMoneyAmountInput(payload.maxDepositAmount || payload.max_deposit_amount, 0);
+  const defaultDepositAmount = normalizeMoneyAmountInput(
+    payload.defaultDepositAmount || payload.default_deposit_amount,
+    0
+  );
+  const depositAmountOptions = normalizeDepositAmountOptionsInput(
+    payload.depositAmountOptions ?? payload.deposit_amount_options_json
+  );
+  const policyText = String(payload.policyText ?? payload.policy_text ?? '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map((line) => normalizeShortText(line, 700))
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 4000);
+  const holdHours = Number(payload.holdHours || payload.hold_hours || 0);
+  const requireTransferProof =
+    payload.requireTransferProof === true
+    || payload.require_transfer_proof === true
+    || Number(payload.requireTransferProof || payload.require_transfer_proof || 0) === 1;
+
+  if (accountName.length < 2) {
+    return { error: 'Vui lòng nhập tên chủ tài khoản nhận cọc.' };
+  }
+
+  if (bankName.length < 2) {
+    return { error: 'Vui lòng nhập tên ngân hàng nhận cọc.' };
+  }
+
+  if (accountNumber.length < 3) {
+    return { error: 'Vui lòng nhập số tài khoản nhận cọc hợp lệ.' };
+  }
+
+  if (transferPrefix.length < 2) {
+    return { error: 'Vui lòng nhập tiền tố nội dung chuyển khoản.' };
+  }
+
+  if (depositAmountOptions.length < 1) {
+    return { error: 'Vui lòng nhập ít nhất một mức đặt cọc hiển thị.' };
+  }
+
+  if (minDepositAmount < 100000) {
+    return { error: 'Số tiền đặt cọc tối thiểu phải từ 100.000 VNĐ trở lên.' };
+  }
+
+  if (maxDepositAmount < minDepositAmount) {
+    return { error: 'Số tiền đặt cọc tối đa phải lớn hơn hoặc bằng mức tối thiểu.' };
+  }
+
+  if (defaultDepositAmount < minDepositAmount || defaultDepositAmount > maxDepositAmount) {
+    return { error: 'Số tiền đặt cọc mặc định phải nằm trong khoảng tối thiểu và tối đa.' };
+  }
+
+  if (depositAmountOptions.some((amount) => amount < minDepositAmount || amount > maxDepositAmount)) {
+    return { error: 'Các mức đặt cọc hiển thị phải nằm trong khoảng tối thiểu và tối đa.' };
+  }
+
+  if (!Number.isFinite(holdHours) || holdHours < 1 || holdHours > 168) {
+    return { error: 'Thời gian giữ chỗ phải từ 1 đến 168 giờ.' };
+  }
+
+  if (policyText.length < 20) {
+    return { error: 'Vui lòng nhập chính sách đặt cọc tối thiểu 20 ký tự.' };
+  }
+
+  return {
+    settings: {
+      accountName,
+      bankName,
+      accountNumber,
+      branch,
+      transferPrefix,
+      depositAmountOptions,
+      defaultDepositAmount,
+      minDepositAmount,
+      maxDepositAmount,
+      holdHours: Math.trunc(holdHours),
+      requireTransferProof,
+      policyText,
+    },
+  };
+};
+
+const depositOrderStatusLabels = {
+  pending: 'Chờ xác nhận',
+  confirmed: 'Đã nhận tiền',
+  completed: 'Hoàn tất giao dịch',
+  cancelled_after_deposit: 'Hủy sau đặt cọc',
+  cancelled: 'Đã hủy',
+  expired: 'Quá hạn giữ chỗ',
+};
+
+const sendDepositOrderEmailNotification = (order, eventType = '') => {
+  const recipientEmail = String(order?.email || '').trim();
+
+  if (!order || !isValidEmail(recipientEmail)) {
+    return;
+  }
+
+  sendDepositOrderEmail({
+    to: recipientEmail,
+    order,
+    eventType,
+  }).catch((error) => {
+    console.error('Send deposit order email error:', error);
+  });
+};
+
+const refreshOverdueDepositOrders = () => {
+  try {
+    const remindedOrders = remindPendingDepositOrders();
+    const expiredOrders = expireOverdueDepositOrders();
+
+    remindedOrders.forEach((order) => {
+      sendDepositOrderEmailNotification(order, 'payment_reminder');
+    });
+
+    expiredOrders.forEach((order) => {
+      sendDepositOrderEmailNotification(order, 'expired');
+    });
+
+    return expiredOrders;
+  } catch (error) {
+    console.error('Expire overdue deposit orders error:', error);
+    return [];
+  }
 };
 
 const carBuyRequestBudgetRanges = new Set([
@@ -1079,6 +1719,747 @@ const validateConsultationRequestStatusPayload = (payload = {}) => {
   }
 
   return { statusUpdate: { status, statusNote } };
+};
+
+const validateDepositOrderPayload = (payload = {}) => {
+  const depositSettings = getActiveDepositPaymentSettings();
+  const normalizedOrder = {
+    carId: Number(payload.carId || 0),
+    fullName: normalizeShortText(payload.fullName, 120),
+    phone: normalizeShortText(payload.phone, 30),
+    email: normalizeShortText(payload.email, 160).toLowerCase(),
+    province: normalizeShortText(payload.province || payload.city, 120),
+    note: String(payload.note || '').trim().slice(0, 700),
+    depositAmount: Number(payload.depositAmount || payload.amount || 0),
+    paymentMethod: String(payload.paymentMethod || 'bank').trim().toLowerCase(),
+    bankTransferNote: normalizeShortText(payload.bankTransferNote || payload.transferNote, 120),
+  };
+  const acceptedDepositPolicy =
+    payload.acceptedDepositPolicy === true
+    || payload.accepted_deposit_policy === true
+    || Number(payload.acceptedDepositPolicy || payload.accepted_deposit_policy || 0) === 1;
+  const phoneDigits = normalizePhoneDigits(normalizedOrder.phone);
+  const hasValidPhoneFormat = /^\+?[0-9\s.-]{8,20}$/.test(normalizedOrder.phone);
+
+  if (!Number.isInteger(normalizedOrder.carId) || normalizedOrder.carId <= 0) {
+    return { error: 'Xe đặt cọc không hợp lệ.' };
+  }
+
+  if (normalizedOrder.fullName.length < 2) {
+    return { error: 'Vui lòng nhập họ và tên khách hàng.' };
+  }
+
+  if (
+    !normalizedOrder.phone
+    || !hasValidPhoneFormat
+    || phoneDigits.length < 8
+    || phoneDigits.length > 15
+  ) {
+    return { error: 'Số điện thoại liên hệ không hợp lệ.' };
+  }
+
+  if (normalizedOrder.email && !isValidEmail(normalizedOrder.email)) {
+    return { error: 'Email liên hệ không hợp lệ.' };
+  }
+
+  if (!acceptedDepositPolicy) {
+    return { error: 'Vui lòng đọc và đồng ý chính sách đặt cọc trước khi gửi đơn.' };
+  }
+
+  if (!depositOrderSupportedPaymentMethods.has(normalizedOrder.paymentMethod)) {
+    return { error: 'Phương thức thanh toán đặt cọc không hợp lệ.' };
+  }
+
+  if (normalizedOrder.paymentMethod === 'vnpay' && !isDepositVnpayReady()) {
+    return { error: 'VNPay sandbox chưa được cấu hình. Vui lòng chọn chuyển khoản ngân hàng hoặc liên hệ OkXe để được hỗ trợ.' };
+  }
+
+  if (
+    !Number.isFinite(normalizedOrder.depositAmount)
+    || normalizedOrder.depositAmount < depositSettings.minDepositAmount
+    || normalizedOrder.depositAmount > depositSettings.maxDepositAmount
+  ) {
+    return {
+      error: `Số tiền đặt cọc phải từ ${depositSettings.minDepositAmount.toLocaleString('vi-VN')} đến ${depositSettings.maxDepositAmount.toLocaleString('vi-VN')} VNĐ.`,
+    };
+  }
+
+  normalizedOrder.depositAmount = Math.trunc(normalizedOrder.depositAmount);
+  normalizedOrder.bankTransferNote = normalizedOrder.bankTransferNote
+    || createDepositTransferNote({
+      carId: normalizedOrder.carId,
+      phone: normalizedOrder.phone,
+    }, depositSettings);
+
+  return { order: normalizedOrder };
+};
+
+const normalizeDepositPaymentReceivedAt = (value) => {
+  const normalizedValue = String(value || '').trim().replace(' ', 'T');
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(normalizedValue);
+
+  if (!match) {
+    return '';
+  }
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText = '00'] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const parsedDate = new Date(year, month - 1, day, hour, minute, second);
+  const isValidDate =
+    parsedDate.getFullYear() === year
+    && parsedDate.getMonth() === month - 1
+    && parsedDate.getDate() === day
+    && parsedDate.getHours() === hour
+    && parsedDate.getMinutes() === minute
+    && parsedDate.getSeconds() === second;
+
+  if (!isValidDate) {
+    return '';
+  }
+
+  return `${yearText}-${monthText}-${dayText} ${hourText}:${minuteText}:${secondText}`;
+};
+
+const validateDepositOrderStatusPayload = (payload = {}) => {
+  const status = String(payload.status || '').trim().toLowerCase();
+  const statusNote = normalizeShortText(payload.statusNote || payload.reason || payload.note, 500);
+  const refundAmount = Math.max(
+    0,
+    Math.trunc(Number(String(payload.refundAmount ?? payload.refund_amount ?? 0).replace(/[^\d]/g, '')) || 0)
+  );
+  const refundReference = normalizeShortText(
+    payload.refundReference || payload.refund_reference || payload.refundTransactionCode,
+    120
+  );
+  const refundCompletedAt = normalizeDepositPaymentReceivedAt(
+    payload.refundCompletedAt || payload.refund_completed_at || payload.refundPaidAt
+  );
+  const refundNote = normalizeShortText(payload.refundNote || payload.refund_note, 500);
+  const paymentReference = normalizeShortText(
+    payload.paymentReference || payload.transactionReference || payload.bankTransactionCode,
+    120
+  );
+  const paymentReceivedAt = normalizeDepositPaymentReceivedAt(
+    payload.paymentReceivedAt || payload.receivedAt || payload.confirmedReceivedAt
+  );
+  const paymentConfirmationNote = normalizeShortText(
+    payload.paymentConfirmationNote || payload.confirmationNote || payload.internalNote,
+    500
+  );
+
+  if (!Object.prototype.hasOwnProperty.call(depositOrderStatusLabels, status)) {
+    return { error: 'Trạng thái đơn đặt cọc không hợp lệ.' };
+  }
+
+  if (status === 'confirmed' && paymentReference.length < 3) {
+    return { error: 'Vui lòng nhập mã giao dịch hoặc mã tham chiếu khi xác nhận đã nhận tiền.' };
+  }
+
+  if (status === 'confirmed' && !paymentReceivedAt) {
+    return { error: 'Vui lòng chọn thời gian nhận tiền hợp lệ.' };
+  }
+
+  if (status === 'cancelled' && statusNote.length < 3) {
+    return { error: 'Vui lòng nhập lý do khi hủy đơn đặt cọc.' };
+  }
+
+  if (status === 'cancelled_after_deposit' && statusNote.length < 3) {
+    return { error: 'Vui lòng nhập lý do khi hủy giao dịch sau đặt cọc.' };
+  }
+
+  if (status === 'cancelled_after_deposit' && refundAmount > 0 && refundReference.length < 3) {
+    return { error: 'Vui lòng nhập mã giao dịch hoàn cọc khi có số tiền hoàn.' };
+  }
+
+  if (status === 'cancelled_after_deposit' && refundAmount > 0 && !refundCompletedAt) {
+    return { error: 'Vui lòng chọn thời gian hoàn cọc hợp lệ.' };
+  }
+
+  return {
+    statusUpdate: {
+      status,
+      statusNote,
+      paymentReference,
+      paymentReceivedAt,
+      paymentConfirmationNote,
+      refundAmount,
+      refundReference,
+      refundCompletedAt,
+      refundNote,
+    },
+  };
+};
+
+const getDepositOrderIdFromPublicPayload = (payload = {}) => {
+  const rawOrderId = Number(payload.orderId || payload.id || 0);
+
+  if (Number.isInteger(rawOrderId) && rawOrderId > 0) {
+    return rawOrderId;
+  }
+
+  const rawCode = String(payload.orderCode || payload.code || '').trim();
+  const codeMatch = /^DC-(\d+)$/i.exec(rawCode);
+
+  return codeMatch ? Number(codeMatch[1]) : 0;
+};
+
+const validateDepositOrderStatusCheckPayload = (payload = {}) => {
+  const orderId = getDepositOrderIdFromPublicPayload(payload);
+  const phone = normalizeShortText(payload.phone, 30);
+  const phoneDigits = normalizePhoneDigits(phone);
+
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return { error: 'Mã đơn đặt cọc không hợp lệ.' };
+  }
+
+  if (!phoneDigits || phoneDigits.length < 8 || phoneDigits.length > 15) {
+    return { error: 'Số điện thoại kiểm tra đơn không hợp lệ.' };
+  }
+
+  return { statusCheck: { orderId, phoneDigits } };
+};
+
+const serializeDepositOrderHistoryForCustomer = (historyItems = []) =>
+  (Array.isArray(historyItems) ? historyItems : []).map((item) => ({
+    id: item.id,
+    previousStatus: item.previousStatus || '',
+    previousStatusLabel: item.previousStatus ? depositOrderStatusLabels[item.previousStatus] || item.previousStatus : '',
+    nextStatus: item.nextStatus,
+    nextStatusLabel: depositOrderStatusLabels[item.nextStatus] || item.nextStatus,
+    note: item.note,
+    actorName: item.actorName,
+    actionType: item.actionType,
+    createdAt: item.createdAt,
+  }));
+
+const serializeDepositBankInfoForCustomer = (settings = getActiveDepositPaymentSettings()) => ({
+  accountName: settings.accountName,
+  bankName: settings.bankName,
+  accountNumber: settings.accountNumber,
+  branch: settings.branch,
+  displayName: getDepositBankDisplayName(settings),
+});
+
+const serializeDepositOrderStatusForCustomer = (order) => ({
+  id: order.id,
+  code: order.code,
+  carId: order.carId,
+  carName: order.carName,
+  carBrand: order.carBrand,
+  depositAmount: order.depositAmount,
+  paymentMethod: order.paymentMethod,
+  bankTransferNote: order.bankTransferNote,
+  bank: serializeDepositBankInfoForCustomer(),
+  vnpayTxnRef: order.vnpayTxnRef,
+  vnpayTransactionNo: order.vnpayTransactionNo,
+  vnpayResponseCode: order.vnpayResponseCode,
+  vnpayTransactionStatus: order.vnpayTransactionStatus,
+  vnpayBankCode: order.vnpayBankCode,
+  vnpayCardType: order.vnpayCardType,
+  vnpayPayDate: order.vnpayPayDate,
+  vnpayConfirmedAt: order.vnpayConfirmedAt,
+  transferProofUrl: order.transferProofUrl,
+  transferProofFileName: order.transferProofFileName,
+  transferProofUploadedAt: order.transferProofUploadedAt,
+  status: order.status,
+  statusNote: order.statusNote,
+  paymentReference: order.paymentReference,
+  paymentReceivedAt: order.paymentReceivedAt,
+  paymentConfirmedAt: order.paymentConfirmedAt,
+  refundAmount: order.refundAmount,
+  refundReference: order.refundReference,
+  refundCompletedAt: order.refundCompletedAt,
+  refundNote: order.refundNote,
+  refundConfirmedByName: order.refundConfirmedByName,
+  refundConfirmedAt: order.refundConfirmedAt,
+  expiresAt: order.expiresAt,
+  expiredAt: order.expiredAt,
+  isOverdue: Boolean(order.isOverdue),
+  history: serializeDepositOrderHistoryForCustomer(order.history),
+  createdAt: order.createdAt,
+  updatedAt: order.updatedAt,
+});
+
+const serializeDepositOrderForCustomerAccount = (order) => ({
+  id: order.id,
+  code: order.code,
+  userId: order.userId,
+  carId: order.carId,
+  carName: order.carName,
+  carBrand: order.carBrand,
+  carPrice: order.carPrice,
+  carPriceValue: order.carPriceValue,
+  fullName: order.fullName,
+  phone: order.phone,
+  email: order.email,
+  province: order.province,
+  note: order.note,
+  depositAmount: order.depositAmount,
+  paymentMethod: order.paymentMethod,
+  bankTransferNote: order.bankTransferNote,
+  bank: serializeDepositBankInfoForCustomer(),
+  vnpayTxnRef: order.vnpayTxnRef,
+  vnpayTransactionNo: order.vnpayTransactionNo,
+  vnpayResponseCode: order.vnpayResponseCode,
+  vnpayTransactionStatus: order.vnpayTransactionStatus,
+  vnpayBankCode: order.vnpayBankCode,
+  vnpayCardType: order.vnpayCardType,
+  vnpayPayDate: order.vnpayPayDate,
+  vnpayPaymentUrl: order.vnpayPaymentUrl,
+  vnpayConfirmedAt: order.vnpayConfirmedAt,
+  transferProofUrl: order.transferProofUrl,
+  transferProofFileName: order.transferProofFileName,
+  transferProofUploadedAt: order.transferProofUploadedAt,
+  status: order.status,
+  statusNote: order.statusNote,
+  paymentReference: order.paymentReference,
+  paymentReceivedAt: order.paymentReceivedAt,
+  paymentConfirmedAt: order.paymentConfirmedAt,
+  refundAmount: order.refundAmount,
+  refundReference: order.refundReference,
+  refundCompletedAt: order.refundCompletedAt,
+  refundNote: order.refundNote,
+  refundConfirmedByName: order.refundConfirmedByName,
+  refundConfirmedAt: order.refundConfirmedAt,
+  expiresAt: order.expiresAt,
+  expiredAt: order.expiredAt,
+  isOverdue: Boolean(order.isOverdue),
+  history: serializeDepositOrderHistoryForCustomer(order.history),
+  createdAt: order.createdAt,
+  updatedAt: order.updatedAt,
+});
+
+const serializeDepositReceipt = (order) => {
+  const depositSettings = getActiveDepositPaymentSettings();
+  const carTitle = [order.carBrand, order.carName].filter(Boolean).join(' ') || 'Xe đặt cọc';
+  const depositAmount = Number(order.depositAmount || 0);
+  const carPriceValue = Number(order.carPriceValue || 0);
+
+  return {
+    receiptCode: `BN-${String(order.id).padStart(6, '0')}`,
+    orderCode: order.code,
+    issuedAt: order.paymentConfirmedAt || order.updatedAt || '',
+    status: order.status,
+    statusLabel: depositOrderStatusLabels[order.status] || depositOrderStatusLabels.pending,
+    customer: {
+      fullName: order.fullName,
+      phone: order.phone,
+      email: order.email,
+      province: order.province,
+    },
+    car: {
+      id: order.carId,
+      title: carTitle,
+      brand: order.carBrand,
+      name: order.carName,
+      priceText: order.carPrice,
+      priceValue: order.carPriceValue,
+    },
+    payment: {
+      depositAmount,
+      remainingAmount: carPriceValue > 0 ? Math.max(carPriceValue - depositAmount, 0) : null,
+      method: order.paymentMethod,
+      methodLabel: depositOrderPaymentMethodLabels[order.paymentMethod] || order.paymentMethod,
+      bankTransferNote: order.bankTransferNote,
+      paymentReference: order.paymentReference,
+      paymentReceivedAt: order.paymentReceivedAt,
+      paymentConfirmedAt: order.paymentConfirmedAt,
+      confirmedByName: order.paymentConfirmedByName || 'OkXe',
+      vnpayTxnRef: order.vnpayTxnRef,
+      vnpayTransactionNo: order.vnpayTransactionNo,
+      vnpayBankCode: order.vnpayBankCode,
+      vnpayCardType: order.vnpayCardType,
+      vnpayPayDate: order.vnpayPayDate,
+      transferProofUrl: order.transferProofUrl,
+      transferProofFileName: order.transferProofFileName,
+      transferProofUploadedAt: order.transferProofUploadedAt,
+    },
+    bank: {
+      accountName: depositSettings.accountName,
+      bankName: depositSettings.bankName,
+      accountNumber: depositSettings.accountNumber,
+      branch: depositSettings.branch,
+      displayName: getDepositBankDisplayName(depositSettings),
+    },
+    policyText: depositSettings.policyText || '',
+    note: order.statusNote || '',
+  };
+};
+
+const getConfirmedDepositReceiptOrError = (order) => {
+  if (!order) {
+    return { statusCode: 404, message: 'Không tìm thấy đơn đặt cọc.' };
+  }
+
+  if (!['confirmed', 'completed'].includes(String(order.status || '').trim().toLowerCase())) {
+    return {
+      statusCode: 409,
+      message: 'Biên nhận chỉ khả dụng sau khi OkXe xác nhận đã nhận tiền đặt cọc.',
+    };
+  }
+
+  return { receipt: serializeDepositReceipt(order) };
+};
+
+const normalizeVnpayCallbackQuery = (query = {}) =>
+  Object.entries(query).reduce((normalizedQuery, [key, value]) => {
+    normalizedQuery[key] = Array.isArray(value)
+      ? String(value[0] || '').trim()
+      : String(value || '').trim();
+    return normalizedQuery;
+  }, {});
+
+const buildVnpayPaymentReference = (params = {}) => {
+  const transactionNo = normalizeShortText(params.vnp_TransactionNo, 80);
+  const txnRef = normalizeShortText(params.vnp_TxnRef, 80);
+
+  return normalizeShortText(`VNPAY-${transactionNo || txnRef || Date.now()}`, 120);
+};
+
+const getVnpayCallbackPaymentNote = (params = {}) => {
+  const noteParts = [
+    `TxnRef: ${params.vnp_TxnRef || 'N/A'}`,
+    `TransactionNo: ${params.vnp_TransactionNo || 'N/A'}`,
+    `ResponseCode: ${params.vnp_ResponseCode || 'N/A'}`,
+    `TransactionStatus: ${params.vnp_TransactionStatus || 'N/A'}`,
+  ];
+
+  if (params.vnp_BankCode) {
+    noteParts.push(`Bank: ${params.vnp_BankCode}`);
+  }
+
+  if (params.vnp_CardType) {
+    noteParts.push(`CardType: ${params.vnp_CardType}`);
+  }
+
+  return normalizeShortText(`VNPay - ${noteParts.join(', ')}`, 500);
+};
+
+const updateDepositOrderFromVnpayCallback = (order, params = {}, source = 'return') => {
+  const callbackChanged =
+    String(order.vnpayResponseCode || '') !== String(params.vnp_ResponseCode || '')
+    || String(order.vnpayTransactionStatus || '') !== String(params.vnp_TransactionStatus || '')
+    || String(order.vnpayTransactionNo || '') !== String(params.vnp_TransactionNo || '')
+    || String(order.vnpayPayDate || '') !== String(params.vnp_PayDate || '');
+  const sourceLabel = source === 'ipn' ? 'IPN' : 'return';
+
+  return updateDepositOrderVnpayPayment(order.id, {
+    txnRef: params.vnp_TxnRef,
+    transactionNo: params.vnp_TransactionNo,
+    responseCode: params.vnp_ResponseCode,
+    transactionStatus: params.vnp_TransactionStatus,
+    bankCode: params.vnp_BankCode,
+    cardType: params.vnp_CardType,
+    payDate: params.vnp_PayDate,
+    historyNote: callbackChanged
+      ? `VNPay ${sourceLabel} trả kết quả ${params.vnp_ResponseCode || 'N/A'} / ${params.vnp_TransactionStatus || 'N/A'}.`
+      : '',
+    actionType: source === 'ipn' ? 'vnpay_ipn_received' : 'vnpay_return_received',
+  }) || order;
+};
+
+const processDepositVnpayCallback = (query = {}, source = 'return') => {
+  const params = normalizeVnpayCallbackQuery(query);
+
+  if (!verifyVnpayCallbackSignature(params)) {
+    return {
+      rspCode: '97',
+      status: 'invalid',
+      message: 'Invalid signature',
+      customerMessage: 'Kết quả VNPay không hợp lệ chữ ký. Vui lòng liên hệ OkXe để kiểm tra đơn.',
+    };
+  }
+
+  const orderId = getDepositOrderIdFromVnpayTxnRef(params.vnp_TxnRef);
+
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return {
+      rspCode: '99',
+      status: 'invalid',
+      message: 'Invalid order reference',
+      customerMessage: 'Mã đơn VNPay không hợp lệ. Vui lòng tra cứu lại đơn đặt cọc.',
+    };
+  }
+
+  const order = getDepositOrderById(orderId);
+
+  if (!order) {
+    return {
+      rspCode: '01',
+      status: 'not_found',
+      message: 'Order not found',
+      orderId,
+      customerMessage: 'Không tìm thấy đơn đặt cọc tương ứng với giao dịch VNPay.',
+    };
+  }
+
+  if (['confirmed', 'completed'].includes(String(order.status || '').trim().toLowerCase())) {
+    return {
+      rspCode: source === 'ipn' ? '02' : '00',
+      status: 'success',
+      message: source === 'ipn' ? 'Order already confirmed' : 'Confirm Success',
+      order,
+      alreadyConfirmed: true,
+      customerMessage: 'OkXe đã xác nhận nhận tiền đặt cọc qua VNPay.',
+    };
+  }
+
+  const callbackOrder = updateDepositOrderFromVnpayCallback(order, params, source);
+  const expectedAmount = Math.trunc(Number(order.depositAmount || 0) * 100);
+  const callbackAmount = Math.trunc(Number(params.vnp_Amount || 0));
+
+  if (callbackAmount !== expectedAmount) {
+    return {
+      rspCode: '04',
+      status: 'invalid_amount',
+      message: 'Invalid amount',
+      order: callbackOrder,
+      customerMessage: 'Số tiền VNPay trả về không khớp đơn đặt cọc. Vui lòng liên hệ OkXe để đối soát.',
+    };
+  }
+
+  if (String(order.paymentMethod || '').trim().toLowerCase() !== 'vnpay') {
+    return {
+      rspCode: '99',
+      status: 'invalid_method',
+      message: 'Order payment method is not VNPay',
+      order: callbackOrder,
+      customerMessage: 'Đơn đặt cọc này không dùng phương thức VNPay.',
+    };
+  }
+
+  const isPaymentSuccess =
+    params.vnp_ResponseCode === '00'
+    && (!params.vnp_TransactionStatus || params.vnp_TransactionStatus === '00');
+
+  if (!isPaymentSuccess) {
+    const cancelledNote = params.vnp_ResponseCode === '24'
+      ? 'Khách hàng đã hủy giao dịch trên cổng VNPay. Đơn đặt cọc được hủy, xe được mở lại nếu không còn đơn giữ chỗ khác.'
+      : `Thanh toán VNPay không thành công (${params.vnp_ResponseCode || 'N/A'} / ${params.vnp_TransactionStatus || 'N/A'}). Đơn đặt cọc được hủy, khách cần tạo đơn và thanh toán lại nếu vẫn muốn giữ xe.`;
+    const shouldCancelPendingOrder = String(callbackOrder.status || '').trim().toLowerCase() === 'pending';
+    const cancelledOrder = shouldCancelPendingOrder
+      ? updateDepositOrderStatus(order.id, {
+        status: 'cancelled',
+        statusNote: cancelledNote,
+        actorUser: {
+          id: 0,
+          fullName: 'VNPay',
+          email: '',
+        },
+        actionType: params.vnp_ResponseCode === '24'
+          ? 'vnpay_payment_cancelled'
+          : 'vnpay_payment_failed',
+      }) || callbackOrder
+      : callbackOrder;
+
+    if (shouldCancelPendingOrder) {
+      sendDepositOrderEmailNotification(cancelledOrder, 'cancelled');
+    }
+
+    return {
+      rspCode: '00',
+      status: params.vnp_ResponseCode === '24' ? 'cancelled' : 'failed',
+      message: 'Payment failed or cancelled',
+      order: cancelledOrder,
+      customerMessage: params.vnp_ResponseCode === '24'
+        ? 'Bạn đã hủy thanh toán VNPay. Đơn đặt cọc đã bị hủy, vui lòng tạo đơn mới nếu muốn giữ xe.'
+        : 'Thanh toán VNPay chưa thành công. Đơn đặt cọc đã bị hủy, vui lòng tạo đơn mới và thanh toán lại nếu vẫn muốn giữ xe.',
+    };
+  }
+
+  if (String(order.status || '').trim().toLowerCase() !== 'pending') {
+    return {
+      rspCode: '99',
+      status: 'invalid_status',
+      message: 'Order status cannot be confirmed',
+      order: callbackOrder,
+      customerMessage: 'Đơn đặt cọc không còn ở trạng thái chờ thanh toán.',
+    };
+  }
+
+  const paymentReceivedAt = parseVnpayDate(params.vnp_PayDate) || new Date().toISOString();
+  const paymentReference = buildVnpayPaymentReference(params);
+  const updatedOrder = updateDepositOrderStatus(order.id, {
+    status: 'confirmed',
+    statusNote: 'OkXe đã nhận tiền đặt cọc qua VNPay.',
+    paymentReference,
+    paymentReceivedAt,
+    paymentConfirmationNote: getVnpayCallbackPaymentNote(params),
+    confirmedByUser: {
+      id: 0,
+      fullName: 'VNPay',
+      email: '',
+    },
+    actorUser: {
+      id: 0,
+      fullName: 'VNPay',
+      email: '',
+    },
+    actionType: 'vnpay_payment_confirmed',
+  });
+
+  const confirmedOrder = updateDepositOrderVnpayPayment(order.id, {
+    confirmedAt: paymentReceivedAt,
+  }) || updatedOrder;
+
+  sendDepositOrderEmailNotification(confirmedOrder, 'confirmed');
+
+  return {
+    rspCode: '00',
+    status: 'success',
+    message: 'Confirm Success',
+    order: confirmedOrder,
+    customerMessage: 'OkXe đã xác nhận nhận tiền đặt cọc qua VNPay.',
+  };
+};
+
+const getDepositVnpayReturnRedirect = (result = {}) => {
+  const order = result.order || null;
+  const params = new URLSearchParams({
+    vnpayReturn: '1',
+    vnpayStatus: result.status || 'unknown',
+  });
+
+  if (order?.id || result.orderId) {
+    params.set('orderId', String(order?.id || result.orderId));
+  }
+
+  if (order?.code) {
+    params.set('orderCode', order.code);
+  }
+
+  if (result.customerMessage) {
+    params.set('message', result.customerMessage);
+  }
+
+  return `/thanh-toan-dat-coc?${params.toString()}`;
+};
+
+const depositVnpayMockScenarios = {
+  success: {
+    responseCode: '00',
+    transactionStatus: '00',
+    label: 'Giao dịch thành công',
+  },
+  insufficient: {
+    responseCode: '51',
+    transactionStatus: '02',
+    label: 'Thẻ không đủ số dư',
+  },
+  inactive: {
+    responseCode: '09',
+    transactionStatus: '02',
+    label: 'Thẻ chưa kích hoạt thanh toán trực tuyến',
+  },
+  locked: {
+    responseCode: '12',
+    transactionStatus: '02',
+    label: 'Thẻ/tài khoản bị khóa',
+  },
+  expired: {
+    responseCode: '54',
+    transactionStatus: '02',
+    label: 'Thẻ đã hết hạn',
+  },
+  cancelled: {
+    responseCode: '24',
+    transactionStatus: '02',
+    label: 'Khách hàng hủy giao dịch',
+  },
+  failed: {
+    responseCode: '99',
+    transactionStatus: '02',
+    label: 'Giao dịch không thành công',
+  },
+};
+
+const depositVnpayMockCardScenarios = {
+  9704198526191432198: 'success',
+  9704195798459170488: 'insufficient',
+  9704192181368742: 'inactive',
+  9704193370791314: 'locked',
+  9704194841945513: 'expired',
+};
+
+const getDepositVnpayMockScenario = (mockResult = 'success', cardNumber = '') => {
+  const normalizedCardNumber = String(cardNumber || '').replace(/\D/g, '');
+  const scenarioFromCard = depositVnpayMockCardScenarios[normalizedCardNumber] || '';
+  const normalizedResult = String(mockResult || '').trim().toLowerCase();
+  const scenarioKey = depositVnpayMockScenarios[normalizedResult]
+    ? normalizedResult
+    : scenarioFromCard || 'failed';
+
+  return depositVnpayMockScenarios[scenarioKey] || depositVnpayMockScenarios.failed;
+};
+
+const buildDepositVnpayMockCallbackUrl = (paymentParams = {}, mockResult = 'success', cardNumber = '') => {
+  const vnpayConfig = getDepositVnpayConfig();
+  const transactionNo = String(Date.now()).slice(-10);
+  const mockScenario = getDepositVnpayMockScenario(mockResult, cardNumber);
+  const isSuccess =
+    mockScenario.responseCode === '00'
+    && mockScenario.transactionStatus === '00';
+  const callbackParams = {
+    vnp_Amount: paymentParams.vnp_Amount,
+    vnp_BankCode: 'NCB',
+    vnp_BankTranNo: isSuccess ? `OKXEMOCK${transactionNo}` : '',
+    vnp_CardType: 'ATM',
+    vnp_OrderInfo: paymentParams.vnp_OrderInfo,
+    vnp_PayDate: formatVnpayDate(new Date()),
+    vnp_ResponseCode: mockScenario.responseCode,
+    vnp_TmnCode: paymentParams.vnp_TmnCode,
+    vnp_TransactionNo: isSuccess ? transactionNo : '',
+    vnp_TransactionStatus: mockScenario.transactionStatus,
+    vnp_TxnRef: paymentParams.vnp_TxnRef,
+  };
+  callbackParams.vnp_SecureHash = signVnpayParams(callbackParams, vnpayConfig.hashSecret);
+
+  return `${paymentParams.vnp_ReturnUrl || '/api/deposit-payment/vnpay/return'}?${stringifyVnpayParams(callbackParams)}`;
+};
+
+const createDepositTransferProofError = (message, statusCode = 400) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+const saveDepositTransferProofForOrder = (order, {
+  file = null,
+  actorUser = null,
+  actorName = '',
+  actorLabel = 'Khách hàng',
+  allowedStatuses = ['confirmed'],
+  note = '',
+} = {}) => {
+  if (!order) {
+    throw createDepositTransferProofError('Không tìm thấy đơn đặt cọc.', 404);
+  }
+
+  if (!file) {
+    throw createDepositTransferProofError('Vui lòng chọn ảnh biên lai/chứng từ chuyển khoản.');
+  }
+
+  const status = String(order.status || '').trim().toLowerCase();
+
+  if (!allowedStatuses.includes(status)) {
+    throw createDepositTransferProofError('Chỉ đơn đặt cọc đã được xác nhận nhận tiền mới được bổ sung biên lai chuyển khoản.', 409);
+  }
+
+  const transferProofUrl = saveUploadedDepositProof(file, `deposit-${order.code || order.id}`);
+
+  return updateDepositOrderTransferProof(order.id, {
+    transferProofUrl,
+    transferProofFileName: normalizeShortText(file.name || 'Biên lai chuyển khoản', 180),
+    actorUserId: actorUser?.id,
+    actorName: actorName || actorUser?.fullName || actorUser?.email || order.fullName,
+    actorLabel,
+    note,
+  });
 };
 
 const normalizeCarBuyRequestBudgetRange = (value) => {
@@ -1294,6 +2675,102 @@ const validateCarSellRequestRejectPayload = (payload = {}) => {
   }
 
   return { statusUpdate: { statusNote } };
+};
+
+const validateCarSellRequestApprovePayload = (payload = {}) => {
+  const statusNote = normalizeShortText(payload.statusNote || payload.note, 500);
+  const customerDealPriceText = normalizeShortText(
+    payload.customerDealPriceText || payload.customerPriceText || payload.purchasePriceText,
+    80
+  );
+  const customerDealPriceValue = normalizeMoneyAmountInput(
+    payload.customerDealPriceValue || payload.customerPriceValue || payload.purchasePriceValue,
+    0
+  );
+  const finalPriceText = normalizeShortText(
+    payload.finalPriceText || payload.salePriceText || payload.priceText,
+    80
+  );
+  const finalPriceValue = normalizeMoneyAmountInput(
+    payload.finalPriceValue || payload.salePriceValue || payload.priceValue,
+    0
+  );
+
+  if (customerDealPriceText.length < 2) {
+    return { error: 'Vui lòng nhập giá chốt với khách trước khi duyệt nhập kho.' };
+  }
+
+  if (!Number.isFinite(customerDealPriceValue) || customerDealPriceValue <= 0) {
+    return { error: 'Vui lòng nhập giá chốt với khách dạng số lớn hơn 0.' };
+  }
+
+  if (finalPriceText.length < 2) {
+    return { error: 'Vui lòng nhập giá bán trên hệ thống trước khi duyệt nhập kho.' };
+  }
+
+  if (!Number.isFinite(finalPriceValue) || finalPriceValue <= 0) {
+    return { error: 'Vui lòng nhập giá bán trên hệ thống dạng số lớn hơn 0.' };
+  }
+
+  return {
+    statusUpdate: {
+      statusNote,
+      customerDealPriceText,
+      customerDealPriceValue,
+      finalPriceText,
+      finalPriceValue,
+    },
+  };
+};
+
+const validateSalesKpiRecordPayload = (payload = {}) => {
+  const kpiType = String(payload.kpiType || payload.kpi_type || '').trim().toLowerCase();
+  const sourceId = Number(payload.sourceId || payload.source_id || 0);
+  const saleUserId = Number(payload.saleUserId || payload.sale_user_id || 0);
+  const rewardAmount = normalizeMoneyAmountInput(payload.rewardAmount || payload.reward_amount, 0);
+  const rewardStatus = String(payload.rewardStatus || payload.reward_status || 'pending').trim().toLowerCase();
+  const note = normalizeShortText(payload.note, 500);
+
+  if (!['acquisition', 'sale', 'direct_sale'].includes(kpiType)) {
+    return { error: 'Loại thành tích KPI không hợp lệ.' };
+  }
+
+  if (!Number.isInteger(sourceId) || sourceId <= 0) {
+    return { error: 'Vui lòng chọn giao dịch thành công để ghi nhận KPI.' };
+  }
+
+  if (!Number.isInteger(saleUserId) || saleUserId <= 0) {
+    return { error: 'Vui lòng chọn sale chịu trách nhiệm.' };
+  }
+
+  if (!Number.isFinite(rewardAmount) || rewardAmount < 0) {
+    return { error: 'Tiền thưởng KPI không hợp lệ.' };
+  }
+
+  if (!['pending', 'paid'].includes(rewardStatus)) {
+    return { error: 'Trạng thái thưởng KPI không hợp lệ.' };
+  }
+
+  return {
+    kpiRecord: {
+      kpiType,
+      sourceId,
+      saleUserId,
+      rewardAmount,
+      rewardStatus,
+      note,
+    },
+  };
+};
+
+const validateSalesKpiCancellationPayload = (payload = {}) => {
+  const cancellationNote = normalizeShortText(payload.cancellationNote || payload.cancellation_note || payload.note, 500);
+
+  if (cancellationNote.length < 3) {
+    return { error: 'Vui lòng nhập lý do hủy ghi nhận KPI.' };
+  }
+
+  return { cancellationNote };
 };
 
 const testDriveStatusLabels = {
@@ -1818,6 +3295,127 @@ app.patch('/api/auth/profile', requireUser, profileJsonParser, (req, res) => {
   }
 });
 
+app.post('/api/deposit-orders/:id/transfer-proof', depositOrderStatusCheckRateLimit, profileJsonParser, (req, res) => {
+  const orderId = Number(req.params.id);
+  const phoneDigits = normalizePhoneDigits(req.body?.phone || '');
+  const file = req.body?.file;
+
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    res.status(400).json({ message: 'Mã đơn đặt cọc không hợp lệ.' });
+    return;
+  }
+
+  if (!phoneDigits || phoneDigits.length < 8 || phoneDigits.length > 15) {
+    res.status(400).json({ message: 'Vui lòng nhập số điện thoại đã dùng khi đặt cọc.' });
+    return;
+  }
+
+  if (!file) {
+    res.status(400).json({ message: 'Vui lòng chọn ảnh chứng từ chuyển khoản.' });
+    return;
+  }
+
+  try {
+    refreshOverdueDepositOrders();
+    const order = getDepositOrderById(orderId);
+
+    if (!order || normalizePhoneDigits(order.phone) !== phoneDigits) {
+      res.status(404).json({ message: 'Không tìm thấy đơn đặt cọc khớp với số điện thoại này.' });
+      return;
+    }
+
+    if (String(order.status || '').trim().toLowerCase() !== 'confirmed') {
+      res.status(409).json({ message: 'Chỉ có thể tải biên lai cho đơn đã được xác nhận nhận tiền.' });
+      return;
+    }
+
+    const updatedOrder = saveDepositTransferProofForOrder(order, {
+      file,
+      actorName: order.fullName,
+      actorLabel: 'Khách hàng',
+    });
+
+    res.status(201).json({
+      message: 'Đã tải chứng từ chuyển khoản. Nhân viên OkXe sẽ đối chiếu và xác nhận.',
+      order: serializeDepositOrderStatusForCustomer(updatedOrder),
+    });
+  } catch (error) {
+    console.error('Upload deposit transfer proof error:', error);
+    res.status(400).json({ message: error.message || 'Không thể tải chứng từ chuyển khoản.' });
+  }
+});
+
+app.post('/api/deposit-orders/:id/transfer-proof/account', requireUser, profileJsonParser, (req, res) => {
+  const orderId = Number(req.params.id);
+
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    res.status(400).json({ message: 'Mã đơn đặt cọc không hợp lệ.' });
+    return;
+  }
+
+  try {
+    refreshOverdueDepositOrders();
+    const order = getDepositOrderById(orderId);
+
+    if (!order || Number(order.userId || 0) !== Number(req.user.id)) {
+      res.status(404).json({ message: 'Không tìm thấy đơn đặt cọc của bạn.' });
+      return;
+    }
+
+    const updatedOrder = saveDepositTransferProofForOrder(order, {
+      file: req.body?.file,
+      actorUser: req.user,
+      actorName: req.user.fullName || req.user.email || order.fullName,
+      actorLabel: 'Khách hàng',
+      allowedStatuses: ['confirmed'],
+    });
+
+    res.status(201).json({
+      message: 'Đã tải ảnh biên lai chuyển khoản cho đơn đặt cọc.',
+      order: serializeDepositOrderForCustomerAccount(updatedOrder),
+    });
+  } catch (error) {
+    console.error('Upload customer account deposit transfer proof error:', error);
+    res.status(error.statusCode || 400).json({ message: error.message || 'Không thể tải ảnh biên lai chuyển khoản.' });
+  }
+});
+
+app.post('/api/admin/deposit-orders/:id/transfer-proof', requireAdmin, profileJsonParser, (req, res) => {
+  const orderId = Number(req.params.id);
+
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    res.status(400).json({ message: 'Mã đơn đặt cọc không hợp lệ.' });
+    return;
+  }
+
+  try {
+    refreshOverdueDepositOrders();
+    const order = getDepositOrderById(orderId);
+
+    if (!order) {
+      res.status(404).json({ message: 'Không tìm thấy đơn đặt cọc.' });
+      return;
+    }
+
+    const updatedOrder = saveDepositTransferProofForOrder(order, {
+      file: req.body?.file,
+      actorUser: req.user,
+      actorName: req.user.fullName || req.user.email || 'Nhân viên OkXe',
+      actorLabel: 'Nhân viên OkXe',
+      allowedStatuses: ['confirmed'],
+      note: `Nhân viên OkXe tải biên lai chuyển khoản thay khách từ kênh nhắn tin/gửi ngoài hệ thống.`,
+    });
+
+    res.status(201).json({
+      message: 'Đã tải biên lai chuyển khoản cho đơn đặt cọc.',
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error('Upload admin deposit transfer proof error:', error);
+    res.status(error.statusCode || 400).json({ message: error.message || 'Không thể tải biên lai chuyển khoản.' });
+  }
+});
+
 app.use(express.json({ limit: '100kb' }));
 
 app.get('/api/site-config', (req, res) => {
@@ -1884,12 +3482,17 @@ app.get(['/dang-ky-lai-thu', '/dang-ky-lai-thu/', '/dang-ky-lai-thu.html'], (req
   sendPublicPage(res, publicPages.testDrive);
 });
 
+app.get(['/thanh-toan-dat-coc', '/thanh-toan-dat-coc/', '/thanh-toan-dat-coc.html'], (req, res) => {
+  sendPublicPage(res, publicPages.depositPayment);
+});
+
 app.get('/car-detail.html', (req, res) => {
   sendPublicPage(res, publicPages.carDetail);
 });
 
 app.get('/cars/:id', (req, res) => {
   const carId = Number(req.params.id);
+  refreshOverdueDepositOrders();
   const car = Number.isInteger(carId) ? getCarById(carId) : null;
 
   if (!car) {
@@ -1908,11 +3511,83 @@ app.get('/cars/:id', (req, res) => {
 app.use(express.static(publicPath, { index: false }));
 
 app.get('/api/cars', (req, res) => {
+  refreshOverdueDepositOrders();
   res.json({ cars: listCars() });
 });
 
 app.get('/api/admin/cars', requireAdmin, (req, res) => {
+  refreshOverdueDepositOrders();
   res.json({ cars: listAdminCars() });
+});
+
+app.get('/api/admin/notifications', requireAdmin, (req, res) => {
+  res.json({ notifications: listAdminNotifications() });
+});
+
+app.patch('/api/admin/notifications/read', requireAdmin, (req, res) => {
+  try {
+    const changedCount = markAllAdminNotificationsRead();
+
+    res.json({
+      message: 'Đã đánh dấu tất cả thông báo admin là đã đọc.',
+      changedCount,
+    });
+  } catch (dbError) {
+    console.error('Mark all admin notifications read error:', dbError);
+    res.status(500).json({ message: 'Không thể đánh dấu thông báo admin đã đọc lúc này.' });
+  }
+});
+
+app.patch('/api/admin/notifications/:id/read', requireAdmin, (req, res) => {
+  const notificationId = Number(req.params.id);
+
+  if (!Number.isFinite(notificationId)) {
+    res.status(400).json({ message: 'Mã thông báo admin không hợp lệ.' });
+    return;
+  }
+
+  try {
+    const notification = markAdminNotificationRead(notificationId);
+
+    if (!notification) {
+      res.status(404).json({ message: 'Không tìm thấy thông báo admin.' });
+      return;
+    }
+
+    res.json({
+      message: 'Đã đánh dấu thông báo admin là đã đọc.',
+      notification,
+    });
+  } catch (dbError) {
+    console.error('Mark admin notification read error:', dbError);
+    res.status(500).json({ message: 'Không thể đánh dấu thông báo admin đã đọc lúc này.' });
+  }
+});
+
+app.delete('/api/admin/notifications/:id', requireAdmin, (req, res) => {
+  const notificationId = Number(req.params.id);
+
+  if (!Number.isFinite(notificationId)) {
+    res.status(400).json({ message: 'Mã thông báo admin không hợp lệ.' });
+    return;
+  }
+
+  try {
+    const notification = deleteAdminNotification(notificationId);
+
+    if (!notification) {
+      res.status(404).json({ message: 'Không tìm thấy thông báo admin.' });
+      return;
+    }
+
+    res.json({
+      message: 'Đã xóa thông báo admin.',
+      notification,
+    });
+  } catch (dbError) {
+    console.error('Delete admin notification error:', dbError);
+    res.status(500).json({ message: 'Không thể xóa thông báo admin lúc này.' });
+  }
 });
 
 app.get('/api/team-members', (req, res) => {
@@ -1981,6 +3656,72 @@ app.get('/api/notifications/my', requireUser, (req, res) => {
   res.json({
     notifications: listUserNotificationsByUser(req.user.id),
   });
+});
+
+app.patch('/api/notifications/my/read', requireUser, (req, res) => {
+  try {
+    const changedCount = markAllUserNotificationsRead(req.user.id);
+
+    res.json({
+      message: 'Đã đánh dấu tất cả thông báo là đã đọc.',
+      changedCount,
+    });
+  } catch (dbError) {
+    console.error('Mark all user notifications read error:', dbError);
+    res.status(500).json({ message: 'Không thể đánh dấu thông báo đã đọc lúc này.' });
+  }
+});
+
+app.patch('/api/notifications/my/:id/read', requireUser, (req, res) => {
+  const notificationId = Number(req.params.id);
+
+  if (!Number.isFinite(notificationId)) {
+    res.status(400).json({ message: 'Mã thông báo không hợp lệ.' });
+    return;
+  }
+
+  try {
+    const notification = markUserNotificationRead(req.user.id, notificationId);
+
+    if (!notification) {
+      res.status(404).json({ message: 'Không tìm thấy thông báo của bạn.' });
+      return;
+    }
+
+    res.json({
+      message: 'Đã đánh dấu thông báo là đã đọc.',
+      notification,
+    });
+  } catch (dbError) {
+    console.error('Mark user notification read error:', dbError);
+    res.status(500).json({ message: 'Không thể đánh dấu thông báo đã đọc lúc này.' });
+  }
+});
+
+app.delete('/api/notifications/my/:id', requireUser, (req, res) => {
+  const notificationId = Number(req.params.id);
+
+  if (!Number.isFinite(notificationId)) {
+    res.status(400).json({ message: 'Mã thông báo không hợp lệ.' });
+    return;
+  }
+
+  try {
+    const notification = deleteUserNotificationForUser(req.user.id, notificationId);
+
+    if (!notification) {
+      res.status(404).json({ message: 'Không tìm thấy thông báo của bạn.' });
+      return;
+    }
+
+    res.json({
+      message: 'Đã xóa thông báo.',
+      notification,
+    });
+  } catch (dbError) {
+    console.error('Delete user notification error:', dbError);
+    res.status(500).json({ message: 'Không thể xóa thông báo lúc này.' });
+  }
 });
 
 app.get('/api/car-sell-requests/my', requireUser, (req, res) => {
@@ -2123,6 +3864,934 @@ app.post('/api/consultation-requests', consultationRequestRateLimit, (req, res) 
   }
 });
 
+app.get('/api/deposit-orders/my', requireUser, (req, res) => {
+  refreshOverdueDepositOrders();
+  res.json({
+    orders: listDepositOrdersByUser(req.user.id)
+      .map(serializeDepositOrderForCustomerAccount),
+  });
+});
+
+app.post('/api/deposit-orders/:id/vnpay/resume', depositOrderStatusCheckRateLimit, requireUser, (req, res) => {
+  const orderId = Number(req.params.id);
+
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    res.status(400).json({ message: 'Mã đơn đặt cọc không hợp lệ.' });
+    return;
+  }
+
+  try {
+    refreshOverdueDepositOrders();
+    const order = getDepositOrderById(orderId);
+
+    if (!order || Number(order.userId || 0) !== Number(req.user.id)) {
+      res.status(404).json({ message: 'Không tìm thấy đơn đặt cọc của bạn.' });
+      return;
+    }
+
+    if (String(order.paymentMethod || '').trim().toLowerCase() !== 'vnpay') {
+      res.status(409).json({ message: 'Đơn đặt cọc này không dùng phương thức thanh toán VNPay.' });
+      return;
+    }
+
+    if (String(order.status || '').trim().toLowerCase() !== 'pending') {
+      res.status(409).json({
+        message: 'Đơn đặt cọc này không còn ở trạng thái chờ thanh toán nên không thể tiếp tục thanh toán VNPay.',
+        order: serializeDepositOrderForCustomerAccount(order),
+      });
+      return;
+    }
+
+    const payment = createDepositVnpayPaymentUrl(order, req, { uniqueTxnRef: true });
+    const updatedOrder = updateDepositOrderVnpayPayment(order.id, {
+      txnRef: payment.txnRef,
+      paymentUrl: payment.paymentUrl,
+      historyNote: 'Khách hàng mở lại luồng thanh toán VNPay từ mục Quản lý đặt cọc.',
+      actionType: 'vnpay_payment_url_resumed',
+    }) || order;
+
+    res.json({
+      message: 'Đã tạo lại luồng thanh toán VNPay. Hệ thống sẽ chuyển bạn sang cổng thanh toán.',
+      order: serializeDepositOrderForCustomerAccount(updatedOrder),
+      payment,
+    });
+  } catch (error) {
+    if (error?.code === 'VNPAY_NOT_CONFIGURED') {
+      res.status(503).json({ message: error.message });
+      return;
+    }
+
+    console.error('Resume VNPay deposit payment error:', error);
+    res.status(500).json({ message: 'Không thể tiếp tục thanh toán VNPay lúc này.' });
+  }
+});
+
+app.get('/api/deposit-orders/:id/receipt', requireUser, (req, res) => {
+  const orderId = Number(req.params.id);
+
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    res.status(400).json({ message: 'Mã đơn đặt cọc không hợp lệ.' });
+    return;
+  }
+
+  try {
+    refreshOverdueDepositOrders();
+    const order = getDepositOrderById(orderId);
+
+    if (!order || Number(order.userId || 0) !== Number(req.user.id)) {
+      res.status(404).json({ message: 'Không tìm thấy đơn đặt cọc của bạn.' });
+      return;
+    }
+
+    const { receipt, statusCode, message } = getConfirmedDepositReceiptOrError(order);
+
+    if (!receipt) {
+      res.status(statusCode || 400).json({ message });
+      return;
+    }
+
+    res.json({ receipt });
+  } catch (dbError) {
+    console.error('Get customer deposit receipt error:', dbError);
+    res.status(500).json({ message: 'Không thể tải biên nhận đặt cọc lúc này.' });
+  }
+});
+
+app.get('/api/deposit-payment/config', (req, res) => {
+  res.json(serializeDepositPaymentConfig());
+});
+
+app.get('/api/deposit-payment/vnpay/mock-pay', (req, res) => {
+  const vnpayConfig = getDepositVnpayConfig();
+
+  if (!vnpayConfig.localMock) {
+    res.status(404).send('VNPay mock payment is disabled.');
+    return;
+  }
+
+  const paymentParams = normalizeVnpayCallbackQuery(req.query || {});
+  const mockResult = String(paymentParams.mockResult || '').trim().toLowerCase();
+  const mockCard = String(paymentParams.mockCard || '').trim();
+
+  delete paymentParams.mockResult;
+  delete paymentParams.mockCard;
+  delete paymentParams.mockMethod;
+
+  if (!verifyVnpayCallbackSignature(paymentParams)) {
+    res.status(400).send('Yêu cầu thanh toán test không hợp lệ chữ ký.');
+    return;
+  }
+
+  if (mockResult) {
+    res.redirect(buildDepositVnpayMockCallbackUrl(paymentParams, mockResult, mockCard));
+    return;
+  }
+
+  const currentUrl = new URL(req.originalUrl, getPublicBaseUrl(req));
+  currentUrl.searchParams.delete('mockResult');
+  currentUrl.searchParams.delete('mockCard');
+  currentUrl.searchParams.delete('mockMethod');
+  const successUrl = new URL(currentUrl.toString());
+  const failedUrl = new URL(currentUrl.toString());
+  const cancelledUrl = new URL(currentUrl.toString());
+  successUrl.searchParams.set('mockResult', 'success');
+  failedUrl.searchParams.set('mockResult', 'failed');
+  cancelledUrl.searchParams.set('mockResult', 'cancelled');
+  const displayAmount = (Number(paymentParams.vnp_Amount || 0) / 100).toLocaleString('vi-VN');
+  const expireDisplay = parseVnpayDate(paymentParams.vnp_ExpireDate) || paymentParams.vnp_ExpireDate || 'Theo cấu hình đơn hàng';
+
+  res.set('Cache-Control', 'no-store');
+  res.send(`<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VNPay sandbox demo - OkXe</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      color-scheme: light;
+      --ink: #07134d;
+      --muted: #667085;
+      --line: #dfe6f3;
+      --soft: #f6f8fc;
+      --blue: #123c9c;
+      --red: #ef2f2f;
+      --orange: #f15a29;
+      --green: #0a8f56;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #eef3ff 0%, #f8fafc 45%, #fff 100%);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 28px auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 22px 70px rgba(8, 21, 74, 0.14);
+      overflow: hidden;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 22px 26px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+    }
+    .mark {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--blue), var(--red));
+      font-weight: 900;
+      letter-spacing: 0;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 32px);
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-weight: 700;
+      line-height: 1.45;
+    }
+    .mode {
+      flex: 0 0 auto;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: var(--green);
+      background: #eafaf2;
+      font-size: 13px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .content {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      min-height: 620px;
+    }
+    aside {
+      padding: 26px;
+      background: #f9fbff;
+      border-right: 1px solid var(--line);
+    }
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--orange);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    h2 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+    .summary-list {
+      display: grid;
+      gap: 12px;
+      margin: 22px 0;
+    }
+    .summary-item {
+      padding: 14px;
+      border: 1px solid #e8edf7;
+      border-radius: 8px;
+      background: #fff;
+    }
+    dt {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    dd {
+      margin: 6px 0 0;
+      color: var(--ink);
+      font-size: 16px;
+      font-weight: 900;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+    }
+    .test-card {
+      margin-top: 18px;
+      padding: 14px;
+      border: 1px dashed #b9c6df;
+      border-radius: 8px;
+      background: #fff;
+      color: #3f4d75;
+      font-weight: 750;
+      line-height: 1.5;
+    }
+    .test-card strong {
+      color: var(--ink);
+      display: block;
+      margin-bottom: 6px;
+    }
+    .checkout {
+      padding: 26px;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .step {
+      min-height: 74px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--muted);
+      font-weight: 850;
+    }
+    .step-number {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      margin-bottom: 7px;
+      border-radius: 999px;
+      background: #eaf0fb;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 950;
+    }
+    .step.is-active {
+      border-color: #9ab2ee;
+      background: #f2f6ff;
+      color: var(--ink);
+    }
+    .step.is-done {
+      border-color: #b9ebd2;
+      background: #eefbf5;
+      color: var(--green);
+    }
+    .step.is-done .step-number {
+      background: var(--green);
+      color: #fff;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .panel[hidden] {
+      display: none;
+    }
+    .panel-head {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcff;
+    }
+    .panel-title {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 950;
+      line-height: 1.3;
+    }
+    .panel-copy {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-weight: 700;
+      line-height: 1.45;
+    }
+    .panel-body {
+      padding: 20px;
+    }
+    .method-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .method {
+      display: grid;
+      gap: 7px;
+      min-height: 120px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+    }
+    .method strong {
+      font-size: 16px;
+      line-height: 1.25;
+    }
+    .method span {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 750;
+      line-height: 1.4;
+    }
+    .method.is-active {
+      border-color: #8da8e9;
+      background: #f3f7ff;
+      box-shadow: inset 0 0 0 1px #8da8e9;
+    }
+    .method[disabled] {
+      cursor: not-allowed;
+      opacity: 0.56;
+    }
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    label {
+      display: grid;
+      gap: 7px;
+      color: #4b587c;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.35;
+    }
+    input,
+    select {
+      width: 100%;
+      min-height: 46px;
+      padding: 0 12px;
+      border: 1px solid #ccd6ea;
+      border-radius: 8px;
+      color: var(--ink);
+      background: #fff;
+      font: 800 15px/1.3 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      letter-spacing: 0;
+      outline: none;
+    }
+    input:focus,
+    select:focus {
+      border-color: #5179dc;
+      box-shadow: 0 0 0 3px rgba(81, 121, 220, 0.14);
+    }
+    .full {
+      grid-column: 1 / -1;
+    }
+    .hint {
+      margin: 10px 0 0;
+      color: #5d6d95;
+      font-size: 13px;
+      font-weight: 750;
+      line-height: 1.45;
+    }
+    .actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+    button,
+    .link-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 18px;
+      border: 0;
+      border-radius: 999px;
+      font: 900 15px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .primary {
+      color: #fff;
+      background: var(--orange);
+      box-shadow: 0 12px 28px rgba(241, 90, 41, 0.25);
+    }
+    .secondary {
+      color: var(--ink);
+      background: #eef3ff;
+    }
+    .danger {
+      color: #aa1e1e;
+      background: #fff1f1;
+    }
+    .error {
+      min-height: 20px;
+      margin: 12px 0 0;
+      color: #b42318;
+      font-weight: 850;
+      line-height: 1.4;
+    }
+    .otp-box {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 190px;
+      gap: 16px;
+      align-items: end;
+    }
+    .result-box {
+      padding: 22px;
+      border-radius: 8px;
+      background: #f3f7ff;
+      color: var(--ink);
+      font-weight: 800;
+      line-height: 1.55;
+    }
+    noscript nav {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    @media (max-width: 900px) {
+      .content { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      .steps,
+      .method-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      main { width: 100%; margin: 0; border-radius: 0; border-left: 0; border-right: 0; }
+      header { align-items: flex-start; flex-direction: column; padding: 18px; }
+      aside,
+      .checkout { padding: 18px; }
+      .steps,
+      .method-grid,
+      .field-grid,
+      .otp-box { grid-template-columns: 1fr; }
+      .actions { justify-content: stretch; }
+      button,
+      .link-button { width: 100%; }
+      noscript nav { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="brand">
+        <span class="mark">VN</span>
+        <div>
+          <h1>VNPay sandbox demo</h1>
+          <p class="subtitle">Luồng thanh toán đặt cọc OkXe qua cổng test nội bộ</p>
+        </div>
+      </div>
+      <div class="mode">TEST MODE</div>
+    </header>
+
+    <div class="content">
+      <aside>
+        <p class="eyebrow">Thông tin đơn hàng</p>
+        <h2>Đặt cọc giữ xe OkXe</h2>
+        <dl class="summary-list">
+          <div class="summary-item"><dt>Mã đơn</dt><dd>${escapeHtml(paymentParams.vnp_TxnRef || '')}</dd></div>
+          <div class="summary-item"><dt>Số tiền</dt><dd>${escapeHtml(displayAmount)} VNĐ</dd></div>
+          <div class="summary-item"><dt>Nội dung</dt><dd>${escapeHtml(paymentParams.vnp_OrderInfo || '')}</dd></div>
+          <div class="summary-item"><dt>Hết hạn</dt><dd>${escapeHtml(expireDisplay)}</dd></div>
+        </dl>
+        <div class="test-card">
+          <strong>Thẻ test thành công</strong>
+          Số thẻ: 9704198526191432198<br>
+          Tên chủ thẻ: NGUYEN VAN A<br>
+          Ngày phát hành: 07/15<br>
+          OTP: 123456
+        </div>
+      </aside>
+
+      <section class="checkout" aria-label="Thanh toán VNPay sandbox">
+        <div class="steps" aria-label="Các bước thanh toán">
+          <div class="step is-active" data-step="1"><span class="step-number">1</span><div>Kiểm tra đơn</div></div>
+          <div class="step" data-step="2"><span class="step-number">2</span><div>Nhập thông tin thẻ</div></div>
+          <div class="step" data-step="3"><span class="step-number">3</span><div>Xác thực OTP</div></div>
+          <div class="step" data-step="4"><span class="step-number">4</span><div>Trả kết quả</div></div>
+        </div>
+
+        <section class="panel" data-panel="1">
+          <div class="panel-head">
+            <p class="panel-title">Chọn phương thức thanh toán</p>
+            <p class="panel-copy">Màn này mô phỏng cổng VNPay sandbox để kiểm thử luồng tự động của website.</p>
+          </div>
+          <div class="panel-body">
+            <div class="method-grid">
+              <button class="method is-active" type="button" data-method="ncb">
+                <strong>Thẻ ATM NCB</strong>
+                <span>Hỗ trợ đầy đủ bước nhập thẻ và OTP trong bản demo.</span>
+              </button>
+              <button class="method" type="button" data-method="qr" disabled>
+                <strong>VNPay QR</strong>
+                <span>Sẽ dùng khi kết nối sandbox chính thức.</span>
+              </button>
+              <button class="method" type="button" data-method="card" disabled>
+                <strong>Thẻ quốc tế</strong>
+                <span>Sẽ dùng khi merchant được bật thêm kênh thẻ.</span>
+              </button>
+            </div>
+            <div class="actions">
+              <a class="link-button danger" href="${escapeHtml(cancelledUrl.toString())}">Hủy giao dịch</a>
+              <button class="primary" type="button" data-next-from-intro>Tiếp tục thanh toán</button>
+            </div>
+            <noscript>
+              <nav>
+                <a class="link-button primary" href="${escapeHtml(successUrl.toString())}">Thanh toán test thành công</a>
+                <a class="link-button danger" href="${escapeHtml(cancelledUrl.toString())}">Hủy giao dịch</a>
+              </nav>
+            </noscript>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="2" hidden>
+          <div class="panel-head">
+            <p class="panel-title">Thông tin thẻ thanh toán</p>
+            <p class="panel-copy">Dùng thẻ test để mô phỏng phản hồi của ngân hàng trong sandbox.</p>
+          </div>
+          <div class="panel-body">
+            <div class="field-grid">
+              <label class="full">
+                Kịch bản test
+                <select id="demo-scenario">
+                  <option value="success">Thành công - NCB</option>
+                  <option value="insufficient">Thất bại - Không đủ số dư</option>
+                  <option value="inactive">Thất bại - Thẻ chưa kích hoạt</option>
+                  <option value="locked">Thất bại - Thẻ bị khóa</option>
+                  <option value="expired">Thất bại - Thẻ hết hạn</option>
+                </select>
+              </label>
+              <label>
+                Số thẻ
+                <input id="card-number" inputmode="numeric" autocomplete="off" value="9704198526191432198">
+              </label>
+              <label>
+                Tên chủ thẻ
+                <input id="card-name" autocomplete="cc-name" value="NGUYEN VAN A">
+              </label>
+              <label>
+                Ngày phát hành
+                <input id="issue-date" autocomplete="off" value="07/15">
+              </label>
+              <label>
+                Ngân hàng
+                <input value="NCB" readonly>
+              </label>
+            </div>
+            <p class="hint" id="scenario-hint">Giao dịch sẽ trả về mã 00 và đơn đặt cọc được tự xác nhận đã nhận tiền.</p>
+            <p class="error" id="card-error" role="alert"></p>
+            <div class="actions">
+              <button class="secondary" type="button" data-back="1">Quay lại</button>
+              <button class="primary" type="button" id="continue-otp">Tiếp tục xác thực</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="3" hidden>
+          <div class="panel-head">
+            <p class="panel-title">Xác thực giao dịch</p>
+            <p class="panel-copy">Nhập OTP test để hoàn tất bước xác thực ngân hàng.</p>
+          </div>
+          <div class="panel-body">
+            <div class="otp-box">
+              <label>
+                Mã OTP
+                <input id="otp-code" inputmode="numeric" autocomplete="one-time-code" value="123456">
+              </label>
+              <button class="primary" type="button" id="confirm-payment">Xác nhận OTP</button>
+            </div>
+            <p class="hint">OTP thành công trong demo là 123456. Với kịch bản thất bại, cổng test sẽ trả mã lỗi tương ứng về website.</p>
+            <p class="error" id="otp-error" role="alert"></p>
+            <div class="actions">
+              <button class="secondary" type="button" data-back="2">Quay lại</button>
+              <a class="link-button danger" href="${escapeHtml(cancelledUrl.toString())}">Hủy giao dịch</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" data-panel="4" hidden>
+          <div class="panel-head">
+            <p class="panel-title">Đang trả kết quả về OkXe</p>
+            <p class="panel-copy">Website sẽ nhận callback, kiểm tra chữ ký và cập nhật trạng thái đơn đặt cọc.</p>
+          </div>
+          <div class="panel-body">
+            <div class="result-box">Vui lòng chờ trong giây lát, hệ thống đang chuyển kết quả thanh toán về trang đặt cọc.</div>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+  <script>
+    const successUrl = ${JSON.stringify(successUrl.toString())};
+    const failedUrl = ${JSON.stringify(failedUrl.toString())};
+    const scenarioData = {
+      success: {
+        card: '9704198526191432198',
+        issue: '07/15',
+        hint: 'Giao dịch sẽ trả về mã 00 và đơn đặt cọc được tự xác nhận đã nhận tiền.'
+      },
+      insufficient: {
+        card: '9704195798459170488',
+        issue: '07/15',
+        hint: 'Giao dịch sẽ trả về mã 51 để mô phỏng thẻ không đủ số dư.'
+      },
+      inactive: {
+        card: '9704192181368742',
+        issue: '07/15',
+        hint: 'Giao dịch sẽ trả về trạng thái thất bại do thẻ chưa kích hoạt thanh toán trực tuyến.'
+      },
+      locked: {
+        card: '9704193370791314',
+        issue: '07/15',
+        hint: 'Giao dịch sẽ trả về trạng thái thất bại do thẻ hoặc tài khoản bị khóa.'
+      },
+      expired: {
+        card: '9704194841945513',
+        issue: '07/15',
+        hint: 'Giao dịch sẽ trả về trạng thái thất bại do thẻ đã hết hạn.'
+      }
+    };
+    const panels = Array.from(document.querySelectorAll('[data-panel]'));
+    const steps = Array.from(document.querySelectorAll('[data-step]'));
+    const scenarioSelect = document.getElementById('demo-scenario');
+    const cardNumberInput = document.getElementById('card-number');
+    const cardNameInput = document.getElementById('card-name');
+    const issueDateInput = document.getElementById('issue-date');
+    const otpInput = document.getElementById('otp-code');
+    const scenarioHint = document.getElementById('scenario-hint');
+    const cardError = document.getElementById('card-error');
+    const otpError = document.getElementById('otp-error');
+
+    const setStep = (step) => {
+      panels.forEach((panel) => {
+        panel.hidden = Number(panel.dataset.panel) !== step;
+      });
+      steps.forEach((stepElement) => {
+        const stepNumber = Number(stepElement.dataset.step);
+        stepElement.classList.toggle('is-active', stepNumber === step);
+        stepElement.classList.toggle('is-done', stepNumber < step);
+      });
+    };
+
+    const syncScenario = () => {
+      const scenario = scenarioData[scenarioSelect.value] || scenarioData.success;
+      cardNumberInput.value = scenario.card;
+      cardNameInput.value = 'NGUYEN VAN A';
+      issueDateInput.value = scenario.issue;
+      scenarioHint.textContent = scenario.hint;
+      cardError.textContent = '';
+      otpError.textContent = '';
+    };
+
+    document.querySelector('[data-next-from-intro]').addEventListener('click', () => setStep(2));
+    document.querySelectorAll('[data-back]').forEach((button) => {
+      button.addEventListener('click', () => setStep(Number(button.dataset.back)));
+    });
+    scenarioSelect.addEventListener('change', syncScenario);
+
+    document.getElementById('continue-otp').addEventListener('click', () => {
+      const cardNumber = cardNumberInput.value.replace(/\\D/g, '');
+      const cardName = cardNameInput.value.trim();
+      const issueDate = issueDateInput.value.trim();
+      cardError.textContent = '';
+
+      if (cardNumber.length < 12 || cardNumber.length > 24) {
+        cardError.textContent = 'Vui lòng nhập số thẻ test hợp lệ.';
+        return;
+      }
+
+      if (!cardName) {
+        cardError.textContent = 'Vui lòng nhập tên chủ thẻ.';
+        return;
+      }
+
+      if (!/^\\d{2}\\/\\d{2}$/.test(issueDate)) {
+        cardError.textContent = 'Ngày phát hành cần có dạng MM/YY, ví dụ 07/15.';
+        return;
+      }
+
+      setStep(3);
+      otpInput.focus();
+    });
+
+    document.getElementById('confirm-payment').addEventListener('click', () => {
+      const selectedScenario = scenarioSelect.value || 'success';
+      const otpCode = otpInput.value.trim();
+      otpError.textContent = '';
+
+      if (selectedScenario === 'success' && otpCode !== '123456') {
+        otpError.textContent = 'OTP test chưa đúng. Vui lòng nhập 123456 để thanh toán thành công.';
+        return;
+      }
+
+      const target = new URL(selectedScenario === 'success' ? successUrl : failedUrl);
+      target.searchParams.set('mockResult', selectedScenario);
+      target.searchParams.set('mockCard', cardNumberInput.value.replace(/\\D/g, ''));
+      setStep(4);
+      window.location.href = target.toString();
+    });
+
+    syncScenario();
+  </script>
+</body>
+</html>`);
+});
+
+app.get('/api/deposit-payment/vnpay/return', (req, res) => {
+  try {
+    const result = processDepositVnpayCallback(req.query || {}, 'return');
+    res.redirect(getDepositVnpayReturnRedirect(result));
+  } catch (error) {
+    console.error('VNPay deposit return error:', error);
+    res.redirect(getDepositVnpayReturnRedirect({
+      status: 'error',
+      customerMessage: 'Không thể xử lý kết quả VNPay lúc này. Vui lòng tra cứu lại đơn hoặc liên hệ OkXe.',
+    }));
+  }
+});
+
+app.get('/api/deposit-payment/vnpay/ipn', (req, res) => {
+  try {
+    const result = processDepositVnpayCallback(req.query || {}, 'ipn');
+
+    res.json({
+      RspCode: result.rspCode || '99',
+      Message: result.message || 'Unknown',
+    });
+  } catch (error) {
+    console.error('VNPay deposit IPN error:', error);
+    res.json({
+      RspCode: '99',
+      Message: 'Unknown error',
+    });
+  }
+});
+
+app.post('/api/deposit-orders', depositOrderRateLimit, requireUser, (req, res) => {
+  const { order, error } = validateDepositOrderPayload(req.body || {});
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const createdOrder = createDepositOrder({
+      userId: req.user.id,
+      ...order,
+    });
+
+    if (!createdOrder) {
+      res.status(400).json({ message: 'Xe đã chọn không còn trong trạng thái còn xe hoặc không tồn tại.' });
+      return;
+    }
+
+    let orderForResponse = createdOrder;
+    let payment = null;
+    let message = 'OkXe đã nhận yêu cầu đặt cọc. Nhân viên sẽ kiểm tra và xác nhận trong thời gian sớm nhất.';
+
+    if (createdOrder.paymentMethod === 'vnpay') {
+      payment = createDepositVnpayPaymentUrl(createdOrder, req);
+      orderForResponse = updateDepositOrderVnpayPayment(createdOrder.id, {
+        txnRef: payment.txnRef,
+        paymentUrl: payment.paymentUrl,
+        historyNote: 'Đã tạo URL thanh toán VNPay sandbox cho khách.',
+        actionType: 'vnpay_payment_url_created',
+      }) || createdOrder;
+      message = 'OkXe đã tạo đơn đặt cọc. Hệ thống sẽ chuyển bạn sang VNPay sandbox để thanh toán tự động.';
+    }
+
+    sendDepositOrderEmailNotification(orderForResponse, 'created');
+
+    res.status(201).json({
+      message,
+      order: orderForResponse,
+      payment,
+    });
+  } catch (dbError) {
+    if (dbError?.code === 'DEPOSIT_CAR_ALREADY_HELD') {
+      res.status(409).json({
+        message: 'Xe này đang được giữ chỗ bởi một đơn đặt cọc khác. Vui lòng chọn xe khác hoặc liên hệ OkXe để được hỗ trợ.',
+      });
+      return;
+    }
+
+    console.error('Create deposit order error:', dbError);
+    res.status(500).json({ message: 'Không thể gửi yêu cầu đặt cọc lúc này.' });
+  }
+});
+
+app.post('/api/deposit-orders/status-check', depositOrderStatusCheckRateLimit, (req, res) => {
+  const { statusCheck, error } = validateDepositOrderStatusCheckPayload(req.body || {});
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    refreshOverdueDepositOrders();
+    const order = getDepositOrderById(statusCheck.orderId);
+
+    if (!order || normalizePhoneDigits(order.phone) !== statusCheck.phoneDigits) {
+      res.status(404).json({ message: 'Không tìm thấy đơn đặt cọc khớp với số điện thoại này.' });
+      return;
+    }
+
+    res.json({
+      order: serializeDepositOrderStatusForCustomer(order),
+      statuses: depositOrderStatusLabels,
+    });
+  } catch (dbError) {
+    console.error('Check deposit order status error:', dbError);
+    res.status(500).json({ message: 'Không thể kiểm tra trạng thái đơn đặt cọc lúc này.' });
+  }
+});
+
+app.post('/api/deposit-orders/receipt', depositOrderStatusCheckRateLimit, (req, res) => {
+  const { statusCheck, error } = validateDepositOrderStatusCheckPayload(req.body || {});
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    refreshOverdueDepositOrders();
+    const order = getDepositOrderById(statusCheck.orderId);
+
+    if (!order || normalizePhoneDigits(order.phone) !== statusCheck.phoneDigits) {
+      res.status(404).json({ message: 'Không tìm thấy đơn đặt cọc khớp với số điện thoại này.' });
+      return;
+    }
+
+    const { receipt, statusCode, message } = getConfirmedDepositReceiptOrError(order);
+
+    if (!receipt) {
+      res.status(statusCode || 400).json({ message });
+      return;
+    }
+
+    res.json({ receipt });
+  } catch (dbError) {
+    console.error('Get public deposit receipt error:', dbError);
+    res.status(500).json({ message: 'Không thể tải biên nhận đặt cọc lúc này.' });
+  }
+});
+
 app.get('/api/test-drive/cars', requireUser, (req, res) => {
   res.json({ cars: listAvailableTestDriveCars() });
 });
@@ -2194,6 +4863,7 @@ app.delete('/api/test-drive/appointments/:id', requireUser, (req, res) => {
 
 app.get('/api/cars/:id', (req, res) => {
   const carId = Number(req.params.id);
+  refreshOverdueDepositOrders();
   const car = getCarById(carId);
 
   if (!car) {
@@ -2298,7 +4968,19 @@ app.put('/api/cars/:id', requireAdmin, (req, res) => {
   }
 
   try {
-    const updatedCar = updateCar(carId, car);
+    refreshOverdueDepositOrders();
+    const lockedStatus = validateManualCarStatusChange(carId, car.actionText);
+
+    if (lockedStatus) {
+      res.status(lockedStatus.statusCode).json({
+        code: lockedStatus.code,
+        message: lockedStatus.message,
+        order: lockedStatus.order,
+      });
+      return;
+    }
+
+    const updatedCar = updateCar(carId, car, { actorUser: req.user });
 
     if (!updatedCar) {
       res.status(404).json({ message: 'Không tìm thấy xe để cập nhật.' });
@@ -2306,7 +4988,9 @@ app.put('/api/cars/:id', requireAdmin, (req, res) => {
     }
 
     res.json({
-      message: 'Cập nhật xe thành công.',
+      message: updatedCar.actionText === 'Xe đã bán'
+        ? 'Cập nhật xe thành công. Nếu đây là xe bán trực tiếp, giao dịch đã sẵn sàng để ghi nhận trong KPI.'
+        : 'Cập nhật xe thành công.',
       car: updatedCar,
     });
   } catch (dbError) {
@@ -2324,6 +5008,18 @@ app.delete('/api/cars/:id', requireAdmin, (req, res) => {
   }
 
   try {
+    refreshOverdueDepositOrders();
+    const lockedDelete = validateManualCarDelete(carId);
+
+    if (lockedDelete) {
+      res.status(lockedDelete.statusCode).json({
+        code: lockedDelete.code,
+        message: lockedDelete.message,
+        order: lockedDelete.order,
+      });
+      return;
+    }
+
     const deletedCar = deleteCar(carId);
 
     if (!deletedCar) {
@@ -2538,15 +5234,20 @@ app.get('/api/admin/car-sell-requests', requireAdmin, (req, res) => {
 
 app.patch('/api/admin/car-sell-requests/:id/approve', requireAdmin, (req, res) => {
   const requestId = Number(req.params.id);
-  const statusNote = normalizeShortText(req.body?.statusNote || req.body?.note, 500);
+  const { statusUpdate, error } = validateCarSellRequestApprovePayload(req.body || {});
 
   if (!Number.isFinite(requestId)) {
     res.status(400).json({ message: 'Mã thông tin đăng bán xe không hợp lệ.' });
     return;
   }
 
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
   try {
-    const result = approveCarSellRequest(requestId, { statusNote });
+    const result = approveCarSellRequest(requestId, statusUpdate);
 
     if (!result) {
       res.status(404).json({ message: 'Không tìm thấy thông tin đăng bán xe.' });
@@ -2560,6 +5261,16 @@ app.patch('/api/admin/car-sell-requests/:id/approve', requireAdmin, (req, res) =
     });
   } catch (dbError) {
     console.error('Approve car sell request error:', dbError);
+    if (
+      dbError?.code === 'CAR_SELL_CUSTOMER_DEAL_PRICE_TEXT_REQUIRED'
+      || dbError?.code === 'CAR_SELL_CUSTOMER_DEAL_PRICE_VALUE_REQUIRED'
+      ||
+      dbError?.code === 'CAR_SELL_FINAL_PRICE_TEXT_REQUIRED'
+      || dbError?.code === 'CAR_SELL_FINAL_PRICE_VALUE_REQUIRED'
+    ) {
+      res.status(400).json({ message: dbError.message });
+      return;
+    }
     res.status(500).json({ message: 'Không thể duyệt thông tin đăng bán xe lúc này.' });
   }
 });
@@ -2593,6 +5304,132 @@ app.patch('/api/admin/car-sell-requests/:id/reject', requireAdmin, (req, res) =>
   } catch (dbError) {
     console.error('Reject car sell request error:', dbError);
     res.status(500).json({ message: 'Không thể từ chối thông tin đăng bán xe lúc này.' });
+  }
+});
+
+app.get('/api/admin/sales-kpi-records', requireUserManager, (req, res) => {
+  const salesEmployees = listUsers()
+    .filter((user) => user.role === 'staff')
+    .map((user) => ({
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      phone: user.phone || '',
+      salesTitle: user.salesTitle || 'Nhân viên kinh doanh',
+    }));
+
+  res.json({
+    records: listSalesKpiRecords(),
+    stats: getSalesKpiStats(),
+    availableSources: listAvailableSalesKpiSources(),
+    salesEmployees,
+  });
+});
+
+app.post('/api/admin/sales-kpi-records', requireUserManager, (req, res) => {
+  const { kpiRecord, error } = validateSalesKpiRecordPayload(req.body || {});
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const record = createSalesKpiRecord({ ...kpiRecord, recordedByUser: req.user });
+
+    res.status(201).json({
+      message: 'Đã ghi nhận KPI cho sale.',
+      record,
+      stats: getSalesKpiStats(),
+    });
+  } catch (dbError) {
+    if (dbError?.code === 'SALES_KPI_DUPLICATED') {
+      res.status(409).json({ message: 'Giao dịch này đã được ghi nhận KPI trước đó.' });
+      return;
+    }
+
+    if (['SALES_KPI_SOURCE_INVALID', 'SALES_KPI_SOURCE_NOT_COMPLETED', 'SALES_KPI_SALE_INVALID'].includes(dbError?.code)) {
+      res.status(400).json({ message: dbError.message });
+      return;
+    }
+
+    console.error('Create sales KPI record error:', dbError);
+    res.status(500).json({ message: 'Không thể ghi nhận KPI lúc này.' });
+  }
+});
+
+app.patch('/api/admin/sales-kpi-records/:id', requireUserManager, (req, res) => {
+  const recordId = Number(req.params.id);
+  const { kpiRecord, error } = validateSalesKpiRecordPayload(req.body || {});
+
+  if (!Number.isInteger(recordId) || recordId <= 0) {
+    res.status(400).json({ message: 'Mã KPI không hợp lệ.' });
+    return;
+  }
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const record = updateSalesKpiRecord(recordId, kpiRecord);
+
+    if (!record) {
+      res.status(404).json({ message: 'Không tìm thấy KPI đang hoạt động để cập nhật.' });
+      return;
+    }
+
+    res.json({ message: 'Đã cập nhật KPI.', record, stats: getSalesKpiStats() });
+  } catch (dbError) {
+    if (dbError?.code === 'SALES_KPI_SALE_INVALID') {
+      res.status(400).json({ message: dbError.message });
+      return;
+    }
+
+    console.error('Update sales KPI record error:', dbError);
+    res.status(500).json({ message: 'Không thể cập nhật KPI lúc này.' });
+  }
+});
+
+app.patch('/api/admin/sales-kpi-records/:id/cancel', requireUserManager, (req, res) => {
+  const recordId = Number(req.params.id);
+  const { cancellationNote, error } = validateSalesKpiCancellationPayload(req.body || {});
+
+  if (!Number.isInteger(recordId) || recordId <= 0) {
+    res.status(400).json({ message: 'Mã KPI không hợp lệ.' });
+    return;
+  }
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const record = cancelSalesKpiRecord(recordId, {
+      cancellationNote,
+      cancelledByUser: req.user,
+    });
+
+    if (!record) {
+      res.status(404).json({ message: 'Không tìm thấy KPI đang hoạt động để hủy.' });
+      return;
+    }
+
+    res.json({
+      message: 'Đã hủy ghi nhận KPI và giữ lại lịch sử điều chỉnh.',
+      record,
+      stats: getSalesKpiStats(),
+    });
+  } catch (dbError) {
+    if (dbError?.code === 'SALES_KPI_CANCELLATION_NOTE_REQUIRED') {
+      res.status(400).json({ message: dbError.message });
+      return;
+    }
+
+    console.error('Cancel sales KPI record error:', dbError);
+    res.status(500).json({ message: 'Không thể hủy KPI lúc này.' });
   }
 });
 
@@ -2745,6 +5582,129 @@ app.delete('/api/admin/consultation-requests/:id', requireAdmin, (req, res) => {
   } catch (dbError) {
     console.error('Delete consultation request error:', dbError);
     res.status(500).json({ message: 'Không thể xóa yêu cầu tư vấn lúc này.' });
+  }
+});
+
+app.get('/api/admin/deposit-orders', requireAdmin, (req, res) => {
+  refreshOverdueDepositOrders();
+  res.json({
+    orders: listDepositOrders(),
+    paymentMethods: depositOrderPaymentMethodLabels,
+    statuses: depositOrderStatusLabels,
+  });
+});
+
+app.get('/api/admin/deposit-payment/config', requireAdmin, (req, res) => {
+  try {
+    res.json({
+      config: serializeDepositPaymentConfig(getActiveDepositPaymentSettings()),
+    });
+  } catch (dbError) {
+    console.error('Get admin deposit payment config error:', dbError);
+    res.status(500).json({ message: 'Không thể tải cấu hình đặt cọc lúc này.' });
+  }
+});
+
+app.patch('/api/admin/deposit-payment/config', requireAdmin, (req, res) => {
+  const { settings, error } = validateDepositPaymentSettingsPayload(req.body || {});
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    const updatedSettings = updateDepositPaymentSettings(settings, req.user);
+
+    res.json({
+      message: 'Đã lưu cấu hình thanh toán đặt cọc.',
+      config: serializeDepositPaymentConfig(updatedSettings),
+    });
+  } catch (dbError) {
+    console.error('Update admin deposit payment config error:', dbError);
+    res.status(500).json({ message: 'Không thể lưu cấu hình đặt cọc lúc này.' });
+  }
+});
+
+app.patch('/api/admin/deposit-orders/:id/status', requireAdmin, (req, res) => {
+  const orderId = Number(req.params.id);
+  const { statusUpdate, error } = validateDepositOrderStatusPayload(req.body || {});
+
+  if (!Number.isFinite(orderId)) {
+    res.status(400).json({ message: 'Mã đơn đặt cọc không hợp lệ.' });
+    return;
+  }
+
+  if (error) {
+    res.status(400).json({ message: error });
+    return;
+  }
+
+  try {
+    refreshOverdueDepositOrders();
+    const order = updateDepositOrderStatus(orderId, {
+      ...statusUpdate,
+      confirmedByUser: req.user,
+      actorUser: req.user,
+      actionType: statusUpdate.status === 'expired' ? 'manual_expired' : 'admin_status_update',
+    });
+
+    if (!order) {
+      res.status(404).json({ message: 'Không tìm thấy đơn đặt cọc.' });
+      return;
+    }
+
+    sendDepositOrderEmailNotification(order, order.status);
+
+    res.json({
+      message: `Cập nhật đơn đặt cọc: ${depositOrderStatusLabels[order.status]}.`,
+      order,
+    });
+  } catch (dbError) {
+    if (dbError?.code === 'DEPOSIT_CAR_ALREADY_HELD') {
+      const conflictCode = dbError.order?.code ? ` (${dbError.order.code})` : '';
+
+      res.status(409).json({
+        message: `Xe này đã có đơn đặt cọc khác đang giữ chỗ${conflictCode}. Vui lòng xử lý đơn đó trước.`,
+      });
+      return;
+    }
+
+    if (dbError?.code === 'DEPOSIT_ORDER_PAYMENT_NOT_CONFIRMED') {
+      res.status(409).json({
+        message: 'Chỉ có thể chốt giao dịch hoặc hủy sau đặt cọc khi đơn đã được xác nhận nhận tiền.',
+      });
+      return;
+    }
+
+    if (dbError?.code === 'DEPOSIT_ORDER_STATUS_TRANSITION_INVALID') {
+      const currentStatusLabel = depositOrderStatusLabels[dbError.currentStatus] || dbError.currentStatus || 'không xác định';
+      const nextStatusLabel = depositOrderStatusLabels[dbError.nextStatus] || dbError.nextStatus || 'không xác định';
+
+      res.status(409).json({
+        message: `Không thể chuyển đơn đặt cọc từ "${currentStatusLabel}" sang "${nextStatusLabel}". Vui lòng xử lý theo luồng: pending -> confirmed/cancelled/expired, confirmed -> completed/cancelled_after_deposit.`,
+      });
+      return;
+    }
+
+    if (dbError?.code === 'DEPOSIT_PAYMENT_REFERENCE_DUPLICATED') {
+      const conflictCode = dbError.order?.code ? ` (${dbError.order.code})` : '';
+
+      res.status(409).json({
+        message: `Mã giao dịch này đã được dùng cho đơn đặt cọc khác${conflictCode}. Vui lòng kiểm tra lại sao kê trước khi xác nhận.`,
+      });
+      return;
+    }
+
+    if (dbError?.code === 'DEPOSIT_REFUND_AMOUNT_EXCEEDED') {
+      res.status(400).json({
+        message: 'Số tiền hoàn cọc không được lớn hơn số tiền đặt cọc đã nhận.',
+      });
+      return;
+    }
+
+    console.error('Update deposit order status error:', dbError);
+    res.status(500).json({ message: 'Không thể cập nhật trạng thái đơn đặt cọc lúc này.' });
   }
 });
 
