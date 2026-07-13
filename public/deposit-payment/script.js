@@ -1321,7 +1321,7 @@ const setDepositWaitingState = (state = 'pending', message = '') => {
             depositWaitingMessage.textContent = message || 'Giao dịch sau đặt cọc đã hủy. Vui lòng liên hệ OkXe để được hỗ trợ chính sách hoàn cọc hoặc xử lý tiếp.';
         }
         if (depositWaitingHint) {
-            depositWaitingHint.textContent = 'Bạn có thể tra cứu lại đơn hoặc liên hệ nhân viên OkXe để được hỗ trợ.';
+            depositWaitingHint.textContent = 'Bạn có thể xem lại đơn trong mục Quản lý đặt cọc hoặc liên hệ nhân viên OkXe để được hỗ trợ.';
         }
         return;
     }
@@ -1359,7 +1359,7 @@ const setDepositWaitingState = (state = 'pending', message = '') => {
             depositWaitingMessage.textContent = message || 'Đơn đặt cọc đã quá hạn giữ chỗ. Vui lòng tạo đơn mới hoặc liên hệ OkXe để được hỗ trợ.';
         }
         if (depositWaitingHint) {
-            depositWaitingHint.textContent = 'Bạn có thể tra cứu lại đơn hoặc chọn xe khác nếu xe đã được mở bán.';
+            depositWaitingHint.textContent = 'Bạn có thể xem lại đơn trong mục Quản lý đặt cọc hoặc chọn xe khác nếu xe đã được mở bán.';
         }
         return;
     }
@@ -2116,10 +2116,9 @@ const handleVnpayReturnFromUrl = async () => {
 
     if (!orderId || !phone) {
         setFeedback(
-            returnMessage || 'VNPay đã trả kết quả. Vui lòng nhập mã đơn và số điện thoại để tra cứu trạng thái.',
+            returnMessage || 'VNPay đã trả kết quả. Vui lòng mở mục Quản lý đặt cọc trong tài khoản để xem trạng thái đơn.',
             vnpayStatus === 'success' ? 'success' : 'error'
         );
-        setLookupFeedback('Nhập số điện thoại đã đặt cọc rồi bấm tra cứu để kiểm tra kết quả VNPay.', 'error');
         return true;
     }
 

@@ -31,6 +31,9 @@ const adminNotificationStatus = document.querySelector('#admin-notification-stat
 const adminNotificationPanel = document.querySelector('#admin-notification-panel');
 const adminNotificationList = document.querySelector('#admin-notification-list');
 const adminNotificationCloseButtons = document.querySelectorAll('[data-close-admin-notifications]');
+const adminSidebar = document.querySelector('#admin-sidebar');
+const adminMobileMenuToggle = document.querySelector('#admin-mobile-menu-toggle');
+const adminSidebarOverlay = document.querySelector('#admin-sidebar-overlay');
 
 const employeeForm = document.querySelector('#employee-form');
 const employeeFormCard = document.querySelector('#employee-form-card');
@@ -249,6 +252,50 @@ const salesKpiStatAcquisition = document.querySelector('#sales-kpi-stat-acquisit
 const salesKpiStatSales = document.querySelector('#sales-kpi-stat-sales');
 const salesKpiStatSalesValue = document.querySelector('#sales-kpi-stat-sales-value');
 const salesKpiStatReward = document.querySelector('#sales-kpi-stat-reward');
+const salesKpiStatProfit = document.querySelector('#sales-kpi-stat-profit');
+const salesKpiStatMargin = document.querySelector('#sales-kpi-stat-margin');
+const salesKpiCompareSales = document.querySelector('#sales-kpi-compare-sales');
+const salesKpiCompareRevenue = document.querySelector('#sales-kpi-compare-revenue');
+const salesKpiCompareProfit = document.querySelector('#sales-kpi-compare-profit');
+const salesKpiFilterForm = document.querySelector('#sales-kpi-filter-form');
+const salesKpiFilterFrom = document.querySelector('#sales-kpi-filter-from');
+const salesKpiFilterTo = document.querySelector('#sales-kpi-filter-to');
+const salesKpiFilterSale = document.querySelector('#sales-kpi-filter-sale');
+const salesKpiFilterType = document.querySelector('#sales-kpi-filter-type');
+const salesKpiFilterReward = document.querySelector('#sales-kpi-filter-reward');
+const salesKpiResetFilter = document.querySelector('#sales-kpi-reset-filter');
+const salesKpiExportButton = document.querySelector('#sales-kpi-export-button');
+const salesKpiReportPeriodLabel = document.querySelector('#sales-kpi-report-period-label');
+const salesKpiDataWarning = document.querySelector('#sales-kpi-data-warning');
+const salesKpiAlertCount = document.querySelector('#sales-kpi-alert-count');
+const salesKpiAlertList = document.querySelector('#sales-kpi-alert-list');
+const salesKpiTrendChart = document.querySelector('#sales-kpi-trend-chart');
+const salesKpiRankingList = document.querySelector('#sales-kpi-ranking-list');
+const salesKpiRankingTabs = document.querySelectorAll('[data-kpi-ranking-mode]');
+const salesKpiSalesReportProgress = document.querySelector('#sales-kpi-sales-report-progress');
+const salesKpiSalesReportRevenue = document.querySelector('#sales-kpi-sales-report-revenue');
+const salesKpiSalesReportCommission = document.querySelector('#sales-kpi-sales-report-commission');
+const salesKpiAcquisitionReportPending = document.querySelector('#sales-kpi-acquisition-report-pending');
+const salesKpiAcquisitionReportRealized = document.querySelector('#sales-kpi-acquisition-report-realized');
+const salesKpiAcquisitionReportSpread = document.querySelector('#sales-kpi-acquisition-report-spread');
+const salesKpiAcquisitionReportReward = document.querySelector('#sales-kpi-acquisition-report-reward');
+const salesKpiTargetPeriod = document.querySelector('#sales-kpi-target-period');
+const salesKpiTargetTableBody = document.querySelector('#sales-kpi-target-table-body');
+const salesKpiTargetFeedback = document.querySelector('#sales-kpi-target-feedback');
+const salesKpiPeriodStatus = document.querySelector('#sales-kpi-period-status');
+const salesKpiPeriodLockButton = document.querySelector('#sales-kpi-period-lock-button');
+const salesKpiPolicyHistoryList = document.querySelector('#sales-kpi-policy-history-list');
+const carKpiSaleUserInput = document.querySelector('#car-kpi-sale-user');
+const salesKpiSummaryCard = document.querySelector('#sales-kpi-summary-card');
+const salesKpiSummaryPeriodLabel = document.querySelector('#sales-kpi-summary-period-label');
+const salesKpiSummaryEmployees = document.querySelector('#sales-kpi-summary-employees');
+const salesKpiSummarySales = document.querySelector('#sales-kpi-summary-sales');
+const salesKpiSummaryReward = document.querySelector('#sales-kpi-summary-reward');
+const salesKpiSummaryPaid = document.querySelector('#sales-kpi-summary-paid');
+const salesKpiSummaryOutstanding = document.querySelector('#sales-kpi-summary-outstanding');
+const salesKpiSummaryTableBody = document.querySelector('#sales-kpi-summary-table-body');
+const salesKpiSummaryExportButton = document.querySelector('#sales-kpi-summary-export');
+const salesKpiSummaryPrintButton = document.querySelector('#sales-kpi-summary-print');
 
 const totalCarsElement = document.querySelector('#stat-total-cars');
 const totalCarsDetailElement = document.querySelector('#stat-total-cars-detail');
@@ -280,6 +327,8 @@ let salesKpiRecords = [];
 let salesKpiSources = { acquisitions: [], sales: [] };
 let salesKpiEmployees = [];
 let salesKpiStats = {};
+let salesKpiReport = null;
+let activeSalesKpiRankingMode = 'sales';
 let editingSalesKpiRecordId = null;
 let adminNotifications = [];
 let currentAdminUser = null;
@@ -316,6 +365,12 @@ const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
     month: '2-digit',
     day: '2-digit'
 });
+const getLocalDateInputValue = (date = new Date()) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 const maxCarImages = 10;
 const maxUploadedImageSize = 5 * 1024 * 1024;
 const roleLabels = {
@@ -453,7 +508,8 @@ const depositOrderStatusTransitions = {
 };
 const getAllowedDepositOrderStatusOptions = (status) => {
     const normalizedStatus = String(status || 'pending').trim().toLowerCase();
-    const allowedNextStatuses = depositOrderStatusTransitions[normalizedStatus] || [];
+    const allowedNextStatuses = (depositOrderStatusTransitions[normalizedStatus] || [])
+        .filter((nextStatus) => isCurrentUserAdmin() || nextStatus !== 'cancelled_after_deposit');
 
     return new Set([normalizedStatus, ...allowedNextStatuses]);
 };
@@ -624,7 +680,7 @@ const setCarFormValue = (fieldName, value) => {
 const isAccountView = (viewName) => Object.prototype.hasOwnProperty.call(accountViews, viewName);
 const getActiveAccountConfig = () => accountViews[activeAccountView] || accountViews.staff;
 const canViewAccountView = (viewName) =>
-    viewName === 'customers' ? Boolean(currentAdminUser?.isAdmin) : isCurrentUserAdmin();
+    viewName === 'customers' ? Boolean(currentAdminUser?.canAccessAdmin) : isCurrentUserAdmin();
 const getCreateAccountButtonHtml = () => {
     const config = getActiveAccountConfig();
     return `<i class="bx bx-user-plus"></i><span>Tạo ${config.createLabel}</span>`;
@@ -1354,16 +1410,18 @@ const switchAdminView = (viewName) => {
         loadCarSellRequests();
     }
 
-    if (viewName === 'sales-kpi' && isCurrentUserAdmin()) {
+    if (viewName === 'sales-kpi') {
         loadSalesKpiRecords();
     }
+
+    closeAdminMobileMenu();
 };
 
 const syncCurrentAdminUser = async () => {
     try {
         const { response, data } = await requestJson('/api/auth/admin-me');
 
-        if (!response.ok || !data.user?.isAdmin) {
+        if (!response.ok || !data.user?.canAccessAdmin) {
             window.location.replace('/admin-login?login=required');
             return false;
         }
@@ -1835,6 +1893,38 @@ const uploadAdminDepositTransferProof = async (orderId, file) => {
 
     return data;
 };
+
+const isAdminMobileNavigation = () => window.matchMedia('(max-width: 960px)').matches;
+
+function openAdminMobileMenu() {
+    if (!adminSidebar || !adminMobileMenuToggle || !adminSidebarOverlay || !isAdminMobileNavigation()) {
+        return;
+    }
+
+    document.body.classList.add('admin-menu-open');
+    adminSidebarOverlay.hidden = false;
+    adminMobileMenuToggle.setAttribute('aria-expanded', 'true');
+    adminMobileMenuToggle.setAttribute('aria-label', 'Đóng danh mục quản trị');
+    adminMobileMenuToggle.querySelector('i')?.classList.replace('bx-menu', 'bx-x');
+    adminSidebar.querySelector('[data-admin-nav]:not([hidden])')?.focus();
+}
+
+function closeAdminMobileMenu({ restoreFocus = false } = {}) {
+    if (!adminMobileMenuToggle || !adminSidebarOverlay) {
+        return;
+    }
+
+    const wasOpen = document.body.classList.contains('admin-menu-open');
+    document.body.classList.remove('admin-menu-open');
+    adminSidebarOverlay.hidden = true;
+    adminMobileMenuToggle.setAttribute('aria-expanded', 'false');
+    adminMobileMenuToggle.setAttribute('aria-label', 'Mở danh mục quản trị');
+    adminMobileMenuToggle.querySelector('i')?.classList.replace('bx-x', 'bx-menu');
+
+    if (restoreFocus && wasOpen) {
+        adminMobileMenuToggle.focus();
+    }
+}
 
 const uploadPromotionImage = async (file) => {
     if (!file.type.startsWith('image/')) {
@@ -2409,6 +2499,7 @@ const resetFormState = (shouldClose = true) => {
 
     carForm.reset();
     carIdInput.value = '';
+    if (carKpiSaleUserInput) carKpiSaleUserInput.value = '';
     setCarImages([]);
     if (carImagesInput) {
         carImagesInput.value = '';
@@ -2447,6 +2538,7 @@ const fillForm = (car) => {
     setCarFormValue('condition', car.condition);
     carForm.elements.color.value = car.color;
     setCarFormValue('actionText', car.actionText);
+    loadSalesKpiAssignees(carKpiSaleUserInput, 'direct_sale');
 
     submitButton.textContent = 'Cập nhật xe';
     formTitle.textContent = `Chỉnh sửa: ${car.name}`;
@@ -2666,9 +2758,9 @@ const renderCars = () => {
                         <button type="button" class="icon-btn icon-btn--edit" data-edit-car="${escapeHtml(car.id)}" aria-label="Sửa ${escapeHtml(carTitle)}" title="Sửa xe">
                             <i class="bx bx-pencil"></i>
                         </button>
-                        <button type="button" class="icon-btn icon-btn--delete" data-delete-car="${escapeHtml(car.id)}" aria-label="Xóa ${escapeHtml(carTitle)}" title="Xóa xe">
+                        ${isCurrentUserAdmin() ? `<button type="button" class="icon-btn icon-btn--delete" data-delete-car="${escapeHtml(car.id)}" aria-label="Xóa ${escapeHtml(carTitle)}" title="Xóa xe">
                             <i class="bx bx-trash"></i>
-                        </button>
+                        </button>` : ''}
                     </div>
                 </td>
             </tr>
@@ -2788,20 +2880,20 @@ const renderPromotions = () => {
                     </div>
                 </td>
                 <td>
-                    <button type="button" class="homepage-toggle${promotion.showOnHome ? ' is-active' : ''}" data-toggle-promotion="${promotion.id}" aria-pressed="${promotion.showOnHome ? 'true' : 'false'}">
+                    ${isCurrentUserAdmin() ? `<button type="button" class="homepage-toggle${promotion.showOnHome ? ' is-active' : ''}" data-toggle-promotion="${promotion.id}" aria-pressed="${promotion.showOnHome ? 'true' : 'false'}">
                         <i class="bx ${promotion.showOnHome ? 'bxs-star' : 'bx-star'}" aria-hidden="true"></i>
                         <span>${promotion.showOnHome ? 'Đang hiển thị' : 'Ẩn'}</span>
-                    </button>
+                    </button>` : `<span class="readonly-badge">${promotion.showOnHome ? 'Đang hiển thị' : 'Đang ẩn'}</span>`}
                     <span class="homepage-order">Thứ tự ${Number(promotion.displayOrder || 0)}</span>
                 </td>
                 <td>
                     <div class="table-actions">
-                        <button type="button" class="icon-btn icon-btn--edit" data-edit-promotion="${promotion.id}" aria-label="Sửa ${escapeHtml(promotion.title)}">
+                        ${isCurrentUserAdmin() ? `<button type="button" class="icon-btn icon-btn--edit" data-edit-promotion="${promotion.id}" aria-label="Sửa ${escapeHtml(promotion.title)}">
                             <i class="bx bx-pencil"></i>
                         </button>
                         <button type="button" class="icon-btn icon-btn--delete" data-delete-promotion="${promotion.id}" aria-label="Xóa ${escapeHtml(promotion.title)}">
                             <i class="bx bx-trash"></i>
-                        </button>
+                        </button>` : '<span class="readonly-badge">Chỉ xem</span>'}
                     </div>
                 </td>
             </tr>
@@ -2960,26 +3052,26 @@ const renderBlogPosts = () => {
                     </div>
                 </td>
                 <td>
-                    <button type="button" class="homepage-toggle${post.showOnHome ? ' is-active' : ''}" data-toggle-blog-home="${post.id}" aria-pressed="${post.showOnHome ? 'true' : 'false'}">
+                    ${isCurrentUserAdmin() ? `<button type="button" class="homepage-toggle${post.showOnHome ? ' is-active' : ''}" data-toggle-blog-home="${post.id}" aria-pressed="${post.showOnHome ? 'true' : 'false'}">
                         <i class="bx ${post.showOnHome ? 'bxs-home' : 'bx-home-alt'}" aria-hidden="true"></i>
                         <span>${post.showOnHome ? 'Đang ở Home' : 'Đưa lên Home'}</span>
-                    </button>
+                    </button>` : `<span class="readonly-badge">${post.showOnHome ? 'Đang ở Home' : 'Không ở Home'}</span>`}
                 </td>
                 <td>
-                    <button type="button" class="homepage-toggle${post.featured ? ' is-active' : ''}" data-toggle-blog-featured="${post.id}" aria-pressed="${post.featured ? 'true' : 'false'}">
+                    ${isCurrentUserAdmin() ? `<button type="button" class="homepage-toggle${post.featured ? ' is-active' : ''}" data-toggle-blog-featured="${post.id}" aria-pressed="${post.featured ? 'true' : 'false'}">
                         <i class="bx ${post.featured ? 'bxs-star' : 'bx-star'}" aria-hidden="true"></i>
                         <span>${post.featured ? 'Đang nổi bật' : 'Đưa nổi bật'}</span>
-                    </button>
+                    </button>` : `<span class="readonly-badge">${post.featured ? 'Nổi bật' : 'Thông thường'}</span>`}
                     <span class="homepage-order">Thứ tự ${Number(post.displayOrder || 0)}</span>
                 </td>
                 <td>
                     <div class="table-actions">
-                        <button type="button" class="icon-btn icon-btn--edit" data-edit-blog-post="${post.id}" aria-label="Sửa ${escapeHtml(post.title)}" title="Sửa bài">
+                        ${isCurrentUserAdmin() ? `<button type="button" class="icon-btn icon-btn--edit" data-edit-blog-post="${post.id}" aria-label="Sửa ${escapeHtml(post.title)}" title="Sửa bài">
                             <i class="bx bx-pencil"></i>
                         </button>
                         <button type="button" class="icon-btn icon-btn--delete" data-delete-blog-post="${post.id}" aria-label="Xóa ${escapeHtml(post.title)}" title="Xóa bài">
                             <i class="bx bx-trash"></i>
-                        </button>
+                        </button>` : '<span class="readonly-badge">Chỉ xem</span>'}
                     </div>
                 </td>
             </tr>
@@ -3496,7 +3588,6 @@ const openDepositOrderStatusPanel = (order) => {
     const carTitle = getDisplayCarTitle(order.carBrand, order.carName, 'Xe đặt cọc');
 
     activeDepositOrderId = order.id;
-
     if (depositOrderStatusTitle) {
         depositOrderStatusTitle.textContent = `Cập nhật ${order.code || `#${order.id}`}`;
     }
@@ -3695,7 +3786,6 @@ const openCarSellRequestStatusPanel = (request) => {
     }
 
     activeCarSellRequestId = request.id;
-
     if (carSellRequestStatusTitle) {
         carSellRequestStatusTitle.textContent = `Xử lý ${request.code || `#${request.id}`}`;
     }
@@ -3844,9 +3934,9 @@ const renderTestDriveAppointmentRows = (appointments = [], emptyMessage = 'Chưa
                         <button type="button" class="icon-btn icon-btn--edit" data-edit-test-drive-status="${appointment.id}" aria-label="Cập nhật trạng thái lịch hẹn #${appointment.id}" title="Cập nhật trạng thái">
                             <i class="bx bx-edit-alt"></i>
                         </button>
-                        <button type="button" class="icon-btn icon-btn--delete" data-delete-test-drive="${appointment.id}" aria-label="Xóa lịch hẹn #${appointment.id}" title="Xóa lịch hẹn">
+                        ${isCurrentUserAdmin() ? `<button type="button" class="icon-btn icon-btn--delete" data-delete-test-drive="${appointment.id}" aria-label="Xóa lịch hẹn #${appointment.id}" title="Xóa lịch hẹn">
                             <i class="bx bx-trash"></i>
-                        </button>
+                        </button>` : ''}
                     </div>
                 </td>
             </tr>
@@ -4097,9 +4187,9 @@ const renderConsultationRequests = () => {
                         <button type="button" class="icon-btn icon-btn--neutral" data-view-consultation="${escapeHtml(request.id)}" aria-label="Xem yêu cầu tư vấn #${escapeHtml(request.id)}" title="Xem chi tiết">
                             <i class="bx bx-show"></i>
                         </button>
-                        <button type="button" class="icon-btn icon-btn--delete" data-delete-consultation="${escapeHtml(request.id)}" aria-label="Xóa yêu cầu tư vấn #${escapeHtml(request.id)}" title="Xóa yêu cầu">
+                        ${isCurrentUserAdmin() ? `<button type="button" class="icon-btn icon-btn--delete" data-delete-consultation="${escapeHtml(request.id)}" aria-label="Xóa yêu cầu tư vấn #${escapeHtml(request.id)}" title="Xóa yêu cầu">
                             <i class="bx bx-trash"></i>
-                        </button>
+                        </button>` : ''}
                     </div>
                 </td>
             </tr>
@@ -5336,15 +5426,15 @@ const renderCarBuyRequests = () => {
                 </td>
                 <td>
                     <div class="table-actions">
-                        <button type="button" class="icon-btn icon-btn--edit" data-edit-car-buy-request-status="${escapeHtml(request.id)}" aria-label="Cập nhật trạng thái tin mua xe #${escapeHtml(request.id)}" title="Cập nhật trạng thái">
+                        ${isCurrentUserAdmin() ? `<button type="button" class="icon-btn icon-btn--edit" data-edit-car-buy-request-status="${escapeHtml(request.id)}" aria-label="Cập nhật trạng thái tin mua xe #${escapeHtml(request.id)}" title="Cập nhật trạng thái">
                             <i class="bx bx-edit-alt"></i>
-                        </button>
+                        </button>` : ''}
                         <button type="button" class="icon-btn icon-btn--neutral" data-view-car-buy-request="${escapeHtml(request.id)}" aria-label="Xem tin mua xe #${escapeHtml(request.id)}" title="Xem chi tiết">
                             <i class="bx bx-show"></i>
                         </button>
-                        <button type="button" class="icon-btn icon-btn--delete" data-delete-car-buy-request="${escapeHtml(request.id)}" aria-label="Xóa tin mua xe #${escapeHtml(request.id)}" title="Xóa tin">
+                        ${isCurrentUserAdmin() ? `<button type="button" class="icon-btn icon-btn--delete" data-delete-car-buy-request="${escapeHtml(request.id)}" aria-label="Xóa tin mua xe #${escapeHtml(request.id)}" title="Xóa tin">
                             <i class="bx bx-trash"></i>
-                        </button>
+                        </button>` : ''}
                     </div>
                 </td>
             </tr>
@@ -5669,7 +5759,7 @@ const renderCarSellRequests = () => {
                                 <i class="bx bx-phone-call"></i>
                             </a>
                         ` : ''}
-                        ${status === 'pending' ? `
+                        ${status === 'pending' && isCurrentUserAdmin() ? `
                             <button type="button" class="icon-btn icon-btn--edit" data-edit-car-sell-request-status="${escapeHtml(request.id)}" aria-label="Xử lý đăng bán xe #${escapeHtml(request.id)}" title="Duyệt hoặc từ chối">
                                 <i class="bx bx-check-shield"></i>
                             </button>
@@ -5725,6 +5815,29 @@ const getSalesKpiTypeLabel = (type) =>
         direct_sale: 'Bán trực tiếp tại cửa hàng'
     }[String(type || '').trim().toLowerCase()] || 'Bán xe thành công');
 
+const loadSalesKpiAssignees = async (select, type) => {
+    if (!select) return [];
+    const currentValue = String(select.value || '');
+    select.disabled = true;
+    select.innerHTML = '<option value="">Đang tải nhân viên phù hợp...</option>';
+    try {
+        const params = new URLSearchParams({ type, businessDate: getLocalDateInputValue() });
+        const { response, data } = await requestJson(`/api/admin/sales-kpi-assignees?${params}`);
+        if (!response.ok) throw new Error(data.message || 'Không thể tải nhân viên KPI.');
+        const options = data.employees || [];
+        select.innerHTML = ['<option value="">Chọn nhân viên phụ trách</option>', ...options.map((employee) =>
+            `<option value="${escapeHtml(employee.id)}">${escapeHtml(employee.fullName || employee.email)} · ${escapeHtml(getSalesKpiRoleLabel(employee.policy?.kpiRole))}</option>`
+        )].join('');
+        if (options.some((employee) => String(employee.id) === currentValue)) select.value = currentValue;
+        select.disabled = data.periodControl?.status === 'locked';
+        if (!options.length) select.innerHTML = '<option value="">Chưa có chính sách phù hợp trong kỳ</option>';
+        return options;
+    } catch (error) {
+        select.innerHTML = `<option value="">${escapeHtml(error.message || 'Không tải được nhân viên')}</option>`;
+        return [];
+    }
+};
+
 const getSalesKpiSourcesForType = () => {
     const type = String(salesKpiTypeInput?.value || 'acquisition').trim().toLowerCase();
     const sourceGroups = {
@@ -5778,13 +5891,43 @@ const renderSalesKpiSourceOptions = () => {
 const renderSalesKpiSaleOptions = () => {
     if (!salesKpiSaleInput) return;
     const currentValue = String(salesKpiSaleInput.value || '');
+    const kpiType = String(salesKpiTypeInput?.value || 'acquisition');
+    const isAcquisition = kpiType === 'acquisition';
+    const eligibleEmployees = salesKpiEmployees.filter((employee) => {
+        const target = salesKpiReport?.entryPolicies?.find((item) => Number(item.saleUserId) === Number(employee.id));
+        if (!target) return false;
+        const role = target?.kpiRole || 'both';
+        return isAcquisition
+            ? ['acquisition_only', 'both'].includes(role)
+            : ['sales_only', 'both'].includes(role);
+    });
     salesKpiSaleInput.innerHTML = [
-        '<option value="">Chọn sale</option>',
-        ...salesKpiEmployees.map((employee) =>
+        '<option value="">Chọn nhân viên phù hợp vai trò</option>',
+        ...eligibleEmployees.map((employee) =>
             `<option value="` + escapeHtml(employee.id) + `">` + escapeHtml(employee.fullName || employee.email || ('Sale #' + employee.id)) + (employee.salesTitle ? ' · ' + escapeHtml(employee.salesTitle) : '') + `</option>`
         )
     ].join('');
-    if (currentValue && salesKpiEmployees.some((employee) => String(employee.id) === currentValue)) salesKpiSaleInput.value = currentValue;
+    if (currentValue && eligibleEmployees.some((employee) => String(employee.id) === currentValue)) salesKpiSaleInput.value = currentValue;
+};
+
+const getSalesKpiRoleLabel = (role) => ({
+    sales_only: 'Chỉ bán xe',
+    acquisition_only: 'Chỉ nhập xe',
+    both: 'Vừa nhập vừa bán'
+}[role] || 'Vừa nhập vừa bán');
+
+const syncSalesKpiCommissionPreview = () => {
+    if (!salesKpiRewardInput || !salesKpiRewardStatusInput) return;
+    const isAcquisition = String(salesKpiTypeInput?.value || '') === 'acquisition';
+    const employeeId = Number(salesKpiSaleInput?.value || 0);
+    const target = salesKpiReport?.entryPolicies?.find((item) => Number(item.saleUserId) === employeeId);
+    const editingRecord = salesKpiRecords.find((record) => Number(record.id) === Number(editingSalesKpiRecordId));
+    const acquisitionReward = isAcquisition
+        ? Number(editingRecord?.rewardAmount ?? target?.acquisitionRewardPerVehicle ?? 0)
+        : 0;
+    salesKpiRewardInput.value = isAcquisition ? String(acquisitionReward) : String(target?.commissionPerSale || 0);
+    salesKpiRewardStatusInput.disabled = true;
+    salesKpiRewardStatusInput.value = editingRecord?.rewardStatus || 'pending';
 };
 
 const renderSalesKpiSelectionPreview = () => {
@@ -5810,22 +5953,260 @@ const renderSalesKpiSelectionPreview = () => {
         : type === 'direct_sale'
             ? 'Doanh số bán trực tiếp'
             : 'Doanh số ghi nhận';
+    const rewardPolicyLabel = type === 'acquisition'
+        ? 'Thưởng nhập cố định được ghi nhận ngay khi xe được duyệt vào kho.'
+        : 'Hoa hồng lấy tự động theo chính sách tháng của nhân viên.';
 
     salesKpiSelectionPreview.innerHTML = `
         <i class="bx bx-check-circle"></i>
         <div>
             <span>Đã chọn ` + escapeHtml(source.code || ('#' + source.id)) + ` · ` + escapeHtml(carTitle) + `</span>
             <strong>` + escapeHtml(valueLabel) + `: ` + escapeHtml(formatCompactPrice(value)) + `</strong>
+            <span>` + escapeHtml(rewardPolicyLabel) + `</span>
         </div>`;
 };
 
 const renderSalesKpiStats = () => {
     const stats = salesKpiStats || {};
-    if (salesKpiStatTotal) salesKpiStatTotal.textContent = String(stats.total || 0);
+    if (salesKpiStatTotal) salesKpiStatTotal.textContent = `${stats.total || 0} KPI hợp lệ trong kỳ`;
     if (salesKpiStatAcquisition) salesKpiStatAcquisition.textContent = String(stats.acquisitionCount || 0);
-    if (salesKpiStatSales) salesKpiStatSales.textContent = String(stats.saleCount || 0);
-    if (salesKpiStatSalesValue) salesKpiStatSalesValue.textContent = formatCompactPrice(stats.salesValue || 0);
-    if (salesKpiStatReward) salesKpiStatReward.textContent = formatCompactPrice(stats.rewardAmount || 0);
+    if (salesKpiStatSales) salesKpiStatSales.textContent = String(stats.vehicleSales || 0);
+    if (salesKpiStatSalesValue) salesKpiStatSalesValue.textContent = formatCompactPrice(stats.revenue || 0);
+    if (salesKpiStatReward) salesKpiStatReward.textContent = formatCompactPrice(stats.pendingRewardAmount || 0);
+    if (salesKpiStatProfit) salesKpiStatProfit.textContent = formatCompactPrice(stats.acquisitionProfit || 0);
+    if (salesKpiStatMargin) salesKpiStatMargin.textContent = `${Number(stats.grossMargin || 0).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`;
+
+    const previous = salesKpiReport?.previousSummary;
+    const renderComparison = (element, currentValue, previousValue) => {
+        if (!element || !previous) return;
+        if (!previousValue) {
+            element.textContent = currentValue ? 'Kỳ trước chưa phát sinh' : 'Không đổi so với kỳ trước';
+            element.className = '';
+            return;
+        }
+        const change = ((currentValue - previousValue) / Math.abs(previousValue)) * 100;
+        element.textContent = `${change >= 0 ? 'Tăng' : 'Giảm'} ${Math.abs(change).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}% so với kỳ trước`;
+        element.className = change >= 0 ? 'is-positive' : 'is-negative';
+    };
+    renderComparison(salesKpiCompareSales, stats.vehicleSales || 0, previous?.vehicleSales || 0);
+    renderComparison(salesKpiCompareRevenue, stats.revenue || 0, previous?.revenue || 0);
+    renderComparison(salesKpiCompareProfit, stats.acquisitionProfit || 0, previous?.acquisitionProfit || 0);
+
+};
+
+const renderSalesKpiRoleReports = () => {
+    const salesReport = salesKpiReport?.roleReports?.sales || {};
+    const acquisitionReport = salesKpiReport?.roleReports?.acquisition || {};
+    if (salesKpiSalesReportProgress) {
+        salesKpiSalesReportProgress.textContent = salesReport.achievement == null
+            ? `${salesReport.vehicleSales || 0} xe · Chưa đặt mục tiêu`
+            : `${salesReport.vehicleSales || 0}/${salesReport.vehicleTarget || 0} xe · ${salesReport.achievement.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`;
+    }
+    if (salesKpiSalesReportRevenue) salesKpiSalesReportRevenue.textContent = formatCompactPrice(salesReport.revenue || 0);
+    if (salesKpiSalesReportCommission) salesKpiSalesReportCommission.textContent = formatCompactPrice(salesReport.commissionAmount || 0);
+    if (salesKpiAcquisitionReportPending) salesKpiAcquisitionReportPending.textContent = `${acquisitionReport.pendingAcquisitionCount || 0} xe`;
+    if (salesKpiAcquisitionReportRealized) salesKpiAcquisitionReportRealized.textContent = `${acquisitionReport.realizedAcquisitionCount || 0} xe`;
+    if (salesKpiAcquisitionReportSpread) salesKpiAcquisitionReportSpread.textContent = formatCompactPrice(acquisitionReport.purchaseSaleSpread || 0);
+    if (salesKpiAcquisitionReportReward) salesKpiAcquisitionReportReward.textContent = formatCompactPrice(acquisitionReport.acquisitionRewardAmount || 0);
+};
+
+const renderSalesKpiAlerts = () => {
+    if (!salesKpiDataWarning || !salesKpiAlertList) return;
+    const alerts = salesKpiReport?.alerts || {};
+    const rows = [];
+    (alerts.missingAcquisitionLinks || []).forEach((item) => {
+        const carTitle = [item.carBrand, item.carName].filter(Boolean).join(' ') || `Xe #${item.carId || '?'}`;
+        const acquisitionSource = (salesKpiSources.acquisitions || []).find((source) => Number(source.approvedCarId) === Number(item.carId));
+        rows.push(`<article class="sales-kpi-alert sales-kpi-alert--critical"><span class="sales-kpi-alert__icon"><i class="bx bx-link-external"></i></span><div><strong>Xe bán chưa có KPI nhập xe</strong><p>${escapeHtml(carTitle)} · ${escapeHtml(item.sourceCode || '')} · ${escapeHtml(item.saleName || '')}</p><small>${escapeHtml(formatCompactPrice(item.salePriceValue || 0))} · ${escapeHtml(formatConsultationDate(item.recordedAt))}</small></div><div class="sales-kpi-alert__actions">${acquisitionSource ? `<button type="button" data-kpi-alert-source="${escapeHtml(acquisitionSource.id)}"><i class="bx bx-plus-circle"></i> Ghi KPI nhập</button>` : '<span>Chưa có nguồn nhập hợp lệ</span>'}<button type="button" data-kpi-alert-record="${escapeHtml(item.recordId)}"><i class="bx bx-show"></i> Xem giao dịch</button></div></article>`);
+    });
+    (alerts.pendingAcquisitions || []).forEach((item) => {
+        const carTitle = [item.carBrand, item.carName].filter(Boolean).join(' ') || `Xe #${item.carId || '?'}`;
+        rows.push(`<article class="sales-kpi-alert sales-kpi-alert--waiting"><span class="sales-kpi-alert__icon"><i class="bx bx-time-five"></i></span><div><strong>Xe nhập đang chờ bán</strong><p>${escapeHtml(carTitle)} · Người nhập: ${escapeHtml(item.acquisitionEmployeeName || '')}</p><small>Giá nhập ${escapeHtml(formatCompactPrice(item.purchasePriceValue || 0))}</small></div><div class="sales-kpi-alert__actions"><button type="button" data-kpi-alert-record="${escapeHtml(item.recordId)}"><i class="bx bx-show"></i> Xem KPI</button></div></article>`);
+    });
+    (alerts.unconfiguredEmployees || []).forEach((item) => {
+        rows.push(`<article class="sales-kpi-alert sales-kpi-alert--policy"><span class="sales-kpi-alert__icon"><i class="bx bx-user-x"></i></span><div><strong>Nhân viên chưa có chính sách kỳ này</strong><p>${escapeHtml(item.saleName)} · ${escapeHtml(item.saleEmail || '')}</p><small>Chưa thể ghi nhận KPI cho nhân viên này.</small></div><div class="sales-kpi-alert__actions"><button type="button" data-kpi-alert-target="${escapeHtml(item.saleUserId)}"><i class="bx bx-cog"></i> Cấu hình ngay</button></div></article>`);
+    });
+    (alerts.invalidCommissionPolicies || []).forEach((item) => {
+        rows.push(`<article class="sales-kpi-alert sales-kpi-alert--critical"><span class="sales-kpi-alert__icon"><i class="bx bx-money-withdraw"></i></span><div><strong>Chính sách bán xe thiếu hoa hồng</strong><p>${escapeHtml(item.saleName)}</p><small>Cần đặt hoa hồng mỗi xe lớn hơn 0.</small></div><div class="sales-kpi-alert__actions"><button type="button" data-kpi-alert-target="${escapeHtml(item.saleUserId)}"><i class="bx bx-edit"></i> Bổ sung</button></div></article>`);
+    });
+    (alerts.invalidAcquisitionRewardPolicies || []).forEach((item) => {
+        rows.push(`<article class="sales-kpi-alert sales-kpi-alert--critical"><span class="sales-kpi-alert__icon"><i class="bx bx-gift"></i></span><div><strong>Chính sách nhập xe thiếu mức thưởng</strong><p>${escapeHtml(item.saleName)}</p><small>Cần đặt thưởng nhập cố định trên mỗi xe lớn hơn 0.</small></div><div class="sales-kpi-alert__actions"><button type="button" data-kpi-alert-target="${escapeHtml(item.saleUserId)}"><i class="bx bx-edit"></i> Bổ sung</button></div></article>`);
+    });
+    salesKpiDataWarning.hidden = rows.length === 0;
+    salesKpiAlertList.innerHTML = rows.join('');
+    if (salesKpiAlertCount) salesKpiAlertCount.textContent = `${rows.length} việc`;
+};
+
+const renderSalesKpiFilterOptions = () => {
+    if (!salesKpiFilterSale) return;
+    const currentValue = String(salesKpiFilterSale.value || '');
+    salesKpiFilterSale.innerHTML = ['<option value="">Tất cả sale</option>', ...salesKpiEmployees.map((employee) =>
+        `<option value="${escapeHtml(employee.id)}">${escapeHtml(employee.fullName || employee.email)}</option>`
+    )].join('');
+    if (salesKpiEmployees.some((employee) => String(employee.id) === currentValue)) salesKpiFilterSale.value = currentValue;
+};
+
+const renderSalesKpiTrend = () => {
+    if (!salesKpiTrendChart) return;
+    const trend = salesKpiReport?.trend || [];
+    if (!trend.length) {
+        salesKpiTrendChart.innerHTML = '<p class="table-empty">Chưa có dữ liệu bán xe trong kỳ.</p>';
+        return;
+    }
+    const maxRevenue = Math.max(...trend.map((item) => Number(item.revenue || 0)), 1);
+    salesKpiTrendChart.innerHTML = trend.map((item) => {
+        const height = Math.max(7, (Number(item.revenue || 0) / maxRevenue) * 100);
+        const dateLabel = item.label.split('-').reverse().slice(0, 2).join('/');
+        return `<div class="sales-kpi-chart__column" title="${escapeHtml(dateLabel)} · ${escapeHtml(formatCompactPrice(item.revenue || 0))}">
+            <span>${escapeHtml(formatCompactPrice(item.revenue || 0))}</span>
+            <div class="sales-kpi-chart__track"><i style="height:${height}%"></i></div>
+            <small>${escapeHtml(dateLabel)}</small>
+        </div>`;
+    }).join('');
+};
+
+const getSalesKpiAchievementClass = (value) => {
+    if (value === null || value === undefined) return 'is-unset';
+    if (value >= 100) return 'is-excellent';
+    if (value >= 70) return 'is-on-track';
+    return 'is-behind';
+};
+
+const renderSalesKpiRankings = () => {
+    if (!salesKpiRankingList) return;
+    const rankings = activeSalesKpiRankingMode === 'acquisition'
+        ? (salesKpiReport?.acquisitionRankings || [])
+        : activeSalesKpiRankingMode === 'combined'
+            ? (salesKpiReport?.combinedRankings || [])
+            : (salesKpiReport?.salesRankings || []);
+    if (!rankings.length) {
+        salesKpiRankingList.innerHTML = `<p class="table-empty">Chưa có nhân viên phù hợp với bảng xếp hạng ${activeSalesKpiRankingMode === 'sales' ? 'bán xe' : activeSalesKpiRankingMode === 'acquisition' ? 'nhập xe' : 'kiêm nhiệm'}.</p>`;
+        return;
+    }
+    salesKpiRankingList.innerHTML = rankings.slice(0, 6).map((item, index) => {
+        const achievement = activeSalesKpiRankingMode === 'sales'
+            ? item.salesAchievement
+            : activeSalesKpiRankingMode === 'acquisition'
+                ? item.acquisitionProfitAchievement
+                : item.overallAchievement;
+        const achievementLabel = achievement == null ? 'Chưa giao mục tiêu' : `${achievement.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`;
+        const detail = activeSalesKpiRankingMode === 'sales'
+            ? `${item.vehicleSales}/${item.target?.vehicleTarget || 0} xe · ${formatCompactPrice(item.revenue || 0)}`
+            : activeSalesKpiRankingMode === 'acquisition'
+                ? `${item.acquisitionCount} xe nhập · ${item.pendingAcquisitionCount} chờ bán`
+                : `Bán ${item.vehicleSales} xe · Nhập ${item.acquisitionCount} xe`;
+        const scoreDetail = activeSalesKpiRankingMode === 'sales'
+            ? `${formatCompactPrice(item.rewardAmount || 0)} hoa hồng`
+            : `${formatCompactPrice(item.acquisitionProfit || 0)} chênh lệch · ${formatCompactPrice(item.acquisitionRewardAmount || 0)} thưởng`;
+        return `<article class="sales-kpi-ranking-item">
+            <span class="sales-kpi-ranking-item__position">${index + 1}</span>
+            <div class="sales-kpi-ranking-item__person"><strong>${escapeHtml(item.saleName)}</strong><small>${escapeHtml(getSalesKpiRoleLabel(item.target?.kpiRole))} · ${escapeHtml(detail)}</small></div>
+            <div class="sales-kpi-ranking-item__score ${getSalesKpiAchievementClass(achievement)}"><strong>${escapeHtml(achievementLabel)}</strong><small>${escapeHtml(scoreDetail)}</small></div>
+        </article>`;
+    }).join('');
+};
+
+const renderSalesKpiPeriodSummary = () => {
+    if (!salesKpiSummaryTableBody) return;
+    const summary = salesKpiReport?.periodSummary || {};
+    const rows = summary.rows || [];
+    const totals = summary.totals || {};
+    const period = summary.period || salesKpiTargetPeriod?.value || '';
+    const periodLabel = period ? `tháng ${period.split('-').reverse().join('/')}` : 'kỳ đang chọn';
+    const isLocked = summary.periodControl?.status === 'locked';
+    if (salesKpiSummaryPeriodLabel) salesKpiSummaryPeriodLabel.textContent = `Tổng kết ${periodLabel} · ${isLocked ? 'Đã khóa kỳ' : 'Kỳ đang mở'}`;
+    if (salesKpiSummaryEmployees) salesKpiSummaryEmployees.textContent = String(totals.employeeCount || 0);
+    if (salesKpiSummarySales) salesKpiSummarySales.textContent = String(totals.vehicleSales || 0);
+    if (salesKpiSummaryReward) salesKpiSummaryReward.textContent = formatCompactPrice(totals.rewardAmount || 0);
+    if (salesKpiSummaryPaid) salesKpiSummaryPaid.textContent = formatCompactPrice(totals.paidRewardAmount || 0);
+    if (salesKpiSummaryOutstanding) salesKpiSummaryOutstanding.textContent = formatCompactPrice(totals.outstandingRewardAmount || 0);
+    if (!rows.length) {
+        salesKpiSummaryTableBody.innerHTML = '<tr><td colspan="9" class="table-empty">Chưa có nhân viên hoặc chính sách KPI trong kỳ.</td></tr>';
+        return;
+    }
+    salesKpiSummaryTableBody.innerHTML = rows.map((row) => {
+        const appliesToSales = ['sales_only', 'both'].includes(row.kpiRole);
+        const appliesToAcquisition = ['acquisition_only', 'both'].includes(row.kpiRole);
+        const salesResult = appliesToSales
+            ? `${row.vehicleSales || 0}/${row.vehicleTarget || 0} xe${row.salesAchievement == null ? '' : ` · ${row.salesAchievement.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`}`
+            : 'Không áp dụng';
+        const acquisitionResult = appliesToAcquisition
+            ? `${formatCompactPrice(row.acquisitionProfit || 0)} / ${formatCompactPrice(row.grossProfitTarget || 0)}${row.acquisitionAchievement == null ? '' : ` · ${row.acquisitionAchievement.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`}`
+            : 'Không áp dụng';
+        const achievement = row.overallAchievement == null ? 'N/A' : `${row.overallAchievement.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`;
+        const classification = row.classification || { code: 'unrated', label: 'Chưa xếp loại' };
+        return `<tr><td><div class="employee-meta"><strong>${escapeHtml(row.saleName)}</strong><small>${escapeHtml(row.saleEmail || '')}</small></div></td><td>${escapeHtml(getSalesKpiRoleLabel(row.kpiRole))}</td><td>${escapeHtml(salesResult)}</td><td>${escapeHtml(acquisitionResult)}</td><td><strong>${escapeHtml(achievement)}</strong></td><td><span class="sales-kpi-classification is-${escapeHtml(classification.code)}">${escapeHtml(classification.label)}</span></td><td>${escapeHtml(formatCompactPrice(row.rewardAmount || 0))}</td><td>${escapeHtml(formatCompactPrice(row.paidRewardAmount || 0))}</td><td><strong>${escapeHtml(formatCompactPrice(row.outstandingRewardAmount || 0))}</strong></td></tr>`;
+    }).join('');
+};
+
+const renderSalesKpiTargets = () => {
+    if (!salesKpiTargetTableBody) return;
+    const isLocked = salesKpiReport?.periodControl?.status === 'locked';
+    const rankings = salesKpiReport?.rankings || [];
+    if (!rankings.length) {
+        salesKpiTargetTableBody.innerHTML = '<tr><td colspan="8" class="table-empty">Chưa có nhân viên sale để giao mục tiêu.</td></tr>';
+        return;
+    }
+    salesKpiTargetTableBody.innerHTML = rankings.map((item) => {
+        const target = item.target || {};
+        const achievement = item.overallAchievement;
+        const progress = achievement === null ? 0 : Math.min(100, Math.max(0, achievement));
+        const achievementLabel = achievement === null ? 'Chưa thiết lập' : `${achievement.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`;
+        const role = target.kpiRole || 'both';
+        const appliesToSales = ['sales_only', 'both'].includes(role);
+        const appliesToAcquisition = ['acquisition_only', 'both'].includes(role);
+        const spreadTarget = Number(target.grossProfitTarget || 0);
+        const spreadTargetHint = !appliesToAcquisition
+            ? 'Không áp dụng'
+            : spreadTarget > 0
+                ? `≈ ${formatCompactPrice(spreadTarget)}`
+                : 'Chưa đặt mục tiêu';
+        const salesProgressLabel = item.salesAchievement == null ? 'Bán: N/A' : `Bán: ${item.salesAchievement.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}%`;
+        const acquisitionProgressLabel = item.acquisitionProfitAchievement == null ? 'Nhập: N/A' : `Chênh lệch: ${item.acquisitionProfitAchievement.toLocaleString('vi-VN', { maximumFractionDigits: 0 })}%`;
+        return `<tr data-kpi-target-row="${escapeHtml(item.saleUserId)}">
+            <td><div class="employee-meta"><strong>${escapeHtml(item.saleName)}</strong><small>${escapeHtml(item.saleEmail || '')}</small></div></td>
+            <td><select class="sales-kpi-target-input" data-target-role ${isLocked ? 'disabled' : ''} aria-label="Vai trò KPI của ${escapeHtml(item.saleName)}"><option value="sales_only" ${role === 'sales_only' ? 'selected' : ''}>Chỉ bán xe</option><option value="acquisition_only" ${role === 'acquisition_only' ? 'selected' : ''}>Chỉ nhập xe</option><option value="both" ${role === 'both' ? 'selected' : ''}>Vừa nhập vừa bán</option></select></td>
+            <td><input class="sales-kpi-target-input" type="number" min="0" step="1" data-target-scope="sales" data-target-field="vehicleTarget" value="${Number(target.vehicleTarget || 0)}" ${appliesToSales ? '' : 'disabled'} aria-label="Mục tiêu xe bán của ${escapeHtml(item.saleName)}"></td>
+            <td><input class="sales-kpi-target-input" type="number" min="0" step="100000" data-target-scope="sales" data-target-field="commissionPerSale" value="${Number(target.commissionPerSale || 0)}" ${appliesToSales ? '' : 'disabled'} aria-label="Hoa hồng mỗi xe của ${escapeHtml(item.saleName)}"></td>
+            <td><input class="sales-kpi-target-input" type="number" min="0" step="100000" data-target-scope="acquisition" data-target-field="acquisitionRewardPerVehicle" value="${Number(target.acquisitionRewardPerVehicle || 0)}" ${appliesToAcquisition ? '' : 'disabled'} aria-label="Thưởng nhập mỗi xe của ${escapeHtml(item.saleName)}"></td>
+            <td><div class="sales-kpi-money-target"><input class="sales-kpi-target-input" type="number" min="0" step="1000000" data-target-scope="acquisition" data-target-money data-target-field="grossProfitTarget" value="${spreadTarget}" ${appliesToAcquisition ? '' : 'disabled'} aria-label="Mục tiêu chênh giá xe nhập trong tháng của ${escapeHtml(item.saleName)}"><small data-target-money-hint>${escapeHtml(spreadTargetHint)}</small></div></td>
+            <td><div class="sales-kpi-progress ${getSalesKpiAchievementClass(achievement)}"><div><i style="width:${progress}%"></i></div><span>${escapeHtml(achievementLabel)} · ${escapeHtml(salesProgressLabel)} · ${escapeHtml(acquisitionProgressLabel)}</span></div></td>
+            <td><button type="button" class="toolbar-btn toolbar-btn--soft" data-save-kpi-target="${escapeHtml(item.saleUserId)}" ${isLocked ? 'disabled' : ''}><i class="bx bx-save"></i><span>${isLocked ? 'Đã khóa' : 'Lưu'}</span></button></td>
+        </tr>`;
+    }).join('');
+    if (isLocked) salesKpiTargetTableBody.querySelectorAll('input').forEach((input) => { input.disabled = true; });
+};
+
+const renderSalesKpiPeriodControl = () => {
+    const control = salesKpiReport?.periodControl || { status: 'open' };
+    const isLocked = control.status === 'locked';
+    if (salesKpiPeriodStatus) {
+        salesKpiPeriodStatus.textContent = isLocked ? `Đã khóa${control.lockedByName ? ` · ${control.lockedByName}` : ''}` : 'Kỳ đang mở';
+        salesKpiPeriodStatus.classList.toggle('is-locked', isLocked);
+    }
+    if (salesKpiPeriodLockButton) {
+        salesKpiPeriodLockButton.innerHTML = isLocked
+            ? '<i class="bx bx-lock-open-alt"></i><span>Mở khóa kỳ</span>'
+            : '<i class="bx bx-lock-alt"></i><span>Khóa kỳ</span>';
+    }
+    if (salesKpiPolicyHistoryList) {
+        const history = salesKpiReport?.policyHistory || [];
+        salesKpiPolicyHistoryList.innerHTML = history.length ? history.map((item) => `
+            <article><div><strong>${escapeHtml(item.saleName || `Nhân viên #${item.saleUserId}`)}</strong><span>${escapeHtml(getSalesKpiRoleLabel(item.kpiRole))} · Bán ${item.vehicleTarget || 0} xe · Chênh ${escapeHtml(formatCompactPrice(item.grossProfitTarget || 0))}</span></div><small>${escapeHtml(item.changedByName || 'Hệ thống')} · ${escapeHtml(formatConsultationDate(item.createdAt))}</small></article>
+        `).join('') : '<p class="table-empty">Chưa có lịch sử thay đổi chính sách.</p>';
+    }
+};
+
+const syncSalesKpiTargetMoneyHint = (input) => {
+    if (!input) return;
+    const hint = input.closest('.sales-kpi-money-target')?.querySelector('[data-target-money-hint]');
+    if (!hint) return;
+    const value = Math.max(0, Number(input.value || 0));
+    hint.textContent = input.disabled
+        ? 'Không áp dụng'
+        : value > 0
+            ? `≈ ${formatCompactPrice(value)}`
+            : 'Chưa đặt mục tiêu';
 };
 
 const renderSalesKpiRecords = () => {
@@ -5837,20 +6218,28 @@ const renderSalesKpiRecords = () => {
 
     salesKpiTableBody.innerHTML = salesKpiRecords.map((record) => {
         const isActive = record.recordStatus === 'active';
+        const isAcquisition = record.kpiType === 'acquisition';
         const carTitle = [record.carBrand, record.carName].filter(Boolean).join(' ') || 'Xe chưa rõ tên';
         const statusClass = isActive ? 'consultation-status-badge--closed' : 'consultation-status-badge--failed';
-        const statusLabel = isActive ? (record.rewardStatus === 'paid' ? 'Đã chi' : 'Chờ chi') : 'Đã hủy';
-        const valueLabel = record.kpiType === 'acquisition' ? 'Giá nhập' : 'Giá bán';
+        const statusLabel = !isActive
+            ? 'Đã hủy'
+            : (record.rewardStatus === 'paid' ? 'Đã chi' : record.rewardStatus === 'approved' ? 'Đã duyệt' : 'Chờ duyệt');
+        const valueLabel = isAcquisition ? 'Giá nhập' : 'Giá bán';
+        const acquisitionProfitNote = isAcquisition
+            ? (record.acquisitionProfitStatus === 'realized'
+                ? ` · Chênh lệch đã chốt ${formatCompactPrice(record.realizedAcquisitionProfit || 0)}`
+                : ' · Đang chờ bán')
+            : '';
         return `
-            <tr>
+            <tr data-kpi-record-id="` + escapeHtml(record.id) + `">
                 <td><div class="employee-meta"><strong>` + escapeHtml(isActive ? getSalesKpiTypeLabel(record.kpiType) : 'KPI đã hủy') + `</strong><span>` + escapeHtml(carTitle) + `</span><small>` + escapeHtml(record.sourceCode || ('Giao dịch #' + record.sourceId)) + (record.cancellationNote ? ' · Hủy: ' + escapeHtml(record.cancellationNote) : '') + `</small></div></td>
                 <td><div class="employee-meta"><strong>` + escapeHtml(record.saleName || 'Chưa rõ sale') + `</strong><small>` + escapeHtml(record.saleEmail || '') + `</small></div></td>
-                <td><div class="employee-meta"><strong>` + escapeHtml(formatCompactPrice(record.transactionValue || 0)) + `</strong><small>` + escapeHtml(valueLabel) + `</small></div></td>
+                <td><div class="employee-meta"><strong>` + escapeHtml(formatCompactPrice(record.transactionValue || 0)) + `</strong><small>` + escapeHtml(valueLabel + acquisitionProfitNote) + `</small></div></td>
                 <td><div class="consultation-status-cell"><strong>` + escapeHtml(formatCompactPrice(record.rewardAmount || 0)) + `</strong><span class="readonly-badge ` + statusClass + `">` + escapeHtml(statusLabel) + `</span></div></td>
-                <td><div class="employee-meta"><strong>` + escapeHtml(formatConsultationDate(record.recordedAt)) + `</strong><small>` + escapeHtml(record.recordedByName || '') + `</small></div></td>
-                <td><div class="table-actions">` + (isActive
-                    ? `<button type="button" class="icon-btn icon-btn--edit" data-edit-sales-kpi="` + escapeHtml(record.id) + `" title="Cập nhật KPI"><i class="bx bx-edit-alt"></i></button><button type="button" class="icon-btn icon-btn--delete" data-cancel-sales-kpi="` + escapeHtml(record.id) + `" title="Hủy KPI"><i class="bx bx-x-circle"></i></button>`
-                    : '<span class="readonly-badge consultation-status-badge--failed">Đã hủy</span>') + `</div></td>
+                <td><div class="employee-meta"><strong>` + escapeHtml(formatConsultationDate(record.businessDate || record.recordedAt)) + `</strong><small>` + escapeHtml(record.creationMode === 'automatic' ? 'Tự động phát sinh' : (record.recordedByName || 'Thủ công')) + `</small></div></td>
+                <td><div class="table-actions">` + (isActive && isCurrentUserAdmin()
+                    ? `${record.rewardStatus === 'pending' ? `<button type="button" class="icon-btn icon-btn--edit" data-kpi-reward-action="approved" data-kpi-reward-id="${escapeHtml(record.id)}" title="Duyệt thưởng"><i class="bx bx-check-shield"></i></button>` : ''}${record.rewardStatus === 'approved' ? `<button type="button" class="icon-btn icon-btn--edit" data-kpi-reward-action="paid" data-kpi-reward-id="${escapeHtml(record.id)}" title="Xác nhận đã chi"><i class="bx bx-money-withdraw"></i></button><button type="button" class="icon-btn icon-btn--neutral" data-kpi-reward-action="pending" data-kpi-reward-id="${escapeHtml(record.id)}" title="Trả về chờ duyệt"><i class="bx bx-undo"></i></button>` : ''}<button type="button" class="icon-btn icon-btn--edit" data-edit-sales-kpi="` + escapeHtml(record.id) + `" title="Cập nhật KPI"><i class="bx bx-edit-alt"></i></button><button type="button" class="icon-btn icon-btn--delete" data-cancel-sales-kpi="` + escapeHtml(record.id) + `" title="Hủy KPI"><i class="bx bx-x-circle"></i></button>`
+                    : `<span class="readonly-badge ${isActive ? '' : 'consultation-status-badge--failed'}">${isActive ? 'Chỉ xem' : 'Đã hủy'}</span>`) + `</div></td>
             </tr>`;
     }).join('');
 };
@@ -5864,21 +6253,58 @@ const resetSalesKpiForm = () => {
     if (salesKpiSaveButton) salesKpiSaveButton.innerHTML = '<i class="bx bx-plus-circle"></i><span>Ghi nhận KPI</span>';
     renderSalesKpiSourceOptions();
     renderSalesKpiSaleOptions();
+    syncSalesKpiCommissionPreview();
+};
+
+const setDefaultSalesKpiDateRange = () => {
+    const today = getLocalDateInputValue();
+    const monthStart = `${today.slice(0, 7)}-01`;
+    if (salesKpiFilterFrom) salesKpiFilterFrom.value = monthStart;
+    if (salesKpiFilterTo) salesKpiFilterTo.value = today;
+    if (salesKpiTargetPeriod) salesKpiTargetPeriod.value = today.slice(0, 7);
+};
+
+const getSalesKpiReportQuery = () => {
+    const params = new URLSearchParams({
+        from: salesKpiFilterFrom?.value || '',
+        to: salesKpiFilterTo?.value || '',
+        saleUserId: salesKpiFilterSale?.value || '',
+        kpiType: salesKpiFilterType?.value || '',
+        rewardStatus: salesKpiFilterReward?.value || '',
+        recordStatus: 'all',
+        targetPeriod: salesKpiTargetPeriod?.value || (salesKpiFilterFrom?.value || '').slice(0, 7)
+    });
+    return params.toString();
 };
 
 const loadSalesKpiRecords = async () => {
-    if (!salesKpiTableBody || !isCurrentUserAdmin()) return;
+    if (!salesKpiTableBody || !currentAdminUser?.canAccessAdmin) return;
+    if (!salesKpiFilterFrom?.value || !salesKpiFilterTo?.value) setDefaultSalesKpiDateRange();
     setSalesKpiFeedback('');
     try {
-        const { response, data } = await requestJson('/api/admin/sales-kpi-records');
+        const { response, data } = await requestJson(`/api/admin/sales-kpi-records?${getSalesKpiReportQuery()}`);
         if (!response.ok) throw new Error(data.message || 'Không thể tải dữ liệu KPI.');
         salesKpiRecords = data.records || [];
         salesKpiSources = data.availableSources || { acquisitions: [], sales: [] };
         salesKpiEmployees = data.salesEmployees || [];
         salesKpiStats = data.stats || {};
+        salesKpiReport = data.report || null;
+        renderSalesKpiFilterOptions();
         resetSalesKpiForm();
         renderSalesKpiStats();
+        renderSalesKpiRoleReports();
+        renderSalesKpiAlerts();
+        renderSalesKpiTrend();
+        renderSalesKpiRankings();
+        renderSalesKpiPeriodSummary();
+        renderSalesKpiTargets();
+        renderSalesKpiPeriodControl();
         renderSalesKpiRecords();
+        if (salesKpiReportPeriodLabel) {
+            const fromLabel = salesKpiFilterFrom?.value ? dateFormatter.format(new Date(`${salesKpiFilterFrom.value}T00:00:00`)) : '';
+            const toLabel = salesKpiFilterTo?.value ? dateFormatter.format(new Date(`${salesKpiFilterTo.value}T00:00:00`)) : '';
+            salesKpiReportPeriodLabel.textContent = fromLabel && toLabel ? `Từ ${fromLabel} đến ${toLabel}` : 'Toàn bộ dữ liệu';
+        }
     } catch (error) {
         setSalesKpiFeedback(error.message || 'Không thể tải dữ liệu KPI.', 'error');
         salesKpiTableBody.innerHTML = '<tr><td colspan="6" class="table-empty">Không thể tải dữ liệu KPI.</td></tr>';
@@ -5893,12 +6319,12 @@ const editSalesKpiRecord = (record) => {
     renderSalesKpiSaleOptions();
     if (salesKpiSourceInput) salesKpiSourceInput.value = String(record.sourceId);
     if (salesKpiSaleInput) salesKpiSaleInput.value = String(record.saleUserId);
-    if (salesKpiRewardInput) salesKpiRewardInput.value = String(record.rewardAmount || 0);
     if (salesKpiRewardStatusInput) salesKpiRewardStatusInput.value = record.rewardStatus || 'pending';
     if (salesKpiNoteInput) salesKpiNoteInput.value = record.note || '';
     renderSalesKpiSelectionPreview();
+    syncSalesKpiCommissionPreview();
     if (salesKpiSaveButton) salesKpiSaveButton.innerHTML = '<i class="bx bx-save"></i><span>Cập nhật KPI</span>';
-    setSalesKpiFeedback(`Đang chỉnh KPI #` + record.id + '. Có thể đổi sale, tiền thưởng, trạng thái chi và ghi chú.', 'success');
+    setSalesKpiFeedback(`Đang chỉnh KPI #${record.id}. Hoa hồng được đồng bộ theo vai trò và chính sách của kỳ.`, 'success');
     salesKpiForm?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 };
 
@@ -6689,6 +7115,31 @@ adminNavLinks.forEach((link) => {
     });
 });
 
+adminMobileMenuToggle?.addEventListener('click', () => {
+    if (document.body.classList.contains('admin-menu-open')) {
+        closeAdminMobileMenu({ restoreFocus: true });
+        return;
+    }
+
+    openAdminMobileMenu();
+});
+
+adminSidebarOverlay?.addEventListener('click', () => {
+    closeAdminMobileMenu({ restoreFocus: true });
+});
+
+window.addEventListener('resize', () => {
+    if (!isAdminMobileNavigation()) {
+        closeAdminMobileMenu();
+    }
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && document.body.classList.contains('admin-menu-open')) {
+        closeAdminMobileMenu({ restoreFocus: true });
+    }
+});
+
 adminNotificationButton?.addEventListener('click', openAdminNotifications);
 
 adminNotificationCloseButtons.forEach((button) => {
@@ -7331,6 +7782,9 @@ depositOrderStatusSaveButton?.addEventListener('click', async () => {
         }
 
         await loadDepositOrders();
+        if (status === 'completed') {
+            await loadSalesKpiRecords();
+        }
         closeDepositOrderStatusPanel();
         showToast(data.message || 'Cập nhật trạng thái đơn đặt cọc thành công.', 'success', 'Đã cập nhật đơn cọc');
     } catch (error) {
@@ -7661,17 +8115,230 @@ carBuyRequestTableBody?.addEventListener('click', async (event) => {
     }
 });
 
+salesKpiFilterForm?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (salesKpiFilterFrom?.value && salesKpiFilterTo?.value && salesKpiFilterFrom.value > salesKpiFilterTo.value) {
+        setSalesKpiFeedback('Ngày bắt đầu không được sau ngày kết thúc.', 'error');
+        return;
+    }
+    if (salesKpiTargetPeriod && salesKpiFilterFrom?.value) salesKpiTargetPeriod.value = salesKpiFilterFrom.value.slice(0, 7);
+    loadSalesKpiRecords();
+});
+
+salesKpiResetFilter?.addEventListener('click', () => {
+    salesKpiFilterForm?.reset();
+    setDefaultSalesKpiDateRange();
+    loadSalesKpiRecords();
+});
+
+salesKpiTargetPeriod?.addEventListener('change', () => loadSalesKpiRecords());
+
+salesKpiRankingTabs.forEach((button) => {
+    button.addEventListener('click', () => {
+        activeSalesKpiRankingMode = String(button.dataset.kpiRankingMode || 'sales');
+        salesKpiRankingTabs.forEach((item) => {
+            const isActive = item === button;
+            item.classList.toggle('is-active', isActive);
+            item.setAttribute('aria-selected', String(isActive));
+        });
+        renderSalesKpiRankings();
+    });
+});
+
+const focusSalesKpiElement = (element) => {
+    if (!element) return;
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    element.classList.add('is-kpi-highlighted');
+    setTimeout(() => element.classList.remove('is-kpi-highlighted'), 2200);
+};
+
+salesKpiAlertList?.addEventListener('click', (event) => {
+    const recordButton = event.target.closest('[data-kpi-alert-record]');
+    const targetButton = event.target.closest('[data-kpi-alert-target]');
+    const sourceButton = event.target.closest('[data-kpi-alert-source]');
+    if (recordButton) {
+        focusSalesKpiElement(salesKpiTableBody?.querySelector(`[data-kpi-record-id="${recordButton.dataset.kpiAlertRecord}"]`));
+        return;
+    }
+    if (targetButton) {
+        focusSalesKpiElement(salesKpiTargetTableBody?.querySelector(`[data-kpi-target-row="${targetButton.dataset.kpiAlertTarget}"]`));
+        return;
+    }
+    if (sourceButton && salesKpiTypeInput && salesKpiSourceInput) {
+        resetSalesKpiForm();
+        salesKpiTypeInput.value = 'acquisition';
+        renderSalesKpiSourceOptions();
+        salesKpiSourceInput.value = String(sourceButton.dataset.kpiAlertSource || '');
+        renderSalesKpiSelectionPreview();
+        renderSalesKpiSaleOptions();
+        focusSalesKpiElement(salesKpiForm);
+        setSalesKpiFeedback('Đã chọn nguồn xe cần bổ sung KPI nhập. Hãy chọn nhân viên phụ trách và lưu.', 'success');
+    }
+});
+
+salesKpiExportButton?.addEventListener('click', () => {
+    if (!salesKpiRecords.length) {
+        setSalesKpiFeedback('Không có dữ liệu trong bộ lọc hiện tại để xuất.', 'error');
+        return;
+    }
+    const rows = [[
+        'Mã KPI', 'Ngày ghi nhận', 'Loại KPI', 'Mã giao dịch', 'Nhân viên', 'Xe',
+        'Giá trị giao dịch', 'Giá nhập', 'Giá bán', 'Chênh lệch mua-bán đã chốt', 'Thưởng / hoa hồng',
+        'Trạng thái chi thưởng', 'Trạng thái KPI', 'Ghi chú'
+    ]];
+    salesKpiRecords.forEach((record) => {
+        rows.push([
+            record.id,
+            record.businessDate || String(record.recordedAt || '').slice(0, 10),
+            getSalesKpiTypeLabel(record.kpiType),
+            record.sourceCode || record.sourceId,
+            record.saleName,
+            [record.carBrand, record.carName].filter(Boolean).join(' '),
+            record.transactionValue || 0,
+            record.purchasePriceValue || 0,
+            record.salePriceValue || 0,
+            record.kpiType === 'acquisition' && record.acquisitionProfitStatus === 'realized'
+                ? Number(record.realizedAcquisitionProfit || 0)
+                : '',
+            record.rewardAmount || 0,
+            record.rewardStatus === 'paid' ? 'Đã chi' : record.rewardStatus === 'approved' ? 'Đã duyệt' : 'Chờ duyệt',
+            record.recordStatus === 'active' ? 'Hiệu lực' : 'Đã hủy',
+            record.note || record.cancellationNote || ''
+        ]);
+    });
+    const dateSuffix = `${salesKpiFilterFrom?.value || 'all'}_${salesKpiFilterTo?.value || 'all'}`;
+    downloadCsvFile(`bao-cao-kpi-${dateSuffix}.csv`, rows);
+});
+
+salesKpiSummaryExportButton?.addEventListener('click', () => {
+    const summary = salesKpiReport?.periodSummary;
+    if (!summary?.rows?.length) {
+        setSalesKpiFeedback('Chưa có dữ liệu tổng kết KPI để xuất.', 'error');
+        return;
+    }
+    const rows = [[
+        'Kỳ KPI', 'Nhân viên', 'Email', 'Vai trò', 'Xe bán mục tiêu', 'Xe bán thực tế',
+        'Mục tiêu chênh giá', 'Chênh giá thực tế', 'Hoàn thành bán (%)', 'Hoàn thành nhập (%)',
+        'Hoàn thành tổng (%)', 'Xếp loại', 'Tổng thưởng', 'Đã chi', 'Còn phải chi', 'Trạng thái kỳ'
+    ]];
+    summary.rows.forEach((row) => rows.push([
+        summary.period, row.saleName, row.saleEmail, getSalesKpiRoleLabel(row.kpiRole),
+        row.vehicleTarget || 0, row.vehicleSales || 0, row.grossProfitTarget || 0, row.acquisitionProfit || 0,
+        row.salesAchievement == null ? '' : Number(row.salesAchievement).toFixed(1),
+        row.acquisitionAchievement == null ? '' : Number(row.acquisitionAchievement).toFixed(1),
+        row.overallAchievement == null ? '' : Number(row.overallAchievement).toFixed(1),
+        row.classification?.label || 'Chưa xếp loại', row.rewardAmount || 0,
+        row.paidRewardAmount || 0, row.outstandingRewardAmount || 0,
+        summary.periodControl?.status === 'locked' ? 'Đã khóa' : 'Đang mở'
+    ]));
+    downloadCsvFile(`tong-ket-kpi-${summary.period || 'ky'}.csv`, rows);
+});
+
+salesKpiSummaryPrintButton?.addEventListener('click', () => {
+    if (!salesKpiReport?.periodSummary?.rows?.length) {
+        setSalesKpiFeedback('Chưa có dữ liệu tổng kết KPI để in.', 'error');
+        return;
+    }
+    document.body.classList.add('is-printing-kpi-summary');
+    window.print();
+});
+
+window.addEventListener('afterprint', () => document.body.classList.remove('is-printing-kpi-summary'));
+
+salesKpiTargetTableBody?.addEventListener('click', async (event) => {
+    const saveButton = event.target.closest('[data-save-kpi-target]');
+    if (!saveButton) return;
+    const row = saveButton.closest('[data-kpi-target-row]');
+    const saleUserId = Number(saveButton.dataset.saveKpiTarget || 0);
+    const getTargetValue = (field) => Math.max(0, Math.trunc(Number(row?.querySelector(`[data-target-field="${field}"]`)?.value || 0)));
+    saveButton.disabled = true;
+    if (salesKpiTargetFeedback) {
+        salesKpiTargetFeedback.textContent = '';
+        salesKpiTargetFeedback.className = 'admin-feedback';
+    }
+    try {
+        const { response, data } = await requestJson(`/api/admin/sales-kpi-targets/${saleUserId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                period: salesKpiTargetPeriod?.value,
+                kpiRole: String(row?.querySelector('[data-target-role]')?.value || 'both'),
+                vehicleTarget: getTargetValue('vehicleTarget'),
+                grossProfitTarget: getTargetValue('grossProfitTarget'),
+                commissionPerSale: getTargetValue('commissionPerSale'),
+                acquisitionRewardPerVehicle: getTargetValue('acquisitionRewardPerVehicle')
+            })
+        });
+        if (!response.ok) throw new Error(data.message || 'Không thể lưu mục tiêu KPI.');
+        showToast(data.message || 'Đã cập nhật mục tiêu KPI.', 'success', 'Mục tiêu KPI');
+        await loadSalesKpiRecords();
+    } catch (error) {
+        if (salesKpiTargetFeedback) {
+            salesKpiTargetFeedback.textContent = error.message || 'Không thể lưu mục tiêu KPI.';
+            salesKpiTargetFeedback.className = 'admin-feedback is-error';
+        }
+        saveButton.disabled = false;
+    }
+});
+
+salesKpiPeriodLockButton?.addEventListener('click', async () => {
+    const isLocked = salesKpiReport?.periodControl?.status === 'locked';
+    const nextStatus = isLocked ? 'open' : 'locked';
+    const note = window.prompt(
+        isLocked ? 'Nhập lý do mở khóa kỳ KPI:' : 'Nhập ghi chú chốt và khóa kỳ KPI:',
+        isLocked ? 'Mở khóa để điều chỉnh có kiểm soát.' : 'Đã đối soát mục tiêu và các khoản thưởng trong kỳ.'
+    );
+    if (note === null || String(note).trim().length < 3) return;
+    salesKpiPeriodLockButton.disabled = true;
+    try {
+        const period = salesKpiTargetPeriod?.value || getLocalDateInputValue().slice(0, 7);
+        const { response, data } = await requestJson(`/api/admin/sales-kpi-periods/${period}`, {
+            method: 'PATCH', body: JSON.stringify({ status: nextStatus, note })
+        });
+        if (!response.ok) throw new Error(data.message || 'Không thể cập nhật kỳ KPI.');
+        await loadSalesKpiRecords();
+        showToast(data.message, 'success', 'Kỳ KPI');
+    } catch (error) {
+        setSalesKpiFeedback(error.message || 'Không thể cập nhật kỳ KPI.', 'error');
+    } finally {
+        salesKpiPeriodLockButton.disabled = false;
+    }
+});
+
+salesKpiTargetTableBody?.addEventListener('change', (event) => {
+    const roleInput = event.target.closest('[data-target-role]');
+    if (!roleInput) return;
+    const row = roleInput.closest('[data-kpi-target-row]');
+    const role = String(roleInput.value || 'both');
+    const appliesToSales = ['sales_only', 'both'].includes(role);
+    const appliesToAcquisition = ['acquisition_only', 'both'].includes(role);
+    row?.querySelectorAll('[data-target-scope="sales"]').forEach((input) => { input.disabled = !appliesToSales; });
+    row?.querySelectorAll('[data-target-scope="acquisition"]').forEach((input) => { input.disabled = !appliesToAcquisition; });
+    row?.querySelectorAll('[data-target-money]').forEach(syncSalesKpiTargetMoneyHint);
+});
+
+salesKpiTargetTableBody?.addEventListener('input', (event) => {
+    const moneyInput = event.target.closest('[data-target-money]');
+    if (moneyInput) syncSalesKpiTargetMoneyHint(moneyInput);
+});
+
 salesKpiTypeInput?.addEventListener('change', () => {
     if (editingSalesKpiRecordId) {
         salesKpiTypeInput.value = salesKpiRecords.find((record) => String(record.id) === String(editingSalesKpiRecordId))?.kpiType || 'acquisition';
         return;
     }
     renderSalesKpiSourceOptions();
+    renderSalesKpiSaleOptions();
+    syncSalesKpiCommissionPreview();
     setSalesKpiFeedback('');
 });
 
 salesKpiSourceInput?.addEventListener('change', () => {
     renderSalesKpiSelectionPreview();
+    setSalesKpiFeedback('');
+});
+
+salesKpiSaleInput?.addEventListener('change', () => {
+    syncSalesKpiCommissionPreview();
     setSalesKpiFeedback('');
 });
 
@@ -7717,8 +8384,31 @@ salesKpiForm?.addEventListener('submit', async (event) => {
 });
 
 salesKpiTableBody?.addEventListener('click', async (event) => {
+    const rewardButton = event.target.closest('[data-kpi-reward-action]');
     const editButton = event.target.closest('[data-edit-sales-kpi]');
     const cancelButton = event.target.closest('[data-cancel-sales-kpi]');
+
+    if (rewardButton) {
+        const status = rewardButton.dataset.kpiRewardAction;
+        const recordId = Number(rewardButton.dataset.kpiRewardId || 0);
+        const payoutReference = status === 'paid' ? window.prompt('Nhập mã phiếu chi hoặc mã giao dịch:', '') : '';
+        if (status === 'paid' && (payoutReference === null || String(payoutReference).trim().length < 3)) return;
+        const note = status === 'pending' ? window.prompt('Nhập lý do trả về chờ duyệt:', '') : '';
+        if (status === 'pending' && note === null) return;
+        rewardButton.disabled = true;
+        try {
+            const { response, data } = await requestJson(`/api/admin/sales-kpi-records/${recordId}/reward`, {
+                method: 'PATCH', body: JSON.stringify({ status, payoutReference, note })
+            });
+            if (!response.ok) throw new Error(data.message || 'Không thể cập nhật chi thưởng.');
+            await loadSalesKpiRecords();
+            showToast(data.message, 'success', 'Quy trình thưởng');
+        } catch (error) {
+            setSalesKpiFeedback(error.message || 'Không thể cập nhật chi thưởng.', 'error');
+            rewardButton.disabled = false;
+        }
+        return;
+    }
 
     if (editButton) {
         const record = salesKpiRecords.find((item) => String(item.id) === String(editButton.dataset.editSalesKpi));
@@ -7854,7 +8544,11 @@ carSellRequestStatusSaveButton?.addEventListener('click', async () => {
             throw new Error(data.message || 'Không thể xử lý thông tin đăng bán xe.');
         }
 
-        await Promise.all([loadCarSellRequests(), loadCars()]);
+        await Promise.all([
+            loadCarSellRequests(),
+            loadCars(),
+            status === 'approved' ? loadSalesKpiRecords() : Promise.resolve()
+        ]);
         closeCarSellRequestStatusPanel();
         showToast(
             data.message || 'Cập nhật xử lý đăng bán xe thành công.',
@@ -8465,11 +9159,25 @@ if (carForm) {
             origin: formData.get('origin'),
             condition: formData.get('condition'),
             color: formData.get('color'),
-            actionText: formData.get('actionText')
+            actionText: formData.get('actionText'),
+            kpiSaleUserId: Number(formData.get('kpiSaleUserId') || 0)
         };
 
         const editingCarId = carIdInput.value;
         const isEditing = Boolean(editingCarId);
+
+        if (!isCurrentUserAdmin()) {
+            const existingCar = isEditing
+                ? cars.find((car) => Number(car.id) === Number(editingCarId))
+                : null;
+            const allowedStatus = existingCar?.actionText || 'Còn xe';
+
+            if (payload.actionText !== allowedStatus) {
+                setFeedback('Chỉ tài khoản admin mới được thay đổi trạng thái xe.', 'error');
+                carForm.elements.actionText?.focus();
+                return;
+            }
+        }
 
         submitButton.disabled = true;
         submitButton.textContent = isEditing ? 'Đang cập nhật...' : 'Đang thêm...';
@@ -8571,6 +9279,7 @@ imagePreviewList?.addEventListener('click', (event) => {
 
 openFormButton?.addEventListener('click', () => {
     resetFormState(false);
+    loadSalesKpiAssignees(carKpiSaleUserInput, 'direct_sale');
     openEditor();
     carForm?.elements.name?.focus();
 });

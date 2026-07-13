@@ -8,7 +8,9 @@
     "start": "node server.js",
     "start:stable": "powershell -ExecutionPolicy Bypass -File scripts/start-backend.ps1",
     "start:stable:bg": "powershell -ExecutionPolicy Bypass -File scripts/start-backend-background.ps1",
-    "build:pages": "node scripts/build-github-pages.js"
+    "build:pages": "node scripts/build-github-pages.js",
+    "test": "node --check db.js && node --check server.js && node --check public/admin/script.js && node --check public/admin-login/script.js && node --check public/global/chat.js && node --check public/admin/chat.js && node --check public/car-detail/script.js && node scripts/test-rolling-cost.js && node scripts/test-chat-workflow.js && node scripts/test-kpi-workflow.js && node scripts/test-role-permissions.js",
+    "test:permissions": "node scripts/test-role-permissions.js"
   },
   "keywords": [],
   "author": "",
@@ -19,7 +21,8 @@
   "dependencies": {
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
-    "nodemailer": "^6.10.1"
+    "nodemailer": "^6.10.1",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"

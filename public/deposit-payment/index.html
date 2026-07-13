@@ -7,7 +7,7 @@
     <meta name="description" content="Gửi yêu cầu đặt cọc giữ xe OkXe và chờ nhân viên xác nhận.">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/global/typography.css">
-    <link rel="stylesheet" href="/deposit-payment/style.css?v=deposit-vnpay-clean-ui-20260708">
+    <link rel="stylesheet" href="/deposit-payment/style.css?v=deposit-professional-ui-20260711">
     <link rel="stylesheet" href="/global/header.css">
     <link rel="stylesheet" href="/global/responsive-nav.css">
     <link rel="stylesheet" href="/global/footer.css">
@@ -226,32 +226,6 @@
             </aside>
         </section>
 
-        <section class="deposit-lookup" aria-labelledby="deposit-lookup-title">
-            <div class="deposit-lookup__header">
-                <span>Tra cứu đơn</span>
-                <h2 id="deposit-lookup-title">Tra cứu đơn đặt cọc</h2>
-                <p>Kiểm tra trạng thái đơn bằng mã đơn và số điện thoại đã dùng khi đặt cọc.</p>
-            </div>
-
-            <form class="deposit-lookup__form" id="deposit-lookup-form">
-                <label>
-                    <span>Mã đơn đặt cọc</span>
-                    <input type="text" name="orderCode" id="deposit-lookup-code" maxlength="20" placeholder="DC-000001" autocomplete="off" required>
-                </label>
-                <label>
-                    <span>Số điện thoại</span>
-                    <input type="tel" name="phone" id="deposit-lookup-phone" maxlength="30" placeholder="0912345678" required>
-                </label>
-                <button type="submit" id="deposit-lookup-submit">
-                    <i class="bx bx-search" aria-hidden="true"></i>
-                    <span>Tra cứu</span>
-                </button>
-            </form>
-
-            <p class="deposit-lookup__feedback" id="deposit-lookup-feedback" aria-live="polite"></p>
-            <div class="deposit-lookup__result" id="deposit-lookup-result" hidden></div>
-        </section>
-
         <section class="deposit-status-guide" aria-labelledby="deposit-status-guide-title">
             <div class="deposit-status-guide__header">
                 <span>Trạng thái đơn</span>
@@ -387,8 +361,8 @@
 
     <div data-site-footer></div>
 
-    <script src="/deposit-payment/script.js?v=vnpay-cancel-on-failure-20260708"></script>
-    <script src="/global/app.js?v=deposit-auth-20260706"></script>
+    <script src="/deposit-payment/script.js?v=deposit-search-move-20260711"></script>
+    <script src="/global/app.js?v=chat-motion-polish-20260712"></script>
     <script src="/global/responsive-nav.js"></script>
 </body>
 </html>

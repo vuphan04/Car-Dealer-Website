@@ -20,8 +20,8 @@
     <meta name="twitter:image" content="/images/rental-1.png">
     <script type="application/ld+json" id="car-seo-json">{}</script>
     <!-- /OKXE_SEO_META -->
-    <link rel="stylesheet" href="/global/typography.css">
-    <link rel="stylesheet" href="/car-detail/style.css">
+    <link rel="stylesheet" href="/global/typography.css?v=rolling-cost-2026">
+    <link rel="stylesheet" href="/car-detail/style.css?v=detail-modals-2026">
     <link rel="stylesheet" href="/global/header.css">
     <link rel="stylesheet" href="/global/responsive-nav.css">
     <link rel="stylesheet" href="/global/footer.css">
@@ -148,21 +148,29 @@
                         </label>
                     </fieldset>
 
+                    <div class="rolling-cost-policy-note" role="note">
+                        <span class="rolling-cost-policy-note__icon"><i class="bx bx-shield-quarter" aria-hidden="true"></i></span>
+                        <span>
+                            <strong id="rolling-cost-policy-title">Mức phí cập nhật năm 2026</strong>
+                            <small id="rolling-cost-policy-text">Áp dụng biểu phí đăng ký, biển số và phí đường bộ hiện hành.</small>
+                        </span>
+                    </div>
+
                     <div class="rolling-cost-form__grid">
                         <label>
                             <span>Khu vực đăng ký</span>
                             <select name="registrationArea">
                                 <option value="hanoi">Hà Nội</option>
                                 <option value="hochiminh">TP. Hồ Chí Minh</option>
-                                <option value="zone2">Khu vực II</option>
-                                <option value="zone3">Khu vực III</option>
+                                <option value="other">Tỉnh/thành phố khác</option>
                             </select>
                         </label>
                         <label>
                             <span>Số chỗ ngồi</span>
                             <select name="seatGroup">
                                 <option value="under6">Dưới 6 chỗ</option>
-                                <option value="6to11">Từ 6 đến 11 chỗ</option>
+                                <option value="6to9">Từ 6 đến 9 chỗ</option>
+                                <option value="10to11">Từ 10 đến 11 chỗ</option>
                             </select>
                         </label>
                         <label>
@@ -186,11 +194,12 @@
                             <small id="rolling-cost-rate-help">Mặc định theo khu vực, bạn có thể điều chỉnh.</small>
                         </label>
                         <label>
-                            <span>Đăng ký, biển số</span>
+                            <span>Đăng ký và cấp biển số</span>
                             <input type="number" name="plateFee" min="0" step="10000" required>
+                            <small>Theo Thông tư 155/2025/TT-BTC, có hiệu lực từ 01/01/2026.</small>
                         </label>
                         <label>
-                            <span>Kiểm định và giấy chứng nhận</span>
+                            <span>Đăng kiểm và giấy chứng nhận</span>
                             <input type="number" name="inspectionFee" min="0" step="10000" required>
                         </label>
                         <label>
@@ -200,6 +209,7 @@
                         <label>
                             <span>Bảo hiểm TNDS bắt buộc</span>
                             <input type="number" name="insuranceFee" min="0" step="1000" required>
+                            <small>Mức tạm tính đã bao gồm thuế GTGT.</small>
                         </label>
                         <label class="rolling-cost-form__wide">
                             <span>Chi phí khác dự kiến</span>
@@ -236,11 +246,11 @@
                             <dd id="rolling-cost-registration-result">0 ₫</dd>
                         </div>
                         <div>
-                            <dt>Đăng ký, biển số</dt>
+                            <dt>Đăng ký và cấp biển số</dt>
                             <dd id="rolling-cost-plate-result">0 ₫</dd>
                         </div>
                         <div>
-                            <dt>Kiểm định và giấy chứng nhận</dt>
+                            <dt>Đăng kiểm và giấy chứng nhận</dt>
                             <dd id="rolling-cost-inspection-result">0 ₫</dd>
                         </div>
                         <div>
@@ -264,15 +274,16 @@
                         <span>Giá lăn bánh tạm tính</span>
                         <strong id="rolling-cost-total-result">0 ₫</strong>
                     </div>
-                    <p class="rolling-cost-disclaimer">Kết quả chỉ để tham khảo. Giá tính trước bạ, phí biển số và thời hạn còn hiệu lực của đăng kiểm/bảo hiểm có thể làm số thực tế thay đổi.</p>
+                    <p class="rolling-cost-disclaimer"><i class="bx bx-info-circle" aria-hidden="true"></i><span>Kết quả chỉ để tham khảo. Giá tính trước bạ do địa phương ban hành và tình trạng hồ sơ thực tế có thể làm số tiền thay đổi.</span></p>
                     <details class="rolling-cost-sources">
                         <summary>Căn cứ và cách tính</summary>
                         <ul>
                             <li><a href="https://vanban.chinhphu.vn/?pageid=27160&amp;docid=205090" target="_blank" rel="noopener">Nghị định 10/2022/NĐ-CP về lệ phí trước bạ</a></li>
-                            <li><a href="https://vanban.chinhphu.vn/?pageid=27160&amp;docid=205437" target="_blank" rel="noopener">Thông tư 13/2022/TT-BTC hướng dẫn lệ phí trước bạ</a></li>
-                            <li><a href="https://vanban.chinhphu.vn/?pageid=27160&amp;docid=209255" target="_blank" rel="noopener">Nghị định 90/2023/NĐ-CP về phí đường bộ</a></li>
+                            <li><a href="https://vanban.chinhphu.vn/?docid=212984&amp;pageid=27160" target="_blank" rel="noopener">Nghị định 51/2025/NĐ-CP về trước bạ ô tô điện</a></li>
+                            <li><a href="https://www.mof.gov.vn/tin-tuc-tai-chinh/tin-chinh-sach-tai-chinh/muc-thu-che-do-thu-nop-mien-le-phi-dang-ky-cap-bien-phuong-tien-giao-thong" target="_blank" rel="noopener">Thông tư 155/2025/TT-BTC về đăng ký, cấp biển</a></li>
+                            <li><a href="https://vanban.chinhphu.vn/?classid=1&amp;docid=216486&amp;orggroupid=2&amp;pageid=27160" target="_blank" rel="noopener">Nghị định 364/2025/NĐ-CP về phí đường bộ</a></li>
                             <li><a href="https://vanban.chinhphu.vn/?pageid=27160&amp;docid=208599" target="_blank" rel="noopener">Nghị định 67/2023/NĐ-CP về bảo hiểm bắt buộc</a></li>
-                            <li><a href="https://vanban.chinhphu.vn/?pageid=27160&amp;docid=214421" target="_blank" rel="noopener">Thông tư 71/2025/TT-BTC về phí, lệ phí</a></li>
+                            <li><a href="https://baochinhphu.vn/giam-le-phi-cap-giay-chung-nhan-kiem-dinh-xe-co-gioi-10222070414194568.htm" target="_blank" rel="noopener">Quy định phí đăng kiểm và giấy chứng nhận</a></li>
                         </ul>
                     </details>
                 </aside>
@@ -298,7 +309,7 @@
                     <i class="bx bx-search" aria-hidden="true"></i>
                     <input type="search" id="compare-search-input" placeholder="Tìm xe để thêm vào so sánh">
                 </label>
-                <p id="compare-count">Đã chọn 0/3 xe</p>
+                <p id="compare-count" aria-live="polite">Đã chọn 0/3 xe</p>
             </div>
             <div class="compare-modal__body">
                 <aside class="compare-picker" id="compare-picker" aria-label="Danh sách xe có thể thêm"></aside>
@@ -307,8 +318,9 @@
         </div>
     </div>
 
-    <script src="/car-detail/script.js"></script>
-    <script src="/global/app.js"></script>
+    <script src="/car-detail/rolling-cost-calculator.js?v=rolling-cost-2026"></script>
+    <script src="/car-detail/script.js?v=rolling-cost-2026"></script>
+    <script src="/global/app.js?v=chat-motion-polish-20260712"></script>
     <script src="/global/responsive-nav.js"></script>
 </body>
 </html>

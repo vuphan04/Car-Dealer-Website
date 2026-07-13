@@ -144,6 +144,7 @@ let carBuyRequestBudgetLabelsState = {};
 let activeProfileListingsTab = 'sell';
 let activeProfileListingsFilter = 'all';
 let activeProfileDepositsFilter = 'all';
+let activeProfileDepositsSearch = '';
 let activeProfileDepositDetailId = null;
 const promotionDateFormatter = new Intl.DateTimeFormat('vi-VN', {
     year: 'numeric',
@@ -2245,6 +2246,7 @@ const profileDepositsSection = document.querySelector('#profile-deposits-section
 const profileDepositsList = document.querySelector('#profile-deposits-list');
 const profileDepositCount = document.querySelector('#profile-deposit-count');
 const profileDepositsFilter = document.querySelector('#profile-deposits-filter');
+const profileDepositsSearch = document.querySelector('#profile-deposits-search');
 const profileDepositsRefreshButton = document.querySelector('#profile-deposits-refresh');
 const profileDepositDetail = document.querySelector('#profile-deposit-detail');
 const profileDepositDetailContent = document.querySelector('#profile-deposit-detail-content');
@@ -2645,7 +2647,9 @@ const getProfileSellListingStatus = (request = {}) => {
         return 'pending';
     }
 
-    const actionText = String(request.actionText || '').trim().toLocaleLowerCase('vi-VN');
+    const actionText = String(
+        request.approvedCarActionText || request.actionText || ''
+    ).trim().toLocaleLowerCase('vi-VN');
 
     if (actionText.includes('đã bán') || actionText.includes('hết xe') || actionText.includes('hết hàng')) {
         return 'sold';
@@ -2772,6 +2776,13 @@ const renderProfileSellListingCard = (request = {}) => {
         ? `/cars/${encodeURIComponent(String(request.approvedCarId))}`
         : '/dang-tin-ban-xe';
     const actionText = status === 'selling' && request.approvedCarId ? 'Xem xe đang bán' : 'Đăng tin bán xe';
+    const actionMarkup = status === 'sold'
+        ? ''
+        : `
+            <div class="profile-listing-card__actions">
+                <a href="${escapeHtml(actionHref)}">${escapeHtml(actionText)}</a>
+            </div>
+        `;
 
     return `
         <article class="profile-listing-card">
@@ -2793,9 +2804,7 @@ const renderProfileSellListingCard = (request = {}) => {
                 </div>
             ` : ''}
             ${request.statusNote ? `<small class="profile-listing-card__note">Ghi chú: ${escapeHtml(request.statusNote)}</small>` : ''}
-            <div class="profile-listing-card__actions">
-                <a href="${escapeHtml(actionHref)}">${escapeHtml(actionText)}</a>
-            </div>
+            ${actionMarkup}
         </article>
     `;
 };
@@ -3974,16 +3983,32 @@ const renderProfileDeposits = ({ isLoading = false } = {}) => {
         return;
     }
 
-    const filteredOrders = activeProfileDepositsFilter === 'all'
+    const statusFilteredOrders = activeProfileDepositsFilter === 'all'
         ? depositOrdersState
         : depositOrdersState.filter((order) =>
             String(order.status || '').trim().toLowerCase() === activeProfileDepositsFilter);
+    const normalizedKeyword = normalizeSearchValue(activeProfileDepositsSearch);
+    const filteredOrders = normalizedKeyword
+        ? statusFilteredOrders.filter((order) => normalizeSearchValue([
+            order.code,
+            order.id ? `DC-${String(order.id).padStart(6, '0')}` : '',
+            order.carBrand,
+            order.carName,
+            getProfileDepositCarTitle(order),
+            order.phone,
+            order.fullName,
+            order.paymentReference,
+            order.vnpayTxnRef
+        ].filter(Boolean).join(' ')).includes(normalizedKeyword))
+        : statusFilteredOrders;
 
     if (!filteredOrders.length) {
         closeProfileDepositDetail({ shouldFocusList: false });
         profileDepositsList.innerHTML = renderProfileDepositEmpty(
-            activeProfileDepositsFilter === 'all'
-                ? ''
+            normalizedKeyword
+                ? `Không tìm thấy đơn phù hợp với "${activeProfileDepositsSearch.trim()}"`
+                : activeProfileDepositsFilter === 'all'
+                    ? ''
                 : `Không có đơn ở trạng thái "${profileDepositStatusLabels[activeProfileDepositsFilter] || 'đã chọn'}"`
         );
         return;
@@ -4183,6 +4208,10 @@ const openProfileModal = ({ focusListings = false, listingsOnly = false, deposit
 
     if (depositsOnly) {
         activeProfileDepositsFilter = 'all';
+        activeProfileDepositsSearch = '';
+        if (profileDepositsSearch) {
+            profileDepositsSearch.value = '';
+        }
     }
 
     renderProfileListings();
@@ -4198,7 +4227,7 @@ const openProfileModal = ({ focusListings = false, listingsOnly = false, deposit
     }
 
     if (depositsOnly) {
-        profileDepositsFilter?.focus();
+        profileDepositsSearch?.focus();
     } else if (focusListings) {
         focusProfileListingsSection({ scrollToSection: !listingsOnly });
     } else if (profileEditToggle) {
@@ -4463,18 +4492,7 @@ const handleEscapeKey = (event) => {
 document.addEventListener('keydown', handleEscapeKey);
 
 if (accountMenu && accountMenuTrigger) {
-    accountMenu.addEventListener('mouseenter', () => {
-        setAccountMenuOpen(true);
-    });
-
-    accountMenu.addEventListener('mouseleave', closeAccountMenu);
-
     accountMenuTrigger.addEventListener('click', () => {
-        if (window.matchMedia?.('(hover: hover)').matches) {
-            setAccountMenuOpen(true);
-            return;
-        }
-
         setAccountMenuOpen(!accountMenu.classList.contains('is-open'));
     });
 
@@ -4565,6 +4583,12 @@ depositOpenButtons.forEach((button) => {
 
 profileDepositsFilter?.addEventListener('change', () => {
     activeProfileDepositsFilter = profileDepositsFilter.value || 'all';
+    closeProfileDepositDetail({ shouldFocusList: false });
+    renderProfileDeposits();
+});
+
+profileDepositsSearch?.addEventListener('input', () => {
+    activeProfileDepositsSearch = profileDepositsSearch.value || '';
     closeProfileDepositDetail({ shouldFocusList: false });
     renderProfileDeposits();
 });

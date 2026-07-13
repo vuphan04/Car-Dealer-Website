@@ -92,8 +92,8 @@ img {
     place-items: center;
     overflow: hidden;
     background:
-        linear-gradient(90deg, rgba(8, 21, 74, 0.82), rgba(8, 21, 74, 0.46)),
-        url("/images/team-1.jpg") center 18% / cover no-repeat;
+        linear-gradient(90deg, rgba(8, 21, 74, 0.62), rgba(8, 21, 74, 0.5), rgba(8, 21, 74, 0.62)),
+        url("/images/sales-team-hero.png") center 20% / cover no-repeat;
     box-shadow: var(--shadow-soft);
 }
 
@@ -410,7 +410,7 @@ img {
     .sales-toolbar,
     .sales-grid,
     .sales-footer {
-        width: min(100% - 28px, 1240px);
+        width: min(calc(100% - 28px), 1240px);
     }
 
     .sales-nav,
@@ -441,4 +441,275 @@ img {
     .sales-card {
         grid-template-rows: 280px auto;
     }
+}
+
+/* 2026 sales-team polish: unified typography, hero, search and profile cards. */
+body {
+    background:
+        radial-gradient(circle at 8% 10%, rgba(241, 90, 41, 0.055), transparent 28rem),
+        linear-gradient(180deg, #ffffff 0, #f6f8fc 38rem);
+    font-family: var(--font-ui);
+    line-height: 1.5;
+}
+
+.sales-hero {
+    position: relative;
+    width: min(1240px, calc(100% - 48px));
+    min-height: clamp(360px, 36vw, 450px);
+    margin-top: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    border-radius: 26px;
+    background:
+        linear-gradient(90deg, rgba(5, 14, 48, 0.52), rgba(5, 14, 48, 0.76) 38%, rgba(5, 14, 48, 0.76) 62%, rgba(5, 14, 48, 0.52)),
+        url("/images/sales-team-hero.png") center 20% / cover no-repeat;
+    box-shadow: 0 22px 58px rgba(8, 21, 74, 0.15);
+}
+
+.sales-hero::after {
+    position: absolute;
+    inset: auto 0 0;
+    height: 42%;
+    content: "";
+    background: linear-gradient(180deg, transparent, rgba(3, 10, 35, 0.2));
+    pointer-events: none;
+}
+
+.sales-hero__content {
+    position: relative;
+    z-index: 1;
+    width: min(720px, calc(100% - 40px));
+    gap: 0.85rem;
+}
+
+.sales-hero__content > span {
+    font-weight: 700;
+}
+
+.sales-hero h1 {
+    max-width: 680px;
+    font-size: clamp(2rem, 4vw, 3.45rem);
+    line-height: 1.12;
+    font-weight: 800;
+}
+
+.sales-hero p {
+    max-width: 620px;
+    color: rgba(255, 255, 255, 0.84);
+    font-weight: 500;
+}
+
+.sales-hero__highlights {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.55rem;
+    margin-top: 0.25rem;
+}
+
+.sales-hero__highlights span {
+    min-height: 34px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    padding: 0 0.75rem;
+    color: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.sales-hero__highlights .bx {
+    color: #ff8a5f;
+    font-size: 1rem;
+}
+
+.sales-toolbar {
+    margin-top: 1.25rem;
+    padding: 1rem 1.15rem;
+    border-color: rgba(8, 21, 74, 0.075);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 12px 32px rgba(8, 21, 74, 0.07);
+    backdrop-filter: blur(10px);
+}
+
+.sales-search {
+    min-height: 52px;
+    border-radius: 14px;
+    background: #fbfcff;
+}
+
+.sales-search:focus-within {
+    border-color: rgba(241, 90, 41, 0.5);
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(241, 90, 41, 0.09);
+}
+
+.sales-search input {
+    font-weight: 500;
+}
+
+.sales-search input::placeholder {
+    color: #9aa3b8;
+    opacity: 1;
+}
+
+.sales-stats span {
+    min-height: 40px;
+    font-weight: 600;
+}
+
+.sales-grid {
+    margin-top: 1.5rem;
+    gap: 1.35rem;
+}
+
+.sales-card {
+    border-color: rgba(8, 21, 74, 0.075);
+    border-radius: 20px;
+    grid-template-rows: 280px auto;
+    box-shadow: 0 12px 32px rgba(8, 21, 74, 0.075);
+    transition: border-color 0.22s ease, transform 0.24s ease, box-shadow 0.24s ease;
+}
+
+.sales-card:hover,
+.sales-card:focus-within {
+    border-color: rgba(241, 90, 41, 0.2);
+    transform: translateY(-5px);
+    box-shadow: 0 22px 46px rgba(8, 21, 74, 0.12);
+}
+
+.sales-card__media {
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 50% 16%, rgba(255, 255, 255, 0.95), transparent 34%),
+        linear-gradient(180deg, #f8faff 0%, #fff3ec 100%);
+}
+
+.sales-card__media::after {
+    position: absolute;
+    inset: auto 0 0;
+    height: 26%;
+    content: "";
+    background: linear-gradient(180deg, transparent, rgba(8, 21, 74, 0.05));
+    pointer-events: none;
+}
+
+.sales-card__media img {
+    padding: 0.5rem 0.5rem 0;
+    transition: transform 0.35s ease;
+}
+
+.sales-card:hover .sales-card__media img {
+    transform: scale(1.025);
+}
+
+.sales-card__body {
+    gap: 0.72rem;
+    padding: 1.2rem;
+}
+
+.sales-card__role,
+.sales-card__bio-toggle,
+.sales-card__meta dt,
+.sales-card__action {
+    font-weight: 700;
+}
+
+.sales-card h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.sales-card__experience,
+.sales-card__bio,
+.sales-card__meta dd {
+    font-weight: 500;
+}
+
+.sales-card__meta {
+    padding: 0.75rem 0;
+    border-top: 1px solid rgba(8, 21, 74, 0.07);
+    border-bottom: 1px solid rgba(8, 21, 74, 0.07);
+}
+
+.sales-card__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+.sales-card__action {
+    min-height: 44px;
+    border-radius: 12px;
+    padding-inline: 0.8rem;
+}
+
+.sales-card__action--mail {
+    border: 1px solid rgba(8, 21, 74, 0.08);
+}
+
+.sales-card__action:hover,
+.sales-card__action:focus-visible {
+    transform: translateY(-1px);
+}
+
+.sales-card__bio-toggle:focus-visible,
+.sales-card__action:focus-visible,
+.sales-search input:focus-visible {
+    outline: 3px solid rgba(241, 90, 41, 0.23);
+    outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+    .sales-hero {
+        width: min(calc(100% - 28px), 1240px);
+        min-height: 440px;
+        border-radius: 20px;
+        background-position: center 20%;
+    }
+
+    .sales-hero h1 {
+        font-size: clamp(1.85rem, 9vw, 2.5rem);
+    }
+
+    .sales-hero__highlights {
+        gap: 0.4rem;
+    }
+
+    .sales-hero__highlights span {
+        min-height: 32px;
+        padding-inline: 0.62rem;
+        font-size: 0.7rem;
+    }
+
+    .sales-toolbar {
+        padding: 1rem;
+    }
+
+    .sales-card {
+        grid-template-rows: 290px auto;
+    }
+}
+
+@media (max-width: 420px) {
+    .sales-hero {
+        min-height: 500px;
+    }
+
+    .sales-card__actions {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .sales-hero, .sales-team-section { width: min(calc(100% - 28px), 1240px); max-width: 100%; }
+    .sales-hero__content { width: min(calc(100% - 30px), 680px); max-width: 100%; min-width: 0; }
+    .sales-hero :where(h1, p) { overflow-wrap: anywhere; }
 }

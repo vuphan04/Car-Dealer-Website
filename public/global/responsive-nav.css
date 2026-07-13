@@ -31,7 +31,7 @@
 
 @media (max-width: 760px) {
     [data-responsive-nav] {
-        width: min(100% - 32px, 1320px);
+        width: min(calc(100% - 32px), 1320px);
         min-height: 72px;
         align-items: center;
         justify-content: space-between;

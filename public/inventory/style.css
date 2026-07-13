@@ -1366,7 +1366,7 @@ img {
     .inventory-filter-panel,
     .inventory-layout,
     .inventory-footer {
-        width: min(100% - 28px, 1240px);
+        width: min(calc(100% - 28px), 1240px);
     }
 
     .inventory-nav {
@@ -1389,7 +1389,7 @@ img {
     }
 
     .inventory-hero__content {
-        width: min(100% - 30px, 640px);
+        width: min(calc(100% - 30px), 640px);
     }
 
     .inventory-hero h1 {
@@ -1512,4 +1512,256 @@ img {
     .compare-picker__item img {
         width: 54px;
     }
+}
+
+/* 2026 inventory polish: unified typography, hero, filters and cards. */
+body {
+    background:
+        radial-gradient(circle at 8% 10%, rgba(241, 90, 41, 0.055), transparent 28rem),
+        linear-gradient(180deg, #ffffff 0, #f6f8fc 34rem);
+    font-family: var(--font-ui);
+    line-height: 1.5;
+}
+
+.inventory-hero {
+    width: min(1240px, calc(100% - 48px));
+    min-height: clamp(330px, 33vw, 430px);
+    margin-top: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 26px;
+    place-items: center start;
+    background:
+        linear-gradient(90deg, rgba(5, 14, 48, 0.93) 0%, rgba(5, 14, 48, 0.74) 42%, rgba(5, 14, 48, 0.12) 79%),
+        url("/images/inventory-hero-v2.png") center / cover no-repeat;
+    box-shadow: 0 20px 55px rgba(8, 21, 74, 0.14);
+}
+
+.inventory-hero::after {
+    position: absolute;
+    inset: auto 0 0;
+    height: 46%;
+    content: "";
+    background: linear-gradient(180deg, transparent, rgba(3, 10, 35, 0.22));
+    pointer-events: none;
+}
+
+.inventory-hero__content {
+    width: min(650px, calc(100% - 64px));
+    margin-left: clamp(2rem, 6vw, 5rem);
+    justify-items: start;
+    gap: 0.85rem;
+    text-align: left;
+}
+
+.inventory-hero__content::before {
+    inset: -2rem -3rem;
+    border-radius: 36px;
+    background: radial-gradient(circle at 30% 50%, rgba(4, 12, 40, 0.34), transparent 70%);
+    backdrop-filter: none;
+}
+
+.inventory-hero__content > span,
+.inventory-results__bar > div > span {
+    font-weight: 700;
+}
+
+.inventory-hero h1 {
+    max-width: 620px;
+    font-size: clamp(2rem, 4vw, 3.35rem);
+    line-height: 1.12;
+    font-weight: 800;
+}
+
+.inventory-hero p {
+    color: rgba(255, 255, 255, 0.84);
+    font-weight: 500;
+}
+
+.inventory-hero__highlights {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 0.35rem;
+}
+
+.inventory-hero__highlights span {
+    min-height: 34px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    padding: 0 0.75rem;
+    color: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.inventory-hero__highlights .bx {
+    color: #ff8a5f;
+    font-size: 1rem;
+}
+
+.inventory-filter-panel {
+    margin-top: 1.5rem;
+    padding: 1.4rem 1.5rem;
+    border: 1px solid rgba(8, 21, 74, 0.075);
+    border-radius: 22px;
+    box-shadow: 0 12px 32px rgba(8, 21, 74, 0.075);
+}
+
+.inventory-filter-panel__header h2,
+.inventory-results__bar h2,
+.inventory-card h3 {
+    font-weight: 700;
+}
+
+.inventory-filter-panel__header button,
+.inventory-filter-toggle,
+.inventory-card__detail {
+    font-weight: 700;
+}
+
+.inventory-filter-row {
+    grid-template-columns: 138px minmax(0, 1fr);
+    padding: 0.55rem 0;
+}
+
+.inventory-filter-row__label,
+.inventory-sort span {
+    font-weight: 600;
+}
+
+.inventory-filter-chip {
+    min-height: 36px;
+    padding-inline: 0.82rem;
+    font-weight: 600;
+}
+
+.inventory-year-controls select,
+.inventory-sort select {
+    min-height: 42px;
+    font-weight: 600;
+}
+
+.inventory-layout {
+    margin-top: 2.4rem;
+}
+
+.inventory-grid {
+    gap: 1.35rem;
+}
+
+.inventory-card {
+    border-color: rgba(8, 21, 74, 0.075);
+    border-radius: 20px;
+    box-shadow: 0 12px 32px rgba(8, 21, 74, 0.075);
+}
+
+.inventory-card:hover,
+.inventory-card:focus-within {
+    border-color: rgba(241, 90, 41, 0.2);
+    transform: translateY(-5px);
+    box-shadow: 0 22px 46px rgba(8, 21, 74, 0.12);
+}
+
+.inventory-card__media {
+    overflow: hidden;
+}
+
+.inventory-card__body {
+    gap: 0.72rem;
+    padding: 1.1rem;
+}
+
+.inventory-card__category,
+.inventory-card__status {
+    font-weight: 700;
+}
+
+.inventory-card__price {
+    font-weight: 800;
+}
+
+.inventory-card__detail {
+    min-height: 46px;
+    border-radius: 13px;
+    box-shadow: 0 8px 18px rgba(241, 90, 41, 0.14);
+}
+
+.inventory-card__compare {
+    min-height: 46px;
+    border-radius: 13px;
+}
+
+.inventory-filter-panel :where(button, select):focus-visible,
+.inventory-card :where(a, button):focus-visible,
+.inventory-sort select:focus-visible {
+    outline: 3px solid rgba(241, 90, 41, 0.22);
+    outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+    .inventory-hero {
+        width: min(calc(100% - 28px), 1240px);
+        min-height: 390px;
+        place-items: end start;
+        background-position: 62% center;
+    }
+
+    .inventory-hero__content {
+        width: min(calc(100% - 30px), 640px);
+        margin-left: 0;
+        padding: 2rem 0;
+    }
+
+    .inventory-hero__content::before {
+        inset: -1.4rem -1rem;
+    }
+
+    .inventory-hero h1 {
+        font-size: clamp(1.8rem, 9vw, 2.45rem);
+    }
+
+    .inventory-hero__highlights {
+        gap: 0.4rem;
+    }
+
+    .inventory-hero__highlights span {
+        min-height: 32px;
+        padding-inline: 0.62rem;
+        font-size: 0.7rem;
+    }
+
+    .inventory-filter-panel {
+        padding: 1rem;
+        border-radius: 18px;
+    }
+
+    .inventory-filter-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 440px) {
+    .inventory-hero {
+        min-height: 430px;
+        background-position: 66% center;
+    }
+
+    .inventory-hero__highlights span {
+        width: fit-content;
+    }
+}
+
+@media (max-width: 720px) {
+    .inventory-hero { width: min(calc(100% - 28px), 1240px); overflow: hidden; }
+    .inventory-hero__content { width: min(calc(100% - 30px), 640px); max-width: 100%; }
+    .inventory-hero :where(h1, p), .inventory-filter-panel, .inventory-results, .inventory-list { min-width: 0; max-width: 100%; }
 }

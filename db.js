@@ -47,7 +47,8 @@ const depositOrderStatusTransitions = new Map([
 ]);
 const depositPaymentMethods = new Set(['bank', 'vnpay', 'wallet', 'card']);
 const salesKpiTypes = new Set(['acquisition', 'sale', 'direct_sale']);
-const salesKpiRewardStatuses = new Set(['pending', 'paid']);
+const salesKpiRewardStatuses = new Set(['pending', 'approved', 'paid']);
+const salesKpiRoles = new Set(['sales_only', 'acquisition_only', 'both']);
 const carAvailableStatusText = 'Còn xe';
 const carHeldStatusText = 'Đang giữ chỗ';
 const carSoldStatusText = 'Xe đã bán';
@@ -834,6 +835,16 @@ const initializeSchema = (database) => {
     cancelled_by_user_id INTEGER,
     cancelled_by_name TEXT NOT NULL DEFAULT '',
     cancellation_note TEXT NOT NULL DEFAULT '',
+    business_date TEXT NOT NULL DEFAULT '',
+    policy_period TEXT NOT NULL DEFAULT '',
+    creation_mode TEXT NOT NULL DEFAULT 'manual',
+    reward_approved_at TEXT NOT NULL DEFAULT '',
+    reward_approved_by_user_id INTEGER,
+    reward_approved_by_name TEXT NOT NULL DEFAULT '',
+    reward_paid_at TEXT NOT NULL DEFAULT '',
+    reward_paid_by_user_id INTEGER,
+    reward_paid_by_name TEXT NOT NULL DEFAULT '',
+    payout_reference TEXT NOT NULL DEFAULT '',
     UNIQUE (kpi_type, source_id),
     FOREIGN KEY (sale_user_id) REFERENCES users(id) ON DELETE RESTRICT,
     FOREIGN KEY (car_id) REFERENCES cars(id) ON DELETE SET NULL,
@@ -846,6 +857,74 @@ const initializeSchema = (database) => {
 
   CREATE INDEX IF NOT EXISTS idx_sales_kpi_records_status
   ON sales_kpi_records (record_status, kpi_type, recorded_at);
+
+  CREATE TABLE IF NOT EXISTS sales_kpi_targets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    period TEXT NOT NULL,
+    sale_user_id INTEGER NOT NULL,
+    vehicle_target INTEGER NOT NULL DEFAULT 0,
+    revenue_target INTEGER NOT NULL DEFAULT 0,
+    gross_profit_target INTEGER NOT NULL DEFAULT 0,
+    kpi_role TEXT NOT NULL DEFAULT 'both',
+    commission_per_sale INTEGER NOT NULL DEFAULT 0,
+    acquisition_reward_per_vehicle INTEGER NOT NULL DEFAULT 0,
+    updated_by_user_id INTEGER,
+    updated_by_name TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (period, sale_user_id),
+    FOREIGN KEY (sale_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_sales_kpi_targets_period
+  ON sales_kpi_targets (period, sale_user_id);
+
+  CREATE TABLE IF NOT EXISTS sales_kpi_periods (
+    period TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'open',
+    locked_at TEXT NOT NULL DEFAULT '',
+    locked_by_user_id INTEGER,
+    locked_by_name TEXT NOT NULL DEFAULT '',
+    lock_note TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (locked_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS sales_kpi_policy_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    period TEXT NOT NULL,
+    sale_user_id INTEGER NOT NULL,
+    kpi_role TEXT NOT NULL,
+    vehicle_target INTEGER NOT NULL DEFAULT 0,
+    gross_profit_target INTEGER NOT NULL DEFAULT 0,
+    commission_per_sale INTEGER NOT NULL DEFAULT 0,
+    acquisition_reward_per_vehicle INTEGER NOT NULL DEFAULT 0,
+    action_type TEXT NOT NULL DEFAULT 'updated',
+    change_note TEXT NOT NULL DEFAULT '',
+    changed_by_user_id INTEGER,
+    changed_by_name TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sale_user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (changed_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_sales_kpi_policy_history_period
+  ON sales_kpi_policy_history (period, created_at, id);
+
+  CREATE TABLE IF NOT EXISTS sales_kpi_reward_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sales_kpi_record_id INTEGER NOT NULL,
+    previous_status TEXT NOT NULL DEFAULT '',
+    next_status TEXT NOT NULL,
+    payout_reference TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    actor_user_id INTEGER,
+    actor_name TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (sales_kpi_record_id) REFERENCES sales_kpi_records(id) ON DELETE CASCADE,
+    FOREIGN KEY (actor_user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
 
   CREATE TABLE IF NOT EXISTS direct_car_sales (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -879,6 +958,45 @@ const initializeSchema = (database) => {
     deleted_at TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS conversations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    subject TEXT NOT NULL DEFAULT 'Hỗ trợ khách hàng',
+    context_type TEXT NOT NULL DEFAULT 'general',
+    context_id INTEGER,
+    assigned_user_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'open',
+    last_message_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    customer_last_read_at TEXT,
+    staff_last_read_at TEXT,
+    customer_last_read_message_id INTEGER NOT NULL DEFAULT 0,
+    staff_last_read_message_id INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_user_id) REFERENCES users(id) ON DELETE SET NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS conversation_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id INTEGER NOT NULL,
+    sender_user_id INTEGER NOT NULL,
+    sender_role TEXT NOT NULL DEFAULT 'customer',
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
+    FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_conversations_user
+  ON conversations (user_id, last_message_at);
+
+  CREATE INDEX IF NOT EXISTS idx_conversations_status
+  ON conversations (status, last_message_at);
+
+  CREATE INDEX IF NOT EXISTS idx_conversation_messages_conversation
+  ON conversation_messages (conversation_id, created_at, id);
 
   CREATE TABLE IF NOT EXISTS admin_notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -973,6 +1091,15 @@ const initializeSchema = (database) => {
   ON admin_notifications (deleted_at, created_at);
 
 `);
+
+  const conversationColumns = database.prepare('PRAGMA table_info(conversations)').all();
+  const conversationColumnNames = new Set(conversationColumns.map((column) => column.name));
+  if (!conversationColumnNames.has('customer_last_read_message_id')) {
+    database.exec('ALTER TABLE conversations ADD COLUMN customer_last_read_message_id INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!conversationColumnNames.has('staff_last_read_message_id')) {
+    database.exec('ALTER TABLE conversations ADD COLUMN staff_last_read_message_id INTEGER NOT NULL DEFAULT 0');
+  }
 
   const userColumns = database.prepare('PRAGMA table_info(users)').all();
   const userColumnNames = new Set(userColumns.map((column) => column.name));
@@ -1480,6 +1607,67 @@ const initializeSchema = (database) => {
     database.exec('ALTER TABLE admin_notifications ADD COLUMN deleted_at TEXT');
   }
 
+  const salesKpiTargetColumns = database.prepare('PRAGMA table_info(sales_kpi_targets)').all();
+  const salesKpiTargetColumnNames = new Set(salesKpiTargetColumns.map((column) => column.name));
+  if (!salesKpiTargetColumnNames.has('kpi_role')) {
+    database.exec("ALTER TABLE sales_kpi_targets ADD COLUMN kpi_role TEXT NOT NULL DEFAULT 'both'");
+  }
+  if (!salesKpiTargetColumnNames.has('commission_per_sale')) {
+    database.exec('ALTER TABLE sales_kpi_targets ADD COLUMN commission_per_sale INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!salesKpiTargetColumnNames.has('acquisition_reward_per_vehicle')) {
+    database.exec('ALTER TABLE sales_kpi_targets ADD COLUMN acquisition_reward_per_vehicle INTEGER NOT NULL DEFAULT 0');
+  }
+  database.exec(`
+    UPDATE sales_kpi_targets
+    SET kpi_role = 'both'
+    WHERE kpi_role IS NULL OR kpi_role NOT IN ('sales_only', 'acquisition_only', 'both')
+  `);
+
+  const salesKpiRecordColumns = database.prepare('PRAGMA table_info(sales_kpi_records)').all();
+  const salesKpiRecordColumnNames = new Set(salesKpiRecordColumns.map((column) => column.name));
+  const addSalesKpiRecordColumn = (name, definition) => {
+    if (!salesKpiRecordColumnNames.has(name)) {
+      database.exec(`ALTER TABLE sales_kpi_records ADD COLUMN ${name} ${definition}`);
+    }
+  };
+  addSalesKpiRecordColumn('business_date', "TEXT NOT NULL DEFAULT ''");
+  addSalesKpiRecordColumn('policy_period', "TEXT NOT NULL DEFAULT ''");
+  addSalesKpiRecordColumn('creation_mode', "TEXT NOT NULL DEFAULT 'manual'");
+  addSalesKpiRecordColumn('reward_approved_at', "TEXT NOT NULL DEFAULT ''");
+  addSalesKpiRecordColumn('reward_approved_by_user_id', 'INTEGER');
+  addSalesKpiRecordColumn('reward_approved_by_name', "TEXT NOT NULL DEFAULT ''");
+  addSalesKpiRecordColumn('reward_paid_at', "TEXT NOT NULL DEFAULT ''");
+  addSalesKpiRecordColumn('reward_paid_by_user_id', 'INTEGER');
+  addSalesKpiRecordColumn('reward_paid_by_name', "TEXT NOT NULL DEFAULT ''");
+  addSalesKpiRecordColumn('payout_reference', "TEXT NOT NULL DEFAULT ''");
+  database.exec(`
+    UPDATE sales_kpi_records
+    SET business_date = COALESCE(NULLIF(business_date, ''), substr(recorded_at, 1, 10)),
+        policy_period = COALESCE(NULLIF(policy_period, ''), substr(recorded_at, 1, 7)),
+        creation_mode = COALESCE(NULLIF(creation_mode, ''), 'manual')
+    WHERE business_date = '' OR policy_period = '' OR creation_mode = ''
+  `);
+  database.exec(`
+    INSERT INTO sales_kpi_policy_history (
+      period, sale_user_id, kpi_role, vehicle_target, gross_profit_target,
+      commission_per_sale, acquisition_reward_per_vehicle, action_type,
+      change_note, changed_by_user_id, changed_by_name, created_at
+    )
+    SELECT targets.period, targets.sale_user_id, targets.kpi_role,
+           targets.vehicle_target, targets.gross_profit_target,
+           targets.commission_per_sale, targets.acquisition_reward_per_vehicle,
+           'baseline', 'Dữ liệu chính sách trước khi bật lịch sử phiên bản.',
+           targets.updated_by_user_id, targets.updated_by_name,
+           COALESCE(NULLIF(targets.updated_at, ''), CURRENT_TIMESTAMP)
+    FROM sales_kpi_targets AS targets
+    WHERE NOT EXISTS (
+      SELECT 1 FROM sales_kpi_policy_history AS history
+      WHERE history.period = targets.period
+        AND history.sale_user_id = targets.sale_user_id
+    )
+  `);
+
   database.exec(`
     CREATE INDEX IF NOT EXISTS idx_admin_notifications_visible
     ON admin_notifications (deleted_at, created_at);
@@ -1487,6 +1675,8 @@ const initializeSchema = (database) => {
 };
 
 const db = openDatabase();
+
+const closeDatabase = () => db.close();
 
 initializeSchema(db);
 
@@ -1574,6 +1764,87 @@ const listUsersStatement = db.prepare(`
     END,
     lower(full_name),
     lower(email)
+`);
+
+const insertConversationStatement = db.prepare(`
+  INSERT INTO conversations (user_id, subject, context_type, context_id, customer_last_read_at)
+  VALUES (?, ?, ?, ?, STRFTIME('%Y-%m-%d %H:%M:%f', 'now'))
+`);
+const findConversationByIdStatement = db.prepare(`
+  SELECT conversations.*, customers.full_name AS customer_name, customers.email AS customer_email,
+         customers.phone AS customer_phone, customers.avatar_url AS customer_avatar_url,
+         assignees.full_name AS assigned_user_name,
+         (SELECT content FROM conversation_messages WHERE conversation_id = conversations.id ORDER BY id DESC LIMIT 1) AS last_message,
+         (SELECT sender_role FROM conversation_messages WHERE conversation_id = conversations.id ORDER BY id DESC LIMIT 1) AS last_sender_role
+  FROM conversations
+  INNER JOIN users customers ON customers.id = conversations.user_id
+  LEFT JOIN users assignees ON assignees.id = conversations.assigned_user_id
+  WHERE conversations.id = ?
+`);
+const listConversationsByUserStatement = db.prepare(`
+  SELECT conversations.*, assignees.full_name AS assigned_user_name,
+         (SELECT content FROM conversation_messages WHERE conversation_id = conversations.id ORDER BY id DESC LIMIT 1) AS last_message,
+         (SELECT COUNT(*) FROM conversation_messages messages
+          WHERE messages.conversation_id = conversations.id
+            AND messages.sender_role IN ('staff', 'admin')
+            AND messages.id > conversations.customer_last_read_message_id) AS unread_count
+  FROM conversations
+  LEFT JOIN users assignees ON assignees.id = conversations.assigned_user_id
+  WHERE conversations.user_id = ?
+  ORDER BY datetime(conversations.last_message_at) DESC, conversations.id DESC
+`);
+const listAdminConversationsStatement = db.prepare(`
+  SELECT conversations.*, customers.full_name AS customer_name, customers.email AS customer_email,
+         customers.phone AS customer_phone, customers.avatar_url AS customer_avatar_url,
+         assignees.full_name AS assigned_user_name,
+         (SELECT content FROM conversation_messages WHERE conversation_id = conversations.id ORDER BY id DESC LIMIT 1) AS last_message,
+         (SELECT COUNT(*) FROM conversation_messages messages
+          WHERE messages.conversation_id = conversations.id
+            AND messages.sender_role = 'customer'
+            AND messages.id > conversations.staff_last_read_message_id) AS unread_count
+  FROM conversations
+  INNER JOIN users customers ON customers.id = conversations.user_id
+  LEFT JOIN users assignees ON assignees.id = conversations.assigned_user_id
+  ORDER BY CASE conversations.status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,
+           datetime(conversations.last_message_at) DESC, conversations.id DESC
+`);
+const insertConversationMessageStatement = db.prepare(`
+  INSERT INTO conversation_messages (conversation_id, sender_user_id, sender_role, content, created_at)
+  VALUES (?, ?, ?, ?, STRFTIME('%Y-%m-%d %H:%M:%f', 'now'))
+`);
+const findConversationMessageByIdStatement = db.prepare(`
+  SELECT conversation_messages.*, users.full_name AS sender_name, users.avatar_url AS sender_avatar_url
+  FROM conversation_messages
+  INNER JOIN users ON users.id = conversation_messages.sender_user_id
+  WHERE conversation_messages.id = ?
+`);
+const listConversationMessagesStatement = db.prepare(`
+  SELECT conversation_messages.*, users.full_name AS sender_name, users.avatar_url AS sender_avatar_url
+  FROM conversation_messages
+  INNER JOIN users ON users.id = conversation_messages.sender_user_id
+  WHERE conversation_messages.conversation_id = ?
+  ORDER BY conversation_messages.id ASC
+  LIMIT 200
+`);
+const touchConversationAfterMessageStatement = db.prepare(`
+  UPDATE conversations SET status = CASE WHEN ? = 'customer' AND status = 'closed' THEN 'open' ELSE status END,
+      last_message_at = STRFTIME('%Y-%m-%d %H:%M:%f', 'now'), updated_at = STRFTIME('%Y-%m-%d %H:%M:%f', 'now') WHERE id = ?
+`);
+const markConversationCustomerReadStatement = db.prepare(`
+  UPDATE conversations SET customer_last_read_at = STRFTIME('%Y-%m-%d %H:%M:%f', 'now'),
+      customer_last_read_message_id = COALESCE((SELECT MAX(id) FROM conversation_messages WHERE conversation_id = ?), 0)
+  WHERE id = ?
+`);
+const markConversationStaffReadStatement = db.prepare(`
+  UPDATE conversations SET staff_last_read_at = STRFTIME('%Y-%m-%d %H:%M:%f', 'now'),
+      staff_last_read_message_id = COALESCE((SELECT MAX(id) FROM conversation_messages WHERE conversation_id = ?), 0)
+  WHERE id = ?
+`);
+const assignConversationStatement = db.prepare(`
+  UPDATE conversations SET assigned_user_id = ?, status = 'in_progress', updated_at = CURRENT_TIMESTAMP WHERE id = ?
+`);
+const updateConversationStatusStatement = db.prepare(`
+  UPDATE conversations SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
 `);
 
 const listHomepageTeamMembersStatement = db.prepare(`
@@ -2557,18 +2828,22 @@ const insertCarSellRequestStatement = db.prepare(`
 const findCarSellRequestByIdStatement = db.prepare(`
   SELECT car_sell_requests.*,
          users.email AS user_email,
-         users.avatar_url AS user_avatar_url
+         users.avatar_url AS user_avatar_url,
+         cars.action_text AS approved_car_action_text
   FROM car_sell_requests
   LEFT JOIN users ON users.id = car_sell_requests.user_id
+  LEFT JOIN cars ON cars.id = car_sell_requests.approved_car_id
   WHERE car_sell_requests.id = ?
 `);
 
 const listCarSellRequestsStatement = db.prepare(`
   SELECT car_sell_requests.*,
          users.email AS user_email,
-         users.avatar_url AS user_avatar_url
+         users.avatar_url AS user_avatar_url,
+         cars.action_text AS approved_car_action_text
   FROM car_sell_requests
   LEFT JOIN users ON users.id = car_sell_requests.user_id
+  LEFT JOIN cars ON cars.id = car_sell_requests.approved_car_id
   ORDER BY
     CASE car_sell_requests.status
       WHEN 'pending' THEN 0
@@ -2582,9 +2857,11 @@ const listCarSellRequestsStatement = db.prepare(`
 const listCarSellRequestsByUserStatement = db.prepare(`
   SELECT car_sell_requests.*,
          users.email AS user_email,
-         users.avatar_url AS user_avatar_url
+         users.avatar_url AS user_avatar_url,
+         cars.action_text AS approved_car_action_text
   FROM car_sell_requests
   LEFT JOIN users ON users.id = car_sell_requests.user_id
+  LEFT JOIN cars ON cars.id = car_sell_requests.approved_car_id
   WHERE car_sell_requests.user_id = ?
   ORDER BY datetime(car_sell_requests.created_at) DESC,
            car_sell_requests.id DESC
@@ -2696,9 +2973,10 @@ const insertSalesKpiRecordStatement = db.prepare(`
   INSERT INTO sales_kpi_records (
     kpi_type, source_id, sale_user_id, sale_name, car_id, car_name, car_brand,
     source_code, transaction_value, purchase_price_value, sale_price_value,
-    reward_amount, reward_status, note, recorded_by_user_id, recorded_by_name
+    reward_amount, reward_status, note, recorded_by_user_id, recorded_by_name,
+    business_date, policy_period, creation_mode
   )
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 const updateSalesKpiRecordStatement = db.prepare(`
@@ -2706,11 +2984,58 @@ const updateSalesKpiRecordStatement = db.prepare(`
   SET sale_user_id = ?,
       sale_name = ?,
       reward_amount = ?,
-      reward_status = ?,
       note = ?,
       updated_at = CURRENT_TIMESTAMP
   WHERE id = ?
     AND record_status = 'active'
+`);
+
+const findSalesKpiPeriodStatement = db.prepare('SELECT * FROM sales_kpi_periods WHERE period = ?');
+const upsertSalesKpiPeriodStatement = db.prepare(`
+  INSERT INTO sales_kpi_periods (
+    period, status, locked_at, locked_by_user_id, locked_by_name, lock_note
+  ) VALUES (?, ?, ?, ?, ?, ?)
+  ON CONFLICT(period) DO UPDATE SET
+    status = excluded.status,
+    locked_at = excluded.locked_at,
+    locked_by_user_id = excluded.locked_by_user_id,
+    locked_by_name = excluded.locked_by_name,
+    lock_note = excluded.lock_note,
+    updated_at = CURRENT_TIMESTAMP
+`);
+const insertSalesKpiPolicyHistoryStatement = db.prepare(`
+  INSERT INTO sales_kpi_policy_history (
+    period, sale_user_id, kpi_role, vehicle_target, gross_profit_target,
+    commission_per_sale, acquisition_reward_per_vehicle, action_type,
+    change_note, changed_by_user_id, changed_by_name
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+const listSalesKpiPolicyHistoryStatement = db.prepare(`
+  SELECT sales_kpi_policy_history.*, users.full_name AS sale_name
+  FROM sales_kpi_policy_history
+  LEFT JOIN users ON users.id = sales_kpi_policy_history.sale_user_id
+  WHERE sales_kpi_policy_history.period = ?
+  ORDER BY datetime(sales_kpi_policy_history.created_at) DESC, sales_kpi_policy_history.id DESC
+  LIMIT 100
+`);
+const updateSalesKpiRewardWorkflowStatement = db.prepare(`
+  UPDATE sales_kpi_records
+  SET reward_status = ?,
+      reward_approved_at = ?,
+      reward_approved_by_user_id = ?,
+      reward_approved_by_name = ?,
+      reward_paid_at = ?,
+      reward_paid_by_user_id = ?,
+      reward_paid_by_name = ?,
+      payout_reference = ?,
+      updated_at = CURRENT_TIMESTAMP
+  WHERE id = ? AND record_status = 'active'
+`);
+const insertSalesKpiRewardHistoryStatement = db.prepare(`
+  INSERT INTO sales_kpi_reward_history (
+    sales_kpi_record_id, previous_status, next_status, payout_reference,
+    note, actor_user_id, actor_name
+  ) VALUES (?, ?, ?, ?, ?, ?, ?)
 `);
 
 const cancelSalesKpiRecordStatement = db.prepare(`
@@ -2723,6 +3048,43 @@ const cancelSalesKpiRecordStatement = db.prepare(`
       updated_at = CURRENT_TIMESTAMP
   WHERE id = ?
     AND record_status = 'active'
+`);
+
+const listSalesKpiTargetsByPeriodStatement = db.prepare(`
+  SELECT sales_kpi_targets.*,
+         users.full_name AS current_sale_name,
+         users.email AS sale_email,
+         users.avatar_url AS sale_avatar_url
+  FROM sales_kpi_targets
+  INNER JOIN users ON users.id = sales_kpi_targets.sale_user_id
+  WHERE sales_kpi_targets.period = ?
+    AND users.role = 'staff'
+  ORDER BY users.full_name COLLATE NOCASE, users.id
+`);
+
+const findSalesKpiTargetStatement = db.prepare(`
+  SELECT *
+  FROM sales_kpi_targets
+  WHERE period = ? AND sale_user_id = ?
+`);
+
+const upsertSalesKpiTargetStatement = db.prepare(`
+  INSERT INTO sales_kpi_targets (
+    period, sale_user_id, vehicle_target, revenue_target, gross_profit_target,
+    kpi_role, commission_per_sale, acquisition_reward_per_vehicle,
+    updated_by_user_id, updated_by_name
+  )
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  ON CONFLICT(period, sale_user_id) DO UPDATE SET
+    vehicle_target = excluded.vehicle_target,
+    revenue_target = excluded.revenue_target,
+    gross_profit_target = excluded.gross_profit_target,
+    kpi_role = excluded.kpi_role,
+    commission_per_sale = excluded.commission_per_sale,
+    acquisition_reward_per_vehicle = excluded.acquisition_reward_per_vehicle,
+    updated_by_user_id = excluded.updated_by_user_id,
+    updated_by_name = excluded.updated_by_name,
+    updated_at = CURRENT_TIMESTAMP
 `);
 
 const insertUserNotificationStatement = db.prepare(`
@@ -3737,6 +4099,7 @@ const sanitizeCarSellRequest = (requestRow) => {
     condition: requestRow.condition || '',
     color: requestRow.color || '',
     actionText: requestRow.action_text || 'Còn xe',
+    approvedCarActionText: requestRow.approved_car_action_text || '',
     status: normalizeCarSellRequestStatus(requestRow.status),
     statusNote: requestRow.status_note || '',
     approvedCarId: requestRow.approved_car_id,
@@ -3767,6 +4130,15 @@ const sanitizeSalesKpiRecord = (recordRow) => {
     salePriceValue: Number(recordRow.sale_price_value || 0),
     rewardAmount: Number(recordRow.reward_amount || 0),
     rewardStatus: recordRow.reward_status || 'pending',
+    businessDate: recordRow.business_date || String(recordRow.recorded_at || '').slice(0, 10),
+    policyPeriod: recordRow.policy_period || String(recordRow.recorded_at || '').slice(0, 7),
+    creationMode: recordRow.creation_mode || 'manual',
+    rewardApprovedAt: recordRow.reward_approved_at || '',
+    rewardApprovedByUserId: Number(recordRow.reward_approved_by_user_id || 0) || null,
+    rewardApprovedByName: recordRow.reward_approved_by_name || '',
+    rewardPaidAt: recordRow.reward_paid_at || '',
+    rewardPaidByName: recordRow.reward_paid_by_name || '',
+    payoutReference: recordRow.payout_reference || '',
     recordStatus: recordRow.record_status || 'active',
     note: recordRow.note || '',
     recordedByUserId: Number(recordRow.recorded_by_user_id || 0) || null,
@@ -3777,6 +4149,29 @@ const sanitizeSalesKpiRecord = (recordRow) => {
     cancelledByUserId: Number(recordRow.cancelled_by_user_id || 0) || null,
     cancelledByName: recordRow.cancelled_by_name || '',
     cancellationNote: recordRow.cancellation_note || '',
+  };
+};
+
+const sanitizeSalesKpiTarget = (targetRow) => {
+  if (!targetRow) return null;
+
+  return {
+    id: Number(targetRow.id || 0),
+    period: targetRow.period || '',
+    saleUserId: Number(targetRow.sale_user_id || 0),
+    saleName: targetRow.current_sale_name || '',
+    saleEmail: targetRow.sale_email || '',
+    saleAvatarUrl: targetRow.sale_avatar_url || '',
+    vehicleTarget: Number(targetRow.vehicle_target || 0),
+    revenueTarget: Number(targetRow.revenue_target || 0),
+    grossProfitTarget: Number(targetRow.gross_profit_target || 0),
+    kpiRole: ['sales_only', 'acquisition_only', 'both'].includes(targetRow.kpi_role)
+      ? targetRow.kpi_role
+      : 'both',
+    commissionPerSale: Number(targetRow.commission_per_sale || 0),
+    acquisitionRewardPerVehicle: Number(targetRow.acquisition_reward_per_vehicle || 0),
+    updatedByName: targetRow.updated_by_name || '',
+    updatedAt: targetRow.updated_at || '',
   };
 };
 
@@ -4149,6 +4544,111 @@ const createUser = ({
 };
 
 const listUsers = () => listUsersStatement.all().map(sanitizeUser);
+
+const sanitizeConversation = (row) => row ? ({
+  id: Number(row.id),
+  userId: Number(row.user_id),
+  customerName: row.customer_name || '',
+  customerEmail: row.customer_email || '',
+  customerPhone: row.customer_phone || '',
+  customerAvatarUrl: row.customer_avatar_url || '',
+  subject: row.subject || 'Hỗ trợ khách hàng',
+  contextType: row.context_type || 'general',
+  contextId: row.context_id ? Number(row.context_id) : null,
+  assignedUserId: row.assigned_user_id ? Number(row.assigned_user_id) : null,
+  assignedUserName: row.assigned_user_name || '',
+  status: ['open', 'in_progress', 'closed'].includes(row.status) ? row.status : 'open',
+  lastMessage: row.last_message || '',
+  lastSenderRole: row.last_sender_role || '',
+  unreadCount: Number(row.unread_count || 0),
+  lastMessageAt: row.last_message_at || '',
+  createdAt: row.created_at || '',
+  updatedAt: row.updated_at || '',
+}) : null;
+
+const sanitizeConversationMessage = (row) => row ? ({
+  id: Number(row.id),
+  conversationId: Number(row.conversation_id),
+  senderUserId: Number(row.sender_user_id),
+  senderRole: row.sender_role || 'customer',
+  senderName: row.sender_name || '',
+  senderAvatarUrl: row.sender_avatar_url || '',
+  content: row.content || '',
+  createdAt: row.created_at || '',
+}) : null;
+
+const getConversationById = (conversationId) =>
+  sanitizeConversation(findConversationByIdStatement.get(conversationId));
+
+const listConversationsByUser = (userId) =>
+  listConversationsByUserStatement.all(userId).map(sanitizeConversation);
+
+const listAdminConversations = () =>
+  listAdminConversationsStatement.all().map(sanitizeConversation);
+
+const listConversationMessages = (conversationId) =>
+  listConversationMessagesStatement.all(conversationId).map(sanitizeConversationMessage);
+
+const createConversationMessage = (conversationId, senderUser, content) => {
+  const normalizedContent = String(content || '').trim().slice(0, 2000);
+  const senderRole = String(senderUser?.role || 'customer').trim().toLowerCase();
+  if (!normalizedContent || !senderUser?.id) return null;
+  const result = insertConversationMessageStatement.run(
+    conversationId,
+    senderUser.id,
+    senderRole,
+    normalizedContent
+  );
+  touchConversationAfterMessageStatement.run(senderRole, conversationId);
+  return sanitizeConversationMessage(findConversationMessageByIdStatement.get(result.lastInsertRowid));
+};
+
+const createConversation = ({ userId, subject = '', contextType = 'general', contextId = null, content = '' } = {}) => {
+  const normalizedSubject = String(subject || 'Hỗ trợ khách hàng').trim().slice(0, 160) || 'Hỗ trợ khách hàng';
+  const allowedContextTypes = new Set(['general', 'car', 'deposit_order', 'sell_request', 'buy_request']);
+  const normalizedContextType = allowedContextTypes.has(String(contextType || '').trim())
+    ? String(contextType).trim()
+    : 'general';
+  const normalizedContextId = Number(contextId || 0);
+  const user = getUserById(userId);
+  if (!user || user.role !== 'customer') return null;
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const result = insertConversationStatement.run(
+      user.id,
+      normalizedSubject,
+      normalizedContextType,
+      Number.isInteger(normalizedContextId) && normalizedContextId > 0 ? normalizedContextId : null
+    );
+    const message = createConversationMessage(result.lastInsertRowid, user, content);
+    if (!message) throw new Error('Nội dung tin nhắn không hợp lệ.');
+    db.exec('COMMIT');
+    return { conversation: getConversationById(result.lastInsertRowid), message };
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+};
+
+const markConversationRead = (conversationId, audience = 'customer') => {
+  (audience === 'staff' ? markConversationStaffReadStatement : markConversationCustomerReadStatement)
+    .run(conversationId, conversationId);
+  return getConversationById(conversationId);
+};
+
+const assignConversation = (conversationId, assignedUserId) => {
+  const user = getUserById(assignedUserId);
+  if (!user || !employeeRoles.has(user.role)) return null;
+  assignConversationStatement.run(user.id, conversationId);
+  return getConversationById(conversationId);
+};
+
+const updateConversationStatus = (conversationId, status) => {
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+  if (!['open', 'in_progress', 'closed'].includes(normalizedStatus)) return null;
+  updateConversationStatusStatement.run(normalizedStatus, conversationId);
+  return getConversationById(conversationId);
+};
 
 const listHomepageTeamMembers = () =>
   listHomepageTeamMembersStatement.all().map(sanitizeTeamMember);
@@ -4662,14 +5162,594 @@ const getSalesKpiStats = () => {
   return {
     total: activeRecords.length,
     acquisitionCount: activeRecords.filter((record) => record.kpiType === 'acquisition').length,
-    saleCount: activeRecords.filter((record) => record.kpiType === 'sale').length,
+    saleCount: activeRecords.filter((record) => ['sale', 'direct_sale'].includes(record.kpiType)).length,
     salesValue: activeRecords
-      .filter((record) => record.kpiType === 'sale')
+      .filter((record) => ['sale', 'direct_sale'].includes(record.kpiType))
       .reduce((total, record) => total + Number(record.transactionValue || 0), 0),
     rewardAmount: activeRecords.reduce((total, record) => total + Number(record.rewardAmount || 0), 0),
     paidRewardAmount: activeRecords
       .filter((record) => record.rewardStatus === 'paid')
       .reduce((total, record) => total + Number(record.rewardAmount || 0), 0),
+  };
+};
+
+const normalizeSalesKpiPeriod = (value) => {
+  const normalizedValue = String(value || '').trim();
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(normalizedValue) ? normalizedValue : '';
+};
+
+const getSalesKpiPeriodControl = (period) => {
+  const normalizedPeriod = normalizeSalesKpiPeriod(period);
+  if (!normalizedPeriod) return null;
+  const row = findSalesKpiPeriodStatement.get(normalizedPeriod);
+  return row ? {
+    period: row.period,
+    status: row.status === 'locked' ? 'locked' : 'open',
+    lockedAt: row.locked_at || '',
+    lockedByName: row.locked_by_name || '',
+    lockNote: row.lock_note || '',
+  } : { period: normalizedPeriod, status: 'open', lockedAt: '', lockedByName: '', lockNote: '' };
+};
+
+const assertSalesKpiPeriodOpen = (period) => {
+  const control = getSalesKpiPeriodControl(period);
+  if (control?.status === 'locked') {
+    const error = new Error(`Kỳ KPI ${period} đã khóa. Hãy mở khóa kỳ trước khi điều chỉnh.`);
+    error.code = 'SALES_KPI_PERIOD_LOCKED';
+    throw error;
+  }
+};
+
+const setSalesKpiPeriodStatus = (period, { status = 'open', note = '', actorUser = null } = {}) => {
+  const normalizedPeriod = normalizeSalesKpiPeriod(period);
+  const normalizedStatus = status === 'locked' ? 'locked' : 'open';
+  if (!normalizedPeriod) {
+    const error = new Error('Kỳ KPI phải có định dạng YYYY-MM.');
+    error.code = 'SALES_KPI_TARGET_PERIOD_INVALID';
+    throw error;
+  }
+  const actorId = Number(actorUser?.id || 0);
+  const actorName = normalizeFullName(actorUser?.fullName || actorUser?.email || '').slice(0, 160);
+  upsertSalesKpiPeriodStatement.run(
+    normalizedPeriod,
+    normalizedStatus,
+    normalizedStatus === 'locked' ? new Date().toISOString() : '',
+    normalizedStatus === 'locked' && actorId > 0 ? actorId : null,
+    normalizedStatus === 'locked' ? actorName : '',
+    String(note || '').trim().slice(0, 500)
+  );
+  return getSalesKpiPeriodControl(normalizedPeriod);
+};
+
+const listSalesKpiPolicyHistory = (period) => {
+  const normalizedPeriod = normalizeSalesKpiPeriod(period);
+  if (!normalizedPeriod) return [];
+  return listSalesKpiPolicyHistoryStatement.all(normalizedPeriod).map((row) => ({
+    id: Number(row.id || 0), period: row.period || '', saleUserId: Number(row.sale_user_id || 0),
+    saleName: row.sale_name || '', kpiRole: row.kpi_role || 'both',
+    vehicleTarget: Number(row.vehicle_target || 0), grossProfitTarget: Number(row.gross_profit_target || 0),
+    commissionPerSale: Number(row.commission_per_sale || 0),
+    acquisitionRewardPerVehicle: Number(row.acquisition_reward_per_vehicle || 0),
+    actionType: row.action_type || 'updated', changeNote: row.change_note || '',
+    changedByName: row.changed_by_name || '', createdAt: row.created_at || '',
+  }));
+};
+
+const getSalesKpiVietnamDate = (value = new Date().toISOString()) => {
+  const normalizedValue = String(value || '').trim();
+  if (!normalizedValue) return '';
+  const utcValue = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(normalizedValue)
+    ? normalizedValue
+    : `${normalizedValue.replace(' ', 'T')}Z`;
+  const parsedDate = new Date(utcValue);
+  if (Number.isNaN(parsedDate.getTime())) return normalizedValue.slice(0, 10);
+  return new Date(parsedDate.getTime() + (7 * 60 * 60 * 1000)).toISOString().slice(0, 10);
+};
+
+const getSalesKpiTarget = (period, saleUserId) =>
+  sanitizeSalesKpiTarget(findSalesKpiTargetStatement.get(period, saleUserId));
+
+const listSalesKpiTargets = (period) => {
+  const normalizedPeriod = normalizeSalesKpiPeriod(period);
+  if (!normalizedPeriod) return [];
+  return listSalesKpiTargetsByPeriodStatement.all(normalizedPeriod).map(sanitizeSalesKpiTarget);
+};
+
+const upsertSalesKpiTarget = ({
+  period,
+  saleUserId,
+  vehicleTarget = 0,
+  grossProfitTarget = 0,
+  kpiRole = 'both',
+  commissionPerSale = 0,
+  acquisitionRewardPerVehicle = 0,
+  updatedByUser = null,
+} = {}) => {
+  const normalizedPeriod = normalizeSalesKpiPeriod(period);
+  const normalizedSaleUserId = Number(saleUserId || 0);
+  const saleUser = getUserById(normalizedSaleUserId);
+
+  if (!normalizedPeriod) {
+    const error = new Error('Kỳ mục tiêu phải có định dạng YYYY-MM.');
+    error.code = 'SALES_KPI_TARGET_PERIOD_INVALID';
+    throw error;
+  }
+  if (!saleUser || saleUser.role !== 'staff') {
+    const error = new Error('Nhân viên nhận mục tiêu không hợp lệ.');
+    error.code = 'SALES_KPI_SALE_INVALID';
+    throw error;
+  }
+
+  const normalizeTargetValue = (value) => {
+    const numberValue = Number(value || 0);
+    return Number.isFinite(numberValue) && numberValue > 0 ? Math.trunc(numberValue) : 0;
+  };
+  const actorId = Number(updatedByUser?.id || 0);
+  const actorName = normalizeFullName(updatedByUser?.fullName || updatedByUser?.email || '').slice(0, 160);
+  const normalizedKpiRole = String(kpiRole || '').trim().toLowerCase();
+  if (!salesKpiRoles.has(normalizedKpiRole)) {
+    const error = new Error('Vai trò KPI của nhân viên không hợp lệ.');
+    error.code = 'SALES_KPI_TARGET_ROLE_INVALID';
+    throw error;
+  }
+  const appliesToSales = ['sales_only', 'both'].includes(normalizedKpiRole);
+  const appliesToAcquisition = ['acquisition_only', 'both'].includes(normalizedKpiRole);
+  if (appliesToSales && normalizeTargetValue(commissionPerSale) <= 0) {
+    const error = new Error('Vai trò bán xe phải có mức hoa hồng cố định trên mỗi xe lớn hơn 0.');
+    error.code = 'SALES_KPI_COMMISSION_MISSING';
+    throw error;
+  }
+  if (appliesToAcquisition && normalizeTargetValue(acquisitionRewardPerVehicle) <= 0) {
+    const error = new Error('Vai trò nhập xe phải có mức thưởng cố định trên mỗi xe lớn hơn 0.');
+    error.code = 'SALES_KPI_ACQUISITION_REWARD_MISSING';
+    throw error;
+  }
+
+  assertSalesKpiPeriodOpen(normalizedPeriod);
+  const existingTarget = getSalesKpiTarget(normalizedPeriod, normalizedSaleUserId);
+
+  upsertSalesKpiTargetStatement.run(
+    normalizedPeriod,
+    normalizedSaleUserId,
+    appliesToSales ? normalizeTargetValue(vehicleTarget) : 0,
+    0,
+    appliesToAcquisition ? normalizeTargetValue(grossProfitTarget) : 0,
+    normalizedKpiRole,
+    appliesToSales ? normalizeTargetValue(commissionPerSale) : 0,
+    appliesToAcquisition ? normalizeTargetValue(acquisitionRewardPerVehicle) : 0,
+    Number.isInteger(actorId) && actorId > 0 ? actorId : null,
+    actorName
+  );
+
+  insertSalesKpiPolicyHistoryStatement.run(
+    normalizedPeriod,
+    normalizedSaleUserId,
+    normalizedKpiRole,
+    appliesToSales ? normalizeTargetValue(vehicleTarget) : 0,
+    appliesToAcquisition ? normalizeTargetValue(grossProfitTarget) : 0,
+    appliesToSales ? normalizeTargetValue(commissionPerSale) : 0,
+    appliesToAcquisition ? normalizeTargetValue(acquisitionRewardPerVehicle) : 0,
+    existingTarget ? 'updated' : 'created',
+    existingTarget ? 'Cập nhật chính sách KPI theo tháng.' : 'Tạo chính sách KPI theo tháng.',
+    Number.isInteger(actorId) && actorId > 0 ? actorId : null,
+    actorName
+  );
+
+  return sanitizeSalesKpiTarget({
+    ...findSalesKpiTargetStatement.get(normalizedPeriod, normalizedSaleUserId),
+    current_sale_name: saleUser.fullName,
+    sale_email: saleUser.email,
+    sale_avatar_url: saleUser.avatarUrl,
+  });
+};
+
+const getSalesKpiReport = ({
+  from = '',
+  to = '',
+  saleUserId = 0,
+  kpiType = '',
+  rewardStatus = '',
+  recordStatus = 'active',
+  targetPeriod = '',
+} = {}) => {
+  const normalizedFrom = /^\d{4}-\d{2}-\d{2}$/.test(String(from || '')) ? String(from) : '';
+  const normalizedTo = /^\d{4}-\d{2}-\d{2}$/.test(String(to || '')) ? String(to) : '';
+  const normalizedSaleUserId = Number(saleUserId || 0);
+  const normalizedType = normalizeSalesKpiType(kpiType);
+  const normalizedRewardStatus = salesKpiRewardStatuses.has(String(rewardStatus || '')) ? String(rewardStatus) : '';
+  const normalizedRecordStatus = ['active', 'cancelled'].includes(String(recordStatus || ''))
+    ? String(recordStatus)
+    : '';
+  const period = normalizeSalesKpiPeriod(targetPeriod)
+    || (normalizedFrom ? normalizedFrom.slice(0, 7) : new Date().toISOString().slice(0, 7));
+  const allRecords = listSalesKpiRecords();
+  const activeRecords = allRecords.filter((record) => record.recordStatus === 'active');
+  const isSalesRecord = (record) => ['sale', 'direct_sale'].includes(record.kpiType);
+  const isWithinRange = (record, rangeFrom, rangeTo) => {
+    const recordDate = record.businessDate || getSalesKpiVietnamDate(record.recordedAt);
+    return (!rangeFrom || recordDate >= rangeFrom) && (!rangeTo || recordDate <= rangeTo);
+  };
+  const matchesDimensionFilters = (record) => (
+    (!normalizedSaleUserId || record.saleUserId === normalizedSaleUserId)
+    && (!normalizedType || record.kpiType === normalizedType)
+    && (!normalizedRewardStatus || record.rewardStatus === normalizedRewardStatus)
+  );
+  const records = allRecords.filter((record) => (
+    matchesDimensionFilters(record)
+    && (!normalizedRecordStatus || record.recordStatus === normalizedRecordStatus)
+    && isWithinRange(record, normalizedFrom, normalizedTo)
+  ));
+  const reportRecords = records.map((record) => {
+    if (record.kpiType !== 'acquisition' || !record.carId) return record;
+    const saleRecord = activeRecords.find((item) => (
+      isSalesRecord(item) && item.carId === record.carId
+    ));
+    const purchasePrice = Number(record.purchasePriceValue || record.transactionValue || 0);
+    const salePrice = Number(saleRecord?.salePriceValue || saleRecord?.transactionValue || 0);
+    return {
+      ...record,
+      acquisitionProfitStatus: saleRecord && purchasePrice > 0 && salePrice > 0 ? 'realized' : 'pending_sale',
+      realizedAcquisitionProfit: saleRecord && purchasePrice > 0 && salePrice > 0
+        ? salePrice - purchasePrice
+        : 0,
+    };
+  });
+
+  const getSalesRecordsForRange = (rangeFrom, rangeTo, employeeId = normalizedSaleUserId, ignoreType = false) =>
+    activeRecords.filter((record) => (
+      isSalesRecord(record)
+      && (!employeeId || record.saleUserId === employeeId)
+      && (ignoreType || !normalizedType || record.kpiType === normalizedType)
+      && isWithinRange(record, rangeFrom, rangeTo)
+    ));
+
+  const summarize = (rangeFrom, rangeTo, employeeId = normalizedSaleUserId, { ignoreType = false } = {}) => {
+    const sourceSales = getSalesRecordsForRange(rangeFrom, rangeTo, employeeId, ignoreType);
+    const sourceAcquisitions = activeRecords.filter((record) => (
+      record.kpiType === 'acquisition'
+      && (!employeeId || record.saleUserId === employeeId)
+      && (ignoreType || !normalizedType || normalizedType === 'acquisition')
+      && isWithinRange(record, rangeFrom, rangeTo)
+    ));
+    const eligibleAcquisitions = activeRecords.filter((record) => (
+      record.kpiType === 'acquisition'
+      && (!employeeId || record.saleUserId === employeeId)
+      && (ignoreType || !normalizedType || normalizedType === 'acquisition')
+    ));
+    const realizedAcquisitions = eligibleAcquisitions.flatMap((acquisition) => {
+      const saleRecord = activeRecords.find((record) => (
+        isSalesRecord(record)
+        && record.carId
+        && record.carId === acquisition.carId
+        && isWithinRange(record, rangeFrom, rangeTo)
+      ));
+      if (!saleRecord) return [];
+      const purchasePrice = Number(acquisition.purchasePriceValue || acquisition.transactionValue || 0);
+      const salePrice = Number(saleRecord.salePriceValue || saleRecord.transactionValue || 0);
+      return [{ acquisition, saleRecord, purchasePrice, salePrice }];
+    });
+    const completeProfitItems = realizedAcquisitions.filter((item) => item.purchasePrice > 0 && item.salePrice > 0);
+    const acquisitionProfit = completeProfitItems.reduce(
+      (sum, item) => sum + item.salePrice - item.purchasePrice,
+      0
+    );
+    const acquisitionRevenue = completeProfitItems.reduce((sum, item) => sum + item.salePrice, 0);
+    const acquisitionRewardAmount = sourceAcquisitions.reduce(
+      (sum, record) => sum + Number(record.rewardAmount || 0),
+      0
+    );
+    const pendingAcquisitionRewardAmount = sourceAcquisitions
+      .filter((record) => record.rewardStatus === 'pending')
+      .reduce((sum, record) => sum + Number(record.rewardAmount || 0), 0);
+    const soldCarIdsWithAcquisition = new Set(
+      activeRecords.filter((record) => record.kpiType === 'acquisition' && Number(record.purchasePriceValue || 0) > 0)
+        .map((record) => record.carId)
+        .filter(Boolean)
+    );
+    const missingPurchaseCostCount = sourceSales.filter((record) => (
+      !record.carId || !soldCarIdsWithAcquisition.has(record.carId)
+    )).length;
+    const revenue = sourceSales.reduce(
+      (sum, record) => sum + Number(record.salePriceValue || record.transactionValue || 0),
+      0
+    );
+    return {
+      total: sourceAcquisitions.length + sourceSales.length,
+      acquisitionCount: sourceAcquisitions.length,
+      pendingAcquisitionCount: sourceAcquisitions.filter((acquisition) => !activeRecords.some((record) => (
+        isSalesRecord(record) && record.carId === acquisition.carId
+      ))).length,
+      backlogAcquisitionCount: eligibleAcquisitions.filter((acquisition) => !activeRecords.some((record) => (
+        isSalesRecord(record) && record.carId === acquisition.carId
+      ))).length,
+      realizedAcquisitionCount: completeProfitItems.length,
+      vehicleSales: sourceSales.length,
+      revenue,
+      purchaseCost: completeProfitItems.reduce((sum, item) => sum + item.purchasePrice, 0),
+      acquisitionProfit,
+      grossProfit: acquisitionProfit,
+      grossMargin: acquisitionRevenue > 0 ? (acquisitionProfit / acquisitionRevenue) * 100 : 0,
+      missingPurchaseCostCount,
+      salesCommissionAmount: sourceSales.reduce((sum, record) => sum + Number(record.rewardAmount || 0), 0),
+      pendingSalesCommissionAmount: sourceSales.filter((record) => record.rewardStatus === 'pending')
+        .reduce((sum, record) => sum + Number(record.rewardAmount || 0), 0),
+      acquisitionRewardAmount,
+      pendingAcquisitionRewardAmount,
+      rewardAmount: sourceSales.reduce((sum, record) => sum + Number(record.rewardAmount || 0), 0) + acquisitionRewardAmount,
+      pendingRewardAmount: sourceSales.filter((record) => record.rewardStatus === 'pending')
+        .reduce((sum, record) => sum + Number(record.rewardAmount || 0), 0) + pendingAcquisitionRewardAmount,
+      approvedRewardAmount: [...sourceSales, ...sourceAcquisitions]
+        .filter((record) => record.rewardStatus === 'approved')
+        .reduce((sum, record) => sum + Number(record.rewardAmount || 0), 0),
+      paidRewardAmount: [...sourceSales, ...sourceAcquisitions]
+        .filter((record) => record.rewardStatus === 'paid')
+        .reduce((sum, record) => sum + Number(record.rewardAmount || 0), 0),
+    };
+  };
+
+  const summary = summarize(normalizedFrom, normalizedTo);
+  let previousSummary = null;
+  if (normalizedFrom && normalizedTo) {
+    const fromDate = new Date(`${normalizedFrom}T00:00:00Z`);
+    const toDate = new Date(`${normalizedTo}T00:00:00Z`);
+    const rangeDays = Math.max(1, Math.round((toDate - fromDate) / 86400000) + 1);
+    const previousToDate = new Date(fromDate.getTime() - 86400000);
+    const previousFromDate = new Date(previousToDate.getTime() - ((rangeDays - 1) * 86400000));
+    const previousFrom = previousFromDate.toISOString().slice(0, 10);
+    const previousTo = previousToDate.toISOString().slice(0, 10);
+    previousSummary = { ...summarize(previousFrom, previousTo), from: previousFrom, to: previousTo };
+  }
+
+  const targetMap = new Map(listSalesKpiTargets(period).map((target) => [target.saleUserId, target]));
+  const salesEmployees = listUsers().filter((user) => user.role === 'staff');
+  const rankings = salesEmployees
+    .filter((user) => !normalizedSaleUserId || user.id === normalizedSaleUserId)
+    .map((user) => {
+      const employeeSummary = summarize(normalizedFrom, normalizedTo, user.id, { ignoreType: true });
+      const target = targetMap.get(user.id) || {
+        period,
+        saleUserId: user.id,
+        saleName: user.fullName,
+        saleEmail: user.email,
+        saleAvatarUrl: user.avatarUrl,
+        vehicleTarget: 0,
+        revenueTarget: 0,
+        grossProfitTarget: 0,
+        kpiRole: 'both',
+        commissionPerSale: 0,
+        acquisitionRewardPerVehicle: 0,
+      };
+      const appliesToSales = ['sales_only', 'both'].includes(target.kpiRole);
+      const appliesToAcquisition = ['acquisition_only', 'both'].includes(target.kpiRole);
+      const ratios = [
+        appliesToSales && target.vehicleTarget > 0
+          ? (employeeSummary.vehicleSales / target.vehicleTarget) * 100
+          : null,
+        appliesToAcquisition && target.grossProfitTarget > 0
+          ? (employeeSummary.acquisitionProfit / target.grossProfitTarget) * 100
+          : null,
+      ].filter((value) => value !== null);
+      return {
+        saleUserId: user.id,
+        saleName: user.fullName,
+        saleEmail: user.email,
+        saleAvatarUrl: user.avatarUrl,
+        ...employeeSummary,
+        target,
+        salesAchievement: appliesToSales && target.vehicleTarget > 0
+          ? (employeeSummary.vehicleSales / target.vehicleTarget) * 100
+          : null,
+        acquisitionProfitAchievement: appliesToAcquisition && target.grossProfitTarget > 0
+          ? (employeeSummary.acquisitionProfit / target.grossProfitTarget) * 100
+          : null,
+        overallAchievement: ratios.length ? ratios.reduce((sum, value) => sum + value, 0) / ratios.length : null,
+      };
+    })
+    .sort((left, right) => (
+      Number(right.overallAchievement ?? -1) - Number(left.overallAchievement ?? -1)
+      || right.revenue - left.revenue
+      || left.saleName.localeCompare(right.saleName, 'vi')
+    ));
+
+  const salesRankings = rankings
+    .filter((item) => ['sales_only', 'both'].includes(item.target.kpiRole))
+    .sort((left, right) => (
+      Number(right.salesAchievement ?? -1) - Number(left.salesAchievement ?? -1)
+      || right.vehicleSales - left.vehicleSales
+      || right.revenue - left.revenue
+    ));
+  const acquisitionRankings = rankings
+    .filter((item) => ['acquisition_only', 'both'].includes(item.target.kpiRole))
+    .sort((left, right) => (
+      Number(right.acquisitionProfitAchievement ?? -1) - Number(left.acquisitionProfitAchievement ?? -1)
+      || right.acquisitionProfit - left.acquisitionProfit
+      || right.acquisitionCount - left.acquisitionCount
+    ));
+  const combinedRankings = rankings
+    .filter((item) => item.target.kpiRole === 'both')
+    .sort((left, right) => (
+      Number(right.overallAchievement ?? -1) - Number(left.overallAchievement ?? -1)
+      || right.revenue - left.revenue
+    ));
+
+  const classifyAchievement = (achievement) => {
+    if (achievement === null || achievement === undefined) return { code: 'unrated', label: 'Chưa xếp loại' };
+    if (achievement >= 120) return { code: 'excellent', label: 'Xuất sắc' };
+    if (achievement >= 100) return { code: 'good', label: 'Tốt' };
+    if (achievement >= 80) return { code: 'passed', label: 'Đạt' };
+    if (achievement >= 60) return { code: 'improvement', label: 'Cần cải thiện' };
+    return { code: 'failed', label: 'Không đạt' };
+  };
+  const [periodYear, periodMonth] = period.split('-').map(Number);
+  const periodFrom = `${period}-01`;
+  const periodTo = new Date(Date.UTC(periodYear, periodMonth, 0)).toISOString().slice(0, 10);
+  const periodSummaryRows = salesEmployees
+    .filter((user) => !normalizedSaleUserId || user.id === normalizedSaleUserId)
+    .map((user) => {
+      const target = targetMap.get(user.id) || {
+        kpiRole: 'both', vehicleTarget: 0, grossProfitTarget: 0,
+      };
+      const employeeSummary = summarize(periodFrom, periodTo, user.id, { ignoreType: true });
+      const appliesToSales = ['sales_only', 'both'].includes(target.kpiRole);
+      const appliesToAcquisition = ['acquisition_only', 'both'].includes(target.kpiRole);
+      const salesAchievement = appliesToSales && target.vehicleTarget > 0
+        ? (employeeSummary.vehicleSales / target.vehicleTarget) * 100 : null;
+      const acquisitionAchievement = appliesToAcquisition && target.grossProfitTarget > 0
+        ? (employeeSummary.acquisitionProfit / target.grossProfitTarget) * 100 : null;
+      const ratios = [salesAchievement, acquisitionAchievement].filter((value) => value !== null);
+      const overallAchievement = ratios.length
+        ? ratios.reduce((sum, value) => sum + value, 0) / ratios.length : null;
+      return {
+        saleUserId: user.id,
+        saleName: user.fullName,
+        saleEmail: user.email,
+        kpiRole: target.kpiRole,
+        vehicleTarget: target.vehicleTarget,
+        vehicleSales: employeeSummary.vehicleSales,
+        grossProfitTarget: target.grossProfitTarget,
+        acquisitionProfit: employeeSummary.acquisitionProfit,
+        salesAchievement,
+        acquisitionAchievement,
+        overallAchievement,
+        classification: classifyAchievement(overallAchievement),
+        rewardAmount: employeeSummary.rewardAmount,
+        paidRewardAmount: employeeSummary.paidRewardAmount,
+        outstandingRewardAmount: Math.max(0, employeeSummary.rewardAmount - employeeSummary.paidRewardAmount),
+      };
+    })
+    .sort((left, right) => Number(right.overallAchievement ?? -1) - Number(left.overallAchievement ?? -1));
+  const periodSummary = {
+    period,
+    from: periodFrom,
+    to: periodTo,
+    periodControl: getSalesKpiPeriodControl(period),
+    rows: periodSummaryRows,
+    totals: periodSummaryRows.reduce((totals, row) => ({
+      employeeCount: totals.employeeCount + 1,
+      vehicleSales: totals.vehicleSales + row.vehicleSales,
+      acquisitionProfit: totals.acquisitionProfit + row.acquisitionProfit,
+      rewardAmount: totals.rewardAmount + row.rewardAmount,
+      paidRewardAmount: totals.paidRewardAmount + row.paidRewardAmount,
+      outstandingRewardAmount: totals.outstandingRewardAmount + row.outstandingRewardAmount,
+    }), { employeeCount: 0, vehicleSales: 0, acquisitionProfit: 0, rewardAmount: 0, paidRewardAmount: 0, outstandingRewardAmount: 0 }),
+  };
+
+  const sumTargets = (items, field) => items.reduce(
+    (sum, item) => sum + Number(item.target?.[field] || 0),
+    0
+  );
+  const salesVehicleTarget = sumTargets(salesRankings, 'vehicleTarget');
+  const acquisitionSpreadTarget = sumTargets(acquisitionRankings, 'grossProfitTarget');
+  const roleReports = {
+    sales: {
+      vehicleSales: summary.vehicleSales,
+      vehicleTarget: salesVehicleTarget,
+      achievement: salesVehicleTarget > 0 ? (summary.vehicleSales / salesVehicleTarget) * 100 : null,
+      revenue: summary.revenue,
+      commissionAmount: summary.salesCommissionAmount,
+      pendingCommissionAmount: summary.pendingSalesCommissionAmount,
+    },
+    acquisition: {
+      acquisitionCount: summary.acquisitionCount,
+      pendingAcquisitionCount: summary.pendingAcquisitionCount,
+      realizedAcquisitionCount: summary.realizedAcquisitionCount,
+      purchaseSaleSpread: summary.acquisitionProfit,
+      acquisitionRewardAmount: summary.acquisitionRewardAmount,
+      pendingAcquisitionRewardAmount: summary.pendingAcquisitionRewardAmount,
+      spreadTarget: acquisitionSpreadTarget,
+      achievement: acquisitionSpreadTarget > 0
+        ? (summary.acquisitionProfit / acquisitionSpreadTarget) * 100
+        : null,
+    },
+  };
+
+  const salesRecords = getSalesRecordsForRange(normalizedFrom, normalizedTo);
+  const acquisitionCarIds = new Set(
+    activeRecords.filter((record) => (
+      record.kpiType === 'acquisition' && record.carId && Number(record.purchasePriceValue || 0) > 0
+    )).map((record) => record.carId)
+  );
+  const selectedEmployees = salesEmployees.filter((user) => (
+    !normalizedSaleUserId || user.id === normalizedSaleUserId
+  ));
+  const alerts = {
+    missingAcquisitionLinks: salesRecords
+      .filter((record) => !record.carId || !acquisitionCarIds.has(record.carId))
+      .map((record) => ({
+        recordId: record.id,
+        carId: record.carId,
+        carName: record.carName,
+        carBrand: record.carBrand,
+        sourceCode: record.sourceCode,
+        saleName: record.saleName,
+        salePriceValue: record.salePriceValue || record.transactionValue,
+        recordedAt: record.recordedAt,
+      })),
+    pendingAcquisitions: reportRecords
+      .filter((record) => record.kpiType === 'acquisition' && record.recordStatus === 'active' && record.acquisitionProfitStatus === 'pending_sale')
+      .map((record) => ({
+        recordId: record.id,
+        carId: record.carId,
+        carName: record.carName,
+        carBrand: record.carBrand,
+        sourceCode: record.sourceCode,
+        acquisitionEmployeeName: record.saleName,
+        purchasePriceValue: record.purchasePriceValue || record.transactionValue,
+        recordedAt: record.recordedAt,
+      })),
+    unconfiguredEmployees: selectedEmployees
+      .filter((user) => !targetMap.has(user.id))
+      .map((user) => ({ saleUserId: user.id, saleName: user.fullName, saleEmail: user.email })),
+    invalidCommissionPolicies: rankings
+      .filter((item) => (
+        targetMap.has(item.saleUserId)
+        &&
+        ['sales_only', 'both'].includes(item.target.kpiRole)
+        && Number(item.target.commissionPerSale || 0) <= 0
+      ))
+      .map((item) => ({ saleUserId: item.saleUserId, saleName: item.saleName })),
+    invalidAcquisitionRewardPolicies: rankings
+      .filter((item) => (
+        targetMap.has(item.saleUserId)
+        && ['acquisition_only', 'both'].includes(item.target.kpiRole)
+        && Number(item.target.acquisitionRewardPerVehicle || 0) <= 0
+      ))
+      .map((item) => ({ saleUserId: item.saleUserId, saleName: item.saleName })),
+  };
+  const trendMap = new Map();
+  salesRecords.forEach((record) => {
+    const key = record.businessDate || getSalesKpiVietnamDate(record.recordedAt) || 'Không rõ';
+    const current = trendMap.get(key) || { label: key, vehicleSales: 0, revenue: 0 };
+    current.vehicleSales += 1;
+    current.revenue += Number(record.salePriceValue || record.transactionValue || 0);
+    trendMap.set(key, current);
+  });
+
+  return {
+    filters: {
+      from: normalizedFrom,
+      to: normalizedTo,
+      saleUserId: normalizedSaleUserId || null,
+      kpiType: normalizedType,
+      rewardStatus: normalizedRewardStatus,
+      recordStatus: normalizedRecordStatus,
+      targetPeriod: period,
+    },
+    records: reportRecords,
+    summary,
+    previousSummary,
+    rankings,
+    salesRankings,
+    acquisitionRankings,
+    combinedRankings,
+    periodSummary,
+    roleReports,
+    alerts,
+    periodControl: getSalesKpiPeriodControl(period),
+    policyHistory: listSalesKpiPolicyHistory(period),
+    entryPeriod: getSalesKpiVietnamDate().slice(0, 7),
+    entryPolicies: listSalesKpiTargets(getSalesKpiVietnamDate().slice(0, 7)),
+    trend: [...trendMap.values()].sort((left, right) => left.label.localeCompare(right.label)),
   };
 };
 
@@ -4694,6 +5774,7 @@ const getSalesKpiSourceSnapshot = (kpiType, sourceId) => {
       transactionValue: Number(request.customerDealPriceValue || 0),
       purchasePriceValue: Number(request.customerDealPriceValue || 0),
       salePriceValue: Number(request.finalPriceValue || 0),
+      businessDate: getSalesKpiVietnamDate(request.updatedAt),
     };
   }
 
@@ -4716,6 +5797,7 @@ const getSalesKpiSourceSnapshot = (kpiType, sourceId) => {
       transactionValue: Number(directSale.salePriceValue || 0),
       purchasePriceValue: Number(acquisitionRequest?.customerDealPriceValue || 0),
       salePriceValue: Number(directSale.salePriceValue || 0),
+      businessDate: getSalesKpiVietnamDate(directSale.soldAt),
     };
   }
 
@@ -4737,7 +5819,44 @@ const getSalesKpiSourceSnapshot = (kpiType, sourceId) => {
     transactionValue: Number(order.carPriceValue || 0),
     purchasePriceValue: Number(acquisitionRequest?.customerDealPriceValue || 0),
     salePriceValue: Number(order.carPriceValue || 0),
+    businessDate: getSalesKpiVietnamDate(order.updatedAt),
   };
+};
+
+const getSalesKpiPolicyForEmployee = (saleUserId, recordedAt = new Date().toISOString()) => {
+  const period = getSalesKpiVietnamDate(recordedAt).slice(0, 7);
+  return getSalesKpiTarget(period, saleUserId);
+};
+
+const validateSalesKpiRoleForType = (policy, kpiType) => {
+  if (!policy) {
+    const error = new Error('Nhân viên chưa được cấu hình vai trò và chính sách KPI trong kỳ này.');
+    error.code = 'SALES_KPI_POLICY_MISSING';
+    throw error;
+  }
+  const role = policy?.kpiRole || 'both';
+  const isEligible = kpiType === 'acquisition'
+    ? ['acquisition_only', 'both'].includes(role)
+    : ['sales_only', 'both'].includes(role);
+  if (!isEligible) {
+    const error = new Error(
+      kpiType === 'acquisition'
+        ? 'Nhân viên này không được cấu hình vai trò nhập xe trong kỳ KPI.'
+        : 'Nhân viên này không được cấu hình vai trò bán xe trong kỳ KPI.'
+    );
+    error.code = 'SALES_KPI_ROLE_INVALID';
+    throw error;
+  }
+  if (kpiType !== 'acquisition' && Number(policy.commissionPerSale || 0) <= 0) {
+    const error = new Error('Vui lòng cấu hình hoa hồng cố định trên mỗi xe trước khi ghi nhận KPI bán xe.');
+    error.code = 'SALES_KPI_COMMISSION_MISSING';
+    throw error;
+  }
+  if (kpiType === 'acquisition' && Number(policy.acquisitionRewardPerVehicle || 0) <= 0) {
+    const error = new Error('Vui lòng cấu hình thưởng cố định trên mỗi xe nhập trước khi ghi nhận KPI nhập xe.');
+    error.code = 'SALES_KPI_ACQUISITION_REWARD_MISSING';
+    throw error;
+  }
 };
 
 const createSalesKpiRecord = ({
@@ -4748,6 +5867,8 @@ const createSalesKpiRecord = ({
   rewardStatus = 'pending',
   note = '',
   recordedByUser = null,
+  businessDate = '',
+  creationMode = 'manual',
 } = {}) => {
   const normalizedType = normalizeSalesKpiType(kpiType);
   const normalizedSourceId = Number(sourceId || 0);
@@ -4775,10 +5896,16 @@ const createSalesKpiRecord = ({
     throw error;
   }
 
-  const normalizedRewardAmount = Number(rewardAmount || 0);
-  const safeRewardAmount = Number.isFinite(normalizedRewardAmount) && normalizedRewardAmount > 0
-    ? Math.trunc(normalizedRewardAmount)
-    : 0;
+  const normalizedBusinessDate = /^\d{4}-\d{2}-\d{2}$/.test(String(businessDate || ''))
+    ? String(businessDate)
+    : (source.businessDate || getSalesKpiVietnamDate());
+  const policyPeriod = normalizedBusinessDate.slice(0, 7);
+  assertSalesKpiPeriodOpen(policyPeriod);
+  const policy = getSalesKpiPolicyForEmployee(saleUser.id, `${normalizedBusinessDate}T12:00:00Z`);
+  validateSalesKpiRoleForType(policy, normalizedType);
+  const safeRewardAmount = normalizedType === 'acquisition'
+    ? Math.max(0, Math.trunc(Number(policy.acquisitionRewardPerVehicle || 0)))
+    : Math.max(0, Math.trunc(Number(policy.commissionPerSale || 0)));
   const recorderId = Number(recordedByUser?.id || 0);
   const recorderName = normalizeFullName(recordedByUser?.fullName || recordedByUser?.email || '');
 
@@ -4796,12 +5923,14 @@ const createSalesKpiRecord = ({
       Math.trunc(source.purchasePriceValue || 0),
       Math.trunc(source.salePriceValue || 0),
       safeRewardAmount,
-      normalizeSalesKpiRewardStatus(rewardStatus),
+      'pending',
       String(note || '').trim().slice(0, 500),
       Number.isInteger(recorderId) && recorderId > 0 ? recorderId : null,
-      recorderName.slice(0, 160)
+      recorderName.slice(0, 160),
+      normalizedBusinessDate,
+      policyPeriod,
+      creationMode === 'automatic' ? 'automatic' : 'manual'
     );
-
     return getSalesKpiRecordById(result.lastInsertRowid);
   } catch (error) {
     if (String(error.message || '').includes('UNIQUE constraint failed: sales_kpi_records.kpi_type, sales_kpi_records.source_id')) {
@@ -4823,6 +5952,8 @@ const updateSalesKpiRecord = (recordId, {
     return null;
   }
 
+  assertSalesKpiPeriodOpen(existingRecord.policyPeriod || existingRecord.businessDate.slice(0, 7));
+
   const saleUser = getUserById(Number(saleUserId || 0));
 
   if (!saleUser || saleUser.role !== 'staff') {
@@ -4831,20 +5962,18 @@ const updateSalesKpiRecord = (recordId, {
     throw error;
   }
 
-  const normalizedRewardAmount = Number(rewardAmount || 0);
-  const safeRewardAmount = Number.isFinite(normalizedRewardAmount) && normalizedRewardAmount > 0
-    ? Math.trunc(normalizedRewardAmount)
-    : 0;
-
+  const policy = getSalesKpiPolicyForEmployee(saleUser.id, existingRecord.recordedAt);
+  validateSalesKpiRoleForType(policy, existingRecord.kpiType);
+  const safeRewardAmount = existingRecord.kpiType === 'acquisition'
+    ? Math.max(0, Math.trunc(Number(policy.acquisitionRewardPerVehicle || 0)))
+    : Math.max(0, Math.trunc(Number(policy.commissionPerSale || 0)));
   updateSalesKpiRecordStatement.run(
     saleUser.id,
     saleUser.fullName,
     safeRewardAmount,
-    normalizeSalesKpiRewardStatus(rewardStatus),
     String(note || '').trim().slice(0, 500),
     recordId
   );
-
   return getSalesKpiRecordById(recordId);
 };
 
@@ -4853,6 +5982,14 @@ const cancelSalesKpiRecord = (recordId, { cancellationNote = '', cancelledByUser
 
   if (!existingRecord || existingRecord.recordStatus !== 'active') {
     return null;
+  }
+
+  assertSalesKpiPeriodOpen(existingRecord.policyPeriod || existingRecord.businessDate.slice(0, 7));
+
+  if (existingRecord.kpiType === 'acquisition' && existingRecord.rewardStatus === 'paid' && Number(existingRecord.rewardAmount || 0) > 0) {
+    const error = new Error('Thưởng nhập xe đã được chi. Hãy chuyển trạng thái thưởng về chờ chi trước khi hủy KPI liên quan.');
+    error.code = 'SALES_KPI_ACQUISITION_REWARD_PAID';
+    throw error;
   }
 
   const cancellerId = Number(cancelledByUser?.id || 0);
@@ -4871,7 +6008,50 @@ const cancelSalesKpiRecord = (recordId, { cancellationNote = '', cancelledByUser
     normalizedNote,
     recordId
   );
+  return getSalesKpiRecordById(recordId);
+};
 
+const updateSalesKpiRewardWorkflow = (recordId, {
+  status = '', payoutReference = '', note = '', actorUser = null,
+} = {}) => {
+  const record = getSalesKpiRecordById(recordId);
+  if (!record || record.recordStatus !== 'active') return null;
+  const nextStatus = String(status || '').trim().toLowerCase();
+  const allowed = new Map([
+    ['pending', new Set(['approved'])],
+    ['approved', new Set(['paid', 'pending'])],
+    ['paid', new Set()],
+  ]);
+  if (!allowed.get(record.rewardStatus || 'pending')?.has(nextStatus)) {
+    const error = new Error('Không thể chuyển trạng thái chi thưởng theo luồng này.');
+    error.code = 'SALES_KPI_REWARD_TRANSITION_INVALID';
+    throw error;
+  }
+  const reference = String(payoutReference || '').trim().slice(0, 120);
+  if (nextStatus === 'paid' && reference.length < 3) {
+    const error = new Error('Vui lòng nhập mã phiếu chi hoặc mã giao dịch khi xác nhận đã chi.');
+    error.code = 'SALES_KPI_PAYOUT_REFERENCE_REQUIRED';
+    throw error;
+  }
+  const actorId = Number(actorUser?.id || 0);
+  const actorName = normalizeFullName(actorUser?.fullName || actorUser?.email || '').slice(0, 160);
+  const now = new Date().toISOString();
+  updateSalesKpiRewardWorkflowStatement.run(
+    nextStatus,
+    nextStatus === 'approved' ? now : (nextStatus === 'pending' ? '' : record.rewardApprovedAt),
+    nextStatus === 'approved' && actorId > 0 ? actorId : (nextStatus === 'pending' ? null : record.rewardApprovedByUserId),
+    nextStatus === 'approved' ? actorName : (nextStatus === 'pending' ? '' : record.rewardApprovedByName),
+    nextStatus === 'paid' ? now : '',
+    nextStatus === 'paid' && actorId > 0 ? actorId : null,
+    nextStatus === 'paid' ? actorName : '',
+    nextStatus === 'paid' ? reference : '',
+    recordId
+  );
+  insertSalesKpiRewardHistoryStatement.run(
+    recordId, record.rewardStatus, nextStatus, reference,
+    String(note || '').trim().slice(0, 500),
+    actorId > 0 ? actorId : null, actorName
+  );
   return getSalesKpiRecordById(recordId);
 };
 
@@ -6563,7 +7743,7 @@ const createTestDriveAppointment = ({
 
 const createCar = (car) => upsertCar(car);
 
-const updateCar = (carId, car, { actorUser = null } = {}) => {
+const updateCar = (carId, car, { actorUser = null, kpiSaleUserId = 0 } = {}) => {
   const existingCar = sanitizeCar(findCarByIdStatement.get(carId));
 
   if (!existingCar) {
@@ -6579,7 +7759,16 @@ const updateCar = (carId, car, { actorUser = null } = {}) => {
       existingCar.actionText === carAvailableStatusText
       && updatedCar.actionText === carSoldStatusText
     ) {
-      createDirectCarSaleRecord(updatedCar, actorUser);
+      const directSale = createDirectCarSaleRecord(updatedCar, actorUser);
+      createSalesKpiRecord({
+        kpiType: 'direct_sale',
+        sourceId: directSale.id,
+        saleUserId: kpiSaleUserId,
+        note: 'KPI tự động phát sinh khi xe được bán trực tiếp tại cửa hàng.',
+        recordedByUser: actorUser,
+        businessDate: getSalesKpiVietnamDate(directSale.soldAt),
+        creationMode: 'automatic',
+      });
     }
 
     db.exec('COMMIT');
@@ -6860,6 +8049,8 @@ module.exports = {
   createCarSellRequest,
   createCarBuyRequestOffer,
   createConsultationRequest,
+  createConversation,
+  createConversationMessage,
   createDepositOrder,
   createPasswordResetOtp,
   createPromotion,
@@ -6885,12 +8076,15 @@ module.exports = {
   getCarBuyRequestOfferById,
   getCarSellRequestById,
   getConsultationRequestById,
+  getConversationById,
   getDepositOrderById,
   getActiveDepositOrderForCar,
   getDepositPaymentSettings,
   getPromotionById,
   getSalesKpiRecordById,
+  getSalesKpiReport,
   getSalesKpiStats,
+  setSalesKpiPeriodStatus,
   getPublicBlogPostBySlug,
   getTestDriveAppointmentById,
   getUserById,
@@ -6924,16 +8118,23 @@ module.exports = {
   listPromotions,
   listAvailableSalesKpiSources,
   listConsultationRequests,
+  listAdminConversations,
+  listConversationMessages,
+  listConversationsByUser,
   listSalesKpiRecords,
+  listSalesKpiTargets,
   listTestDriveAppointments,
   listTestDriveAppointmentsByUser,
   markAllUserNotificationsRead,
   markAllAdminNotificationsRead,
   markAdminNotificationRead,
+  markConversationRead,
   markUserNotificationRead,
   removeFavoriteCarForUser,
   resetPasswordWithOtp,
   updateConsultationRequestStatus,
+  assignConversation,
+  updateConversationStatus,
   updateDepositPaymentSettings,
   updateDepositOrderTransferProof,
   updateDepositOrderVnpayPayment,
@@ -6941,6 +8142,8 @@ module.exports = {
   updateBlogPost,
   updatePromotion,
   updateSalesKpiRecord,
+  updateSalesKpiRewardWorkflow,
+  upsertSalesKpiTarget,
   updateTestDriveAppointmentStatus,
   updateUserProfile,
   updateUserSelfProfile,
@@ -6951,4 +8154,5 @@ module.exports = {
   updateCarBuyRequestStatus,
   updateCarBuyRequestOfferStatus,
   cancelSalesKpiRecord,
+  closeDatabase,
 };

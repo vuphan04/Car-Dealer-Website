@@ -69,32 +69,42 @@
             ]
         }
     </script>
-    <link href="https://cdn.boxicons.com/3.0.8/css/boxicons.min.css" rel="stylesheet">
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/global/typography.css">
-    <link rel="stylesheet" href="/sell-car/style.css">
-    <link rel="stylesheet" href="/global/header.css">
-    <link rel="stylesheet" href="/global/responsive-nav.css">
+    <link rel="stylesheet" href="/global/typography.css?v=responsive-font-20260711">
+    <link rel="stylesheet" href="/sell-car/style.css?v=responsive-audit-20260711">
+    <link rel="stylesheet" href="/global/header.css?v=account-trigger-fix-20260712">
+    <link rel="stylesheet" href="/global/responsive-nav.css?v=responsive-audit-20260711">
     <link rel="stylesheet" href="/global/footer.css">
 </head>
 <body>
     <div data-site-header></div>
 
     <main class="sell-car-page">
+        <nav class="sell-car-breadcrumb" aria-label="Breadcrumb">
+            <a href="/">Trang chủ</a>
+            <i class="bx bx-chevron-right" aria-hidden="true"></i>
+            <span aria-current="page">Đăng bán xe</span>
+        </nav>
+
         <section class="sell-car-hero" aria-labelledby="sell-car-title">
             <div class="sell-car-hero__inner">
                 <div class="sell-car-hero__content">
                     <span class="sell-car-eyebrow">Thu mua xe cũ</span>
                     <h1 id="sell-car-title"><span>Bán xe ô tô cũ</span><span>cho OkXe</span></h1>
-                    <p class="sell-car-lead">OkXe tiếp nhận thông tin, kiểm định tình trạng và thu mua xe phù hợp để nhập kho cửa hàng.</p>
+                    <p class="sell-car-lead">Gửi thông tin xe để được tư vấn giá thu mua, kiểm định minh bạch và hỗ trợ hồ sơ mua bán từ đội ngũ OkXe.</p>
+                    <ul class="sell-car-benefits" aria-label="Quyền lợi khi gửi thông tin xe cho OkXe">
+                        <li><i class="bx bx-check" aria-hidden="true"></i><span>Không ràng buộc phải bán xe</span></li>
+                        <li><i class="bx bx-check" aria-hidden="true"></i><span>Bảo mật thông tin chủ xe</span></li>
+                        <li><i class="bx bx-check" aria-hidden="true"></i><span>Hỗ trợ kiểm định và giấy tờ</span></li>
+                    </ul>
                     <p class="sell-car-question">Bạn có xe muốn bán cho OkXe?</p>
 
                     <div class="sell-car-cta" id="sell-car-entry">
                         <button type="button" class="sell-car-cta__button" data-open-sell-form>
                             <i class="bx bx-edit-alt" aria-hidden="true"></i>
-                            <span>Điền thông tin xe cần bán</span>
+                            <span>Gửi thông tin xe & nhận tư vấn</span>
                         </button>
-                        <p>Nhấn vào nút để nhập thông tin người bán, thông số xe, giá mong muốn và ảnh xe thực tế. OkXe sẽ dùng dữ liệu này để kiểm tra và liên hệ tư vấn thu mua.</p>
+                        <p>Hoàn tất form trong vài phút. Việc gửi thông tin không đồng nghĩa với bắt buộc bán xe.</p>
                     </div>
                 </div>
 
@@ -110,8 +120,8 @@
 
         <section class="sell-brand-section" aria-labelledby="sell-brand-title">
             <div class="sell-brand-heading">
-                <span>Đối tác xe cũ</span>
-                <h2 id="sell-brand-title">Thương hiệu đối tác</h2>
+                <span>Danh mục tiếp nhận</span>
+                <h2 id="sell-brand-title">Các hãng xe OkXe tiếp nhận</h2>
             </div>
 
             <div class="sell-brand-carousel" aria-label="Danh sách hãng xe tự động chạy">
@@ -365,6 +375,17 @@
         </section>
     </main>
 
+    <div class="sell-car-mobile-actions" aria-label="Liên hệ bán xe nhanh">
+        <a href="tel:0854955761" class="sell-car-mobile-actions__call">
+            <i class="bx bx-phone-call" aria-hidden="true"></i>
+            <span>Gọi tư vấn</span>
+        </a>
+        <button type="button" class="sell-car-mobile-actions__submit" data-open-sell-form>
+            <i class="bx bx-edit-alt" aria-hidden="true"></i>
+            <span>Gửi thông tin xe</span>
+        </button>
+    </div>
+
     <div class="sell-car-modal" id="sell-car-modal" aria-hidden="true">
         <div class="sell-car-modal__backdrop" data-close-sell-form></div>
         <section class="sell-car-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="sell-car-form-title" tabindex="-1">
@@ -593,7 +614,7 @@
     <div data-site-footer></div>
 
     <script src="/sell-car/script.js"></script>
-    <script src="/global/app.js"></script>
+    <script src="/global/app.js?v=chat-motion-polish-20260712"></script>
     <script src="/global/responsive-nav.js"></script>
 </body>
 </html>

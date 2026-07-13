@@ -3,8 +3,10 @@ process.env.TZ = process.env.TZ || 'Asia/Ho_Chi_Minh';
 
 const express = require('express');
 const fs = require('node:fs');
+const http = require('node:http');
 const path = require('path');
 const { createHmac, randomUUID } = require('node:crypto');
+const { Server } = require('socket.io');
 const {
   addFavoriteCarForUser,
   authenticateUser,
@@ -15,6 +17,8 @@ const {
   createCarSellRequest,
   createCarBuyRequestOffer,
   createConsultationRequest,
+  createConversation,
+  createConversationMessage,
   createDepositOrder,
   createPasswordResetOtp,
   createPromotion,
@@ -40,11 +44,14 @@ const {
   getCarBuyRequestById,
   getTestDriveAppointmentById,
   getCarSellRequestById,
+  getConversationById,
   getActiveDepositOrderForCar,
   getDepositOrderById,
   getDepositPaymentSettings,
   getSalesKpiRecordById,
+  getSalesKpiReport,
   getSalesKpiStats,
+  setSalesKpiPeriodStatus,
   getUserById,
   getPublicBlogPostBySlug,
   getUserBySession,
@@ -61,6 +68,9 @@ const {
   listDepositOrders,
   listDepositOrdersByUser,
   listConsultationRequests,
+  listAdminConversations,
+  listConversationMessages,
+  listConversationsByUser,
   listCars,
   listFavoriteCarsByUser,
   listHomepageBlogPosts,
@@ -78,6 +88,7 @@ const {
   listUsers,
   markAllAdminNotificationsRead,
   markAllUserNotificationsRead,
+  markConversationRead,
   markAdminNotificationRead,
   markUserNotificationRead,
   removeFavoriteCarForUser,
@@ -90,12 +101,16 @@ const {
   updateCarBuyRequestStatus,
   updateCarBuyRequestOfferStatus,
   updateConsultationRequestStatus,
+  assignConversation,
+  updateConversationStatus,
   updateDepositPaymentSettings,
   updateDepositOrderTransferProof,
   updateDepositOrderVnpayPayment,
   updateDepositOrderStatus,
   updatePromotion,
   updateSalesKpiRecord,
+  updateSalesKpiRewardWorkflow,
+  upsertSalesKpiTarget,
   updateTestDriveAppointmentStatus,
   updateUserProfile,
   updateUserSelfProfile,
@@ -107,6 +122,10 @@ const {
 } = require('./mailer');
 
 const app = express();
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  transports: ['websocket', 'polling'],
+});
 const port = process.env.PORT || 3000;
 const legacySessionCookieName = 'okxe_session';
 const userSessionCookieName = 'okxe_user_session';
@@ -308,7 +327,8 @@ const serializeUserForResponse = (user) =>
   user
     ? {
         ...user,
-        isAdmin: canAccessAdmin(user),
+        canAccessAdmin: canAccessAdmin(user),
+        isAdmin: canManageUsers(user),
       }
     : null;
 
@@ -500,6 +520,13 @@ const carSellRequestRateLimit = createRateLimiter({
   keyPrefix: 'car-sell-request',
   getKey: (req) => req.body?.phone,
   message: 'Bạn gửi thông tin bán xe quá nhanh. Vui lòng thử lại sau ít phút.',
+});
+
+const chatMessageRateLimit = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 30,
+  keyPrefix: 'chat-message',
+  message: 'Bạn gửi tin nhắn quá nhanh. Vui lòng chờ một chút.',
 });
 
 const sanitizeUploadBaseName = (name, fallbackBaseName = 'car-image') => {
@@ -1851,7 +1878,6 @@ const validateDepositOrderStatusPayload = (payload = {}) => {
     payload.paymentConfirmationNote || payload.confirmationNote || payload.internalNote,
     500
   );
-
   if (!Object.prototype.hasOwnProperty.call(depositOrderStatusLabels, status)) {
     return { error: 'Trạng thái đơn đặt cọc không hợp lệ.' };
   }
@@ -1879,7 +1905,6 @@ const validateDepositOrderStatusPayload = (payload = {}) => {
   if (status === 'cancelled_after_deposit' && refundAmount > 0 && !refundCompletedAt) {
     return { error: 'Vui lòng chọn thời gian hoàn cọc hợp lệ.' };
   }
-
   return {
     statusUpdate: {
       status,
@@ -2695,7 +2720,6 @@ const validateCarSellRequestApprovePayload = (payload = {}) => {
     payload.finalPriceValue || payload.salePriceValue || payload.priceValue,
     0
   );
-
   if (customerDealPriceText.length < 2) {
     return { error: 'Vui lòng nhập giá chốt với khách trước khi duyệt nhập kho.' };
   }
@@ -2711,7 +2735,6 @@ const validateCarSellRequestApprovePayload = (payload = {}) => {
   if (!Number.isFinite(finalPriceValue) || finalPriceValue <= 0) {
     return { error: 'Vui lòng nhập giá bán trên hệ thống dạng số lớn hơn 0.' };
   }
-
   return {
     statusUpdate: {
       statusNote,
@@ -3173,7 +3196,7 @@ app.post('/api/uploads/avatar', requireAdmin, profileJsonParser, (req, res) => {
   }
 });
 
-app.post('/api/uploads/promotion-image', requireAdmin, profileJsonParser, (req, res) => {
+app.post('/api/uploads/promotion-image', requireUserManager, profileJsonParser, (req, res) => {
   const file = req.body?.file;
 
   if (!file) {
@@ -3193,7 +3216,7 @@ app.post('/api/uploads/promotion-image', requireAdmin, profileJsonParser, (req, 
   }
 });
 
-app.post('/api/uploads/promotion-image/cropped', requireAdmin, profileJsonParser, (req, res) => {
+app.post('/api/uploads/promotion-image/cropped', requireUserManager, profileJsonParser, (req, res) => {
   const file = req.body?.file;
 
   if (!file) {
@@ -3213,7 +3236,7 @@ app.post('/api/uploads/promotion-image/cropped', requireAdmin, profileJsonParser
   }
 });
 
-app.post('/api/uploads/blog-image', requireAdmin, profileJsonParser, (req, res) => {
+app.post('/api/uploads/blog-image', requireUserManager, profileJsonParser, (req, res) => {
   const file = req.body?.file;
 
   if (!file) {
@@ -3233,7 +3256,7 @@ app.post('/api/uploads/blog-image', requireAdmin, profileJsonParser, (req, res) 
   }
 });
 
-app.post('/api/uploads/blog-image/cropped', requireAdmin, profileJsonParser, (req, res) => {
+app.post('/api/uploads/blog-image/cropped', requireUserManager, profileJsonParser, (req, res) => {
   const file = req.body?.file;
 
   if (!file) {
@@ -4941,6 +4964,11 @@ app.post('/api/cars', requireAdmin, (req, res) => {
     return;
   }
 
+  if (!canManageUsers(req.user) && car.actionText !== carAvailableStatusText) {
+    res.status(403).json({ message: 'Nhân viên chỉ được thêm xe mới ở trạng thái Còn xe.' });
+    return;
+  }
+
   try {
     const createdCar = createCar(car);
     res.status(201).json({
@@ -4967,6 +4995,17 @@ app.put('/api/cars/:id', requireAdmin, (req, res) => {
     return;
   }
 
+  const existingCar = getCarById(carId);
+  if (!existingCar) {
+    res.status(404).json({ message: 'Không tìm thấy xe để cập nhật.' });
+    return;
+  }
+
+  if (!canManageUsers(req.user) && car.actionText !== existingCar.actionText) {
+    res.status(403).json({ message: 'Chỉ tài khoản admin mới được thay đổi trạng thái xe.' });
+    return;
+  }
+
   try {
     refreshOverdueDepositOrders();
     const lockedStatus = validateManualCarStatusChange(carId, car.actionText);
@@ -4980,7 +5019,10 @@ app.put('/api/cars/:id', requireAdmin, (req, res) => {
       return;
     }
 
-    const updatedCar = updateCar(carId, car, { actorUser: req.user });
+    const updatedCar = updateCar(carId, car, {
+      actorUser: req.user,
+      kpiSaleUserId: Number(req.body?.kpiSaleUserId || 0),
+    });
 
     if (!updatedCar) {
       res.status(404).json({ message: 'Không tìm thấy xe để cập nhật.' });
@@ -4989,17 +5031,21 @@ app.put('/api/cars/:id', requireAdmin, (req, res) => {
 
     res.json({
       message: updatedCar.actionText === 'Xe đã bán'
-        ? 'Cập nhật xe thành công. Nếu đây là xe bán trực tiếp, giao dịch đã sẵn sàng để ghi nhận trong KPI.'
+        ? 'Cập nhật xe thành công và đã tự động ghi nhận KPI bán xe.'
         : 'Cập nhật xe thành công.',
       car: updatedCar,
     });
   } catch (dbError) {
+    if (['SALES_KPI_SALE_INVALID', 'SALES_KPI_ROLE_INVALID', 'SALES_KPI_POLICY_MISSING', 'SALES_KPI_COMMISSION_MISSING', 'SALES_KPI_PERIOD_LOCKED'].includes(dbError?.code)) {
+      res.status(400).json({ message: dbError.message });
+      return;
+    }
     console.error('Update car error:', dbError);
     res.status(500).json({ message: 'Không thể cập nhật xe lúc này.' });
   }
 });
 
-app.delete('/api/cars/:id', requireAdmin, (req, res) => {
+app.delete('/api/cars/:id', requireUserManager, (req, res) => {
   const carId = Number(req.params.id);
 
   if (!Number.isFinite(carId)) {
@@ -5041,7 +5087,7 @@ app.get('/api/admin/promotions', requireAdmin, (req, res) => {
   res.json({ promotions: listPromotions() });
 });
 
-app.post('/api/admin/promotions', requireAdmin, (req, res) => {
+app.post('/api/admin/promotions', requireUserManager, (req, res) => {
   const { promotion, error } = validatePromotionPayload(req.body || {});
 
   if (error) {
@@ -5062,7 +5108,7 @@ app.post('/api/admin/promotions', requireAdmin, (req, res) => {
   }
 });
 
-app.put('/api/admin/promotions/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/promotions/:id', requireUserManager, (req, res) => {
   const promotionId = Number(req.params.id);
   const { promotion, error } = validatePromotionPayload(req.body || {});
 
@@ -5094,7 +5140,7 @@ app.put('/api/admin/promotions/:id', requireAdmin, (req, res) => {
   }
 });
 
-app.delete('/api/admin/promotions/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/promotions/:id', requireUserManager, (req, res) => {
   const promotionId = Number(req.params.id);
 
   if (!Number.isFinite(promotionId)) {
@@ -5127,7 +5173,7 @@ app.get('/api/admin/blog-posts', requireAdmin, (req, res) => {
   });
 });
 
-app.post('/api/admin/blog-posts', requireAdmin, (req, res) => {
+app.post('/api/admin/blog-posts', requireUserManager, (req, res) => {
   const { blogPost, error } = validateBlogPostPayload(req.body || {});
 
   if (error) {
@@ -5154,7 +5200,7 @@ app.post('/api/admin/blog-posts', requireAdmin, (req, res) => {
   }
 });
 
-app.put('/api/admin/blog-posts/:id', requireAdmin, (req, res) => {
+app.put('/api/admin/blog-posts/:id', requireUserManager, (req, res) => {
   const blogPostId = Number(req.params.id);
   const { blogPost, error } = validateBlogPostPayload(req.body || {});
 
@@ -5192,7 +5238,7 @@ app.put('/api/admin/blog-posts/:id', requireAdmin, (req, res) => {
   }
 });
 
-app.delete('/api/admin/blog-posts/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/blog-posts/:id', requireUserManager, (req, res) => {
   const blogPostId = Number(req.params.id);
 
   if (!Number.isFinite(blogPostId)) {
@@ -5232,7 +5278,7 @@ app.get('/api/admin/car-sell-requests', requireAdmin, (req, res) => {
   });
 });
 
-app.patch('/api/admin/car-sell-requests/:id/approve', requireAdmin, (req, res) => {
+app.patch('/api/admin/car-sell-requests/:id/approve', requireUserManager, (req, res) => {
   const requestId = Number(req.params.id);
   const { statusUpdate, error } = validateCarSellRequestApprovePayload(req.body || {});
 
@@ -5255,7 +5301,7 @@ app.patch('/api/admin/car-sell-requests/:id/approve', requireAdmin, (req, res) =
     }
 
     res.json({
-      message: 'Đã duyệt thông tin đăng bán xe và nhập xe vào kho cửa hàng.',
+      message: 'Đã duyệt, nhập xe vào kho và chuyển giao dịch vào mục KPI để admin gắn nhân viên nhập xe.',
       request: result.request,
       car: result.car,
     });
@@ -5275,7 +5321,7 @@ app.patch('/api/admin/car-sell-requests/:id/approve', requireAdmin, (req, res) =
   }
 });
 
-app.patch('/api/admin/car-sell-requests/:id/reject', requireAdmin, (req, res) => {
+app.patch('/api/admin/car-sell-requests/:id/reject', requireUserManager, (req, res) => {
   const requestId = Number(req.params.id);
   const { statusUpdate, error } = validateCarSellRequestRejectPayload(req.body || {});
 
@@ -5307,9 +5353,12 @@ app.patch('/api/admin/car-sell-requests/:id/reject', requireAdmin, (req, res) =>
   }
 });
 
-app.get('/api/admin/sales-kpi-records', requireUserManager, (req, res) => {
+app.get('/api/admin/sales-kpi-records', requireAdmin, (req, res) => {
+  const isAdminUser = canManageUsers(req.user);
+  const enforcedSaleUserId = isAdminUser ? req.query.saleUserId : req.user.id;
   const salesEmployees = listUsers()
     .filter((user) => user.role === 'staff')
+    .filter((user) => isAdminUser || user.id === req.user.id)
     .map((user) => ({
       id: user.id,
       fullName: user.fullName,
@@ -5318,12 +5367,142 @@ app.get('/api/admin/sales-kpi-records', requireUserManager, (req, res) => {
       salesTitle: user.salesTitle || 'Nhân viên kinh doanh',
     }));
 
-  res.json({
-    records: listSalesKpiRecords(),
-    stats: getSalesKpiStats(),
-    availableSources: listAvailableSalesKpiSources(),
-    salesEmployees,
+  const report = getSalesKpiReport({
+    from: req.query.from,
+    to: req.query.to,
+    saleUserId: enforcedSaleUserId,
+    kpiType: req.query.kpiType,
+    rewardStatus: req.query.rewardStatus,
+    recordStatus: req.query.recordStatus,
+    targetPeriod: req.query.targetPeriod,
   });
+
+  const visibleReport = isAdminUser
+    ? report
+    : {
+        ...report,
+        alerts: {
+          missingAcquisitionLinks: [],
+          pendingAcquisitions: [],
+          unconfiguredEmployees: [],
+          invalidCommissionPolicies: [],
+          invalidAcquisitionRewardPolicies: [],
+        },
+        policyHistory: [],
+        entryPolicies: (report.entryPolicies || []).filter(
+          (policy) => Number(policy.saleUserId) === Number(req.user.id)
+        ),
+      };
+
+  res.json({
+    records: report.records,
+    stats: report.summary,
+    report: visibleReport,
+    availableSources: isAdminUser ? listAvailableSalesKpiSources() : {},
+    salesEmployees,
+    readOnly: !isAdminUser,
+  });
+});
+
+app.get('/api/admin/sales-kpi-assignees', requireAdmin, (req, res) => {
+  const type = String(req.query.type || '').trim().toLowerCase();
+  const businessDate = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.businessDate || ''))
+    ? String(req.query.businessDate)
+    : new Date().toISOString().slice(0, 10);
+  const period = businessDate.slice(0, 7);
+  const report = getSalesKpiReport({ targetPeriod: period });
+  const policyMap = new Map((report.entryPolicies || []).map((policy) => [Number(policy.saleUserId), policy]));
+  const employees = listUsers().filter((user) => user.role === 'staff').flatMap((user) => {
+    const policy = policyMap.get(Number(user.id));
+    const eligible = policy && (type === 'acquisition'
+      ? ['acquisition_only', 'both'].includes(policy.kpiRole)
+      : ['sales_only', 'both'].includes(policy.kpiRole));
+    return eligible ? [{ id: user.id, fullName: user.fullName, email: user.email, policy }] : [];
+  });
+  res.json({
+    period,
+    employees: canManageUsers(req.user)
+      ? employees
+      : employees.map((employee) => ({
+          id: employee.id,
+          fullName: employee.fullName,
+          policy: { kpiRole: employee.policy.kpiRole },
+        })),
+    periodControl: report.periodControl,
+  });
+});
+
+app.patch('/api/admin/sales-kpi-periods/:period', requireUserManager, (req, res) => {
+  try {
+    const periodControl = setSalesKpiPeriodStatus(req.params.period, {
+      status: req.body?.status,
+      note: req.body?.note,
+      actorUser: req.user,
+    });
+    res.json({
+      message: periodControl.status === 'locked' ? 'Đã khóa kỳ KPI.' : 'Đã mở khóa kỳ KPI.',
+      periodControl,
+    });
+  } catch (dbError) {
+    res.status(400).json({ message: dbError.message || 'Không thể cập nhật trạng thái kỳ KPI.' });
+  }
+});
+
+app.patch('/api/admin/sales-kpi-records/:id/reward', requireUserManager, (req, res) => {
+  const recordId = Number(req.params.id || 0);
+  if (!Number.isInteger(recordId) || recordId <= 0) {
+    res.status(400).json({ message: 'Mã KPI không hợp lệ.' });
+    return;
+  }
+  try {
+    const record = updateSalesKpiRewardWorkflow(recordId, {
+      status: req.body?.status,
+      payoutReference: req.body?.payoutReference,
+      note: req.body?.note,
+      actorUser: req.user,
+    });
+    if (!record) {
+      res.status(404).json({ message: 'Không tìm thấy KPI đang hoạt động.' });
+      return;
+    }
+    res.json({ message: record.rewardStatus === 'paid' ? 'Đã xác nhận chi thưởng.' : record.rewardStatus === 'approved' ? 'Đã duyệt khoản thưởng.' : 'Đã chuyển khoản thưởng về chờ duyệt.', record });
+  } catch (dbError) {
+    if (['SALES_KPI_PERIOD_LOCKED', 'SALES_KPI_REWARD_TRANSITION_INVALID', 'SALES_KPI_PAYOUT_REFERENCE_REQUIRED'].includes(dbError?.code)) {
+      res.status(400).json({ message: dbError.message });
+      return;
+    }
+    console.error('Update KPI reward workflow error:', dbError);
+    res.status(500).json({ message: 'Không thể cập nhật quy trình chi thưởng.' });
+  }
+});
+
+app.put('/api/admin/sales-kpi-targets/:saleUserId', requireUserManager, (req, res) => {
+  const saleUserId = Number(req.params.saleUserId || 0);
+  if (!Number.isInteger(saleUserId) || saleUserId <= 0) {
+    res.status(400).json({ message: 'Nhân viên nhận mục tiêu không hợp lệ.' });
+    return;
+  }
+
+  try {
+    const target = upsertSalesKpiTarget({
+      period: req.body?.period,
+      saleUserId,
+      vehicleTarget: req.body?.vehicleTarget,
+      grossProfitTarget: req.body?.grossProfitTarget,
+      kpiRole: req.body?.kpiRole,
+      commissionPerSale: req.body?.commissionPerSale,
+      acquisitionRewardPerVehicle: req.body?.acquisitionRewardPerVehicle,
+      updatedByUser: req.user,
+    });
+    res.json({ message: 'Đã cập nhật mục tiêu KPI.', target });
+  } catch (dbError) {
+    if (['SALES_KPI_TARGET_PERIOD_INVALID', 'SALES_KPI_TARGET_ROLE_INVALID', 'SALES_KPI_COMMISSION_MISSING', 'SALES_KPI_ACQUISITION_REWARD_MISSING', 'SALES_KPI_SALE_INVALID', 'SALES_KPI_PERIOD_LOCKED'].includes(dbError?.code)) {
+      res.status(400).json({ message: dbError.message });
+      return;
+    }
+    console.error('Update sales KPI target error:', dbError);
+    res.status(500).json({ message: 'Không thể cập nhật mục tiêu KPI lúc này.' });
+  }
 });
 
 app.post('/api/admin/sales-kpi-records', requireUserManager, (req, res) => {
@@ -5348,7 +5527,7 @@ app.post('/api/admin/sales-kpi-records', requireUserManager, (req, res) => {
       return;
     }
 
-    if (['SALES_KPI_SOURCE_INVALID', 'SALES_KPI_SOURCE_NOT_COMPLETED', 'SALES_KPI_SALE_INVALID'].includes(dbError?.code)) {
+    if (['SALES_KPI_SOURCE_INVALID', 'SALES_KPI_SOURCE_NOT_COMPLETED', 'SALES_KPI_SALE_INVALID', 'SALES_KPI_ROLE_INVALID', 'SALES_KPI_POLICY_MISSING', 'SALES_KPI_COMMISSION_MISSING', 'SALES_KPI_ACQUISITION_REWARD_MISSING', 'SALES_KPI_PERIOD_LOCKED'].includes(dbError?.code)) {
       res.status(400).json({ message: dbError.message });
       return;
     }
@@ -5382,7 +5561,7 @@ app.patch('/api/admin/sales-kpi-records/:id', requireUserManager, (req, res) => 
 
     res.json({ message: 'Đã cập nhật KPI.', record, stats: getSalesKpiStats() });
   } catch (dbError) {
-    if (dbError?.code === 'SALES_KPI_SALE_INVALID') {
+    if (['SALES_KPI_SALE_INVALID', 'SALES_KPI_ROLE_INVALID', 'SALES_KPI_POLICY_MISSING', 'SALES_KPI_COMMISSION_MISSING', 'SALES_KPI_ACQUISITION_REWARD_MISSING', 'SALES_KPI_PERIOD_LOCKED'].includes(dbError?.code)) {
       res.status(400).json({ message: dbError.message });
       return;
     }
@@ -5423,7 +5602,7 @@ app.patch('/api/admin/sales-kpi-records/:id/cancel', requireUserManager, (req, r
       stats: getSalesKpiStats(),
     });
   } catch (dbError) {
-    if (dbError?.code === 'SALES_KPI_CANCELLATION_NOTE_REQUIRED') {
+    if (['SALES_KPI_CANCELLATION_NOTE_REQUIRED', 'SALES_KPI_ACQUISITION_REWARD_PAID', 'SALES_KPI_PERIOD_LOCKED'].includes(dbError?.code)) {
       res.status(400).json({ message: dbError.message });
       return;
     }
@@ -5444,6 +5623,11 @@ app.patch('/api/admin/car-buy-requests/:id/status', requireAdmin, (req, res) => 
 
   if (error) {
     res.status(400).json({ message: error });
+    return;
+  }
+
+  if (!canManageUsers(req.user) && ['approved', 'rejected'].includes(statusUpdate.status)) {
+    res.status(403).json({ message: 'Chỉ tài khoản admin mới được duyệt hoặc từ chối tin mua xe.' });
     return;
   }
 
@@ -5497,7 +5681,7 @@ app.patch('/api/admin/car-buy-request-offers/:id/status', requireAdmin, (req, re
   }
 });
 
-app.delete('/api/admin/car-buy-requests/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/car-buy-requests/:id', requireUserManager, (req, res) => {
   const requestId = Number(req.params.id);
 
   if (!Number.isFinite(requestId)) {
@@ -5559,7 +5743,7 @@ app.patch('/api/admin/consultation-requests/:id/status', requireAdmin, (req, res
   }
 });
 
-app.delete('/api/admin/consultation-requests/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/consultation-requests/:id', requireUserManager, (req, res) => {
   const requestId = Number(req.params.id);
 
   if (!Number.isFinite(requestId)) {
@@ -5605,7 +5789,7 @@ app.get('/api/admin/deposit-payment/config', requireAdmin, (req, res) => {
   }
 });
 
-app.patch('/api/admin/deposit-payment/config', requireAdmin, (req, res) => {
+app.patch('/api/admin/deposit-payment/config', requireUserManager, (req, res) => {
   const { settings, error } = validateDepositPaymentSettingsPayload(req.body || {});
 
   if (error) {
@@ -5640,6 +5824,11 @@ app.patch('/api/admin/deposit-orders/:id/status', requireAdmin, (req, res) => {
     return;
   }
 
+  if (!canManageUsers(req.user) && statusUpdate.status === 'cancelled_after_deposit') {
+    res.status(403).json({ message: 'Chỉ tài khoản admin mới được xử lý hủy và hoàn cọc sau khi đã nhận tiền.' });
+    return;
+  }
+
   try {
     refreshOverdueDepositOrders();
     const order = updateDepositOrderStatus(orderId, {
@@ -5657,7 +5846,9 @@ app.patch('/api/admin/deposit-orders/:id/status', requireAdmin, (req, res) => {
     sendDepositOrderEmailNotification(order, order.status);
 
     res.json({
-      message: `Cập nhật đơn đặt cọc: ${depositOrderStatusLabels[order.status]}.`,
+      message: order.status === 'completed'
+        ? 'Giao dịch đã hoàn tất và được chuyển vào mục KPI để admin gắn nhân viên bán xe.'
+        : `Cập nhật đơn đặt cọc: ${depositOrderStatusLabels[order.status]}.`,
       order,
     });
   } catch (dbError) {
@@ -5700,6 +5891,11 @@ app.patch('/api/admin/deposit-orders/:id/status', requireAdmin, (req, res) => {
       res.status(400).json({
         message: 'Số tiền hoàn cọc không được lớn hơn số tiền đặt cọc đã nhận.',
       });
+      return;
+    }
+
+    if (['SALES_KPI_SALE_INVALID', 'SALES_KPI_ROLE_INVALID', 'SALES_KPI_POLICY_MISSING', 'SALES_KPI_COMMISSION_MISSING', 'SALES_KPI_PERIOD_LOCKED'].includes(dbError?.code)) {
+      res.status(400).json({ message: dbError.message });
       return;
     }
 
@@ -5760,7 +5956,7 @@ app.patch('/api/admin/test-drive-appointments/:id/status', requireAdmin, (req, r
   }
 });
 
-app.delete('/api/admin/test-drive-appointments/:id', requireAdmin, (req, res) => {
+app.delete('/api/admin/test-drive-appointments/:id', requireUserManager, (req, res) => {
   const appointmentId = Number(req.params.id);
 
   if (!Number.isFinite(appointmentId)) {
@@ -5792,7 +5988,24 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
   res.json({
     users: canManageUsers(req.user)
       ? users
-      : users.filter((user) => user.role === 'customer'),
+      : users
+          .filter((user) => user.role === 'customer')
+          .map((user) => ({
+            id: user.id,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+            phone: user.phone || '',
+            avatarUrl: user.avatarUrl || '',
+            address: {
+              province: user.address?.province || '',
+              district: '',
+              ward: '',
+              detail: '',
+            },
+            createdAt: user.createdAt,
+            updatedAt: user.updatedAt,
+          })),
   });
 });
 
@@ -6217,6 +6430,99 @@ app.post('/api/auth/admin-logout', (req, res) => {
   res.json({ message: 'Đăng xuất trang quản trị thành công.' });
 });
 
+const normalizeChatContent = (value) => String(value || '').trim().slice(0, 2000);
+const canAccessConversation = (conversation, user, isStaff = false) =>
+  Boolean(conversation && user && (isStaff || Number(conversation.userId) === Number(user.id)));
+const emitConversationRefresh = (conversationId, message = null) => {
+  const conversation = getConversationById(conversationId);
+  if (!conversation) return;
+  io.to(`conversation:${conversation.id}`).emit('message:new', { conversation, message });
+  io.to(`user:${conversation.userId}`).emit('conversations:refresh', { conversationId: conversation.id });
+  io.to('staff').emit('conversations:refresh', { conversationId: conversation.id });
+};
+
+app.get('/api/conversations/my', requireUser, (req, res) => {
+  res.json({ conversations: listConversationsByUser(req.user.id) });
+});
+
+app.post('/api/conversations', requireUser, chatMessageRateLimit, (req, res) => {
+  const content = normalizeChatContent(req.body?.content);
+  if (!content) return res.status(400).json({ message: 'Vui lòng nhập nội dung tin nhắn.' });
+  try {
+    const result = createConversation({
+      userId: req.user.id,
+      subject: String(req.body?.subject || '').trim(),
+      contextType: req.body?.contextType,
+      contextId: req.body?.contextId,
+      content,
+    });
+    if (!result) return res.status(400).json({ message: 'Không thể tạo cuộc hội thoại.' });
+    emitConversationRefresh(result.conversation.id, result.message);
+    return res.status(201).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message || 'Không thể tạo cuộc hội thoại.' });
+  }
+});
+
+app.get('/api/conversations/:id/messages', requireUser, (req, res) => {
+  const conversation = getConversationById(Number(req.params.id));
+  if (!canAccessConversation(conversation, req.user)) return res.status(404).json({ message: 'Không tìm thấy cuộc hội thoại.' });
+  markConversationRead(conversation.id, 'customer');
+  return res.json({ conversation: getConversationById(conversation.id), messages: listConversationMessages(conversation.id) });
+});
+
+app.post('/api/conversations/:id/messages', requireUser, chatMessageRateLimit, (req, res) => {
+  const conversation = getConversationById(Number(req.params.id));
+  if (!canAccessConversation(conversation, req.user)) return res.status(404).json({ message: 'Không tìm thấy cuộc hội thoại.' });
+  const content = normalizeChatContent(req.body?.content);
+  if (!content) return res.status(400).json({ message: 'Vui lòng nhập nội dung tin nhắn.' });
+  const message = createConversationMessage(conversation.id, req.user, content);
+  emitConversationRefresh(conversation.id, message);
+  return res.status(201).json({ conversation: getConversationById(conversation.id), message });
+});
+
+app.patch('/api/conversations/:id/read', requireUser, (req, res) => {
+  const conversation = getConversationById(Number(req.params.id));
+  if (!canAccessConversation(conversation, req.user)) return res.status(404).json({ message: 'Không tìm thấy cuộc hội thoại.' });
+  return res.json({ conversation: markConversationRead(conversation.id, 'customer') });
+});
+
+app.get('/api/admin/conversations', requireAdmin, (req, res) => {
+  res.json({ conversations: listAdminConversations() });
+});
+
+app.get('/api/admin/conversations/:id/messages', requireAdmin, (req, res) => {
+  const conversation = getConversationById(Number(req.params.id));
+  if (!conversation) return res.status(404).json({ message: 'Không tìm thấy cuộc hội thoại.' });
+  markConversationRead(conversation.id, 'staff');
+  return res.json({ conversation: getConversationById(conversation.id), messages: listConversationMessages(conversation.id) });
+});
+
+app.post('/api/admin/conversations/:id/messages', requireAdmin, chatMessageRateLimit, (req, res) => {
+  const conversation = getConversationById(Number(req.params.id));
+  if (!conversation) return res.status(404).json({ message: 'Không tìm thấy cuộc hội thoại.' });
+  const content = normalizeChatContent(req.body?.content);
+  if (!content) return res.status(400).json({ message: 'Vui lòng nhập nội dung tin nhắn.' });
+  const message = createConversationMessage(conversation.id, req.user, content);
+  emitConversationRefresh(conversation.id, message);
+  return res.status(201).json({ conversation: getConversationById(conversation.id), message });
+});
+
+app.patch('/api/admin/conversations/:id/assign', requireAdmin, (req, res) => {
+  const assignedUserId = Number(req.body?.assignedUserId || req.user.id);
+  const conversation = assignConversation(Number(req.params.id), assignedUserId);
+  if (!conversation) return res.status(400).json({ message: 'Nhân viên phụ trách không hợp lệ.' });
+  emitConversationRefresh(conversation.id);
+  return res.json({ message: 'Đã nhận xử lý cuộc hội thoại.', conversation });
+});
+
+app.patch('/api/admin/conversations/:id/status', requireAdmin, (req, res) => {
+  const conversation = updateConversationStatus(Number(req.params.id), req.body?.status);
+  if (!conversation) return res.status(400).json({ message: 'Trạng thái cuộc hội thoại không hợp lệ.' });
+  emitConversationRefresh(conversation.id);
+  return res.json({ message: 'Đã cập nhật trạng thái hội thoại.', conversation });
+});
+
 app.post('/api/auth/forgot-password', passwordResetRequestRateLimit, async (req, res) => {
   const normalizedEmail = String(req.body?.email || '').trim().toLowerCase();
 
@@ -6298,6 +6604,69 @@ app.get('/index.html', (req, res) => {
   sendPublicPage(res, publicPages.home);
 });
 
+io.use((socket, next) => {
+  const cookies = parseCookies(socket.handshake.headers.cookie || '');
+  const adminUser = getUserBySession(cookies[adminSessionCookieName]);
+  const customerUser = getUserBySession(cookies[userSessionCookieName]);
+  const requestedAudience = String(socket.handshake.auth?.audience || '').trim().toLowerCase();
+  const isStaffAudience = requestedAudience === 'staff';
+  const user = isStaffAudience
+    ? (adminUser && canAccessAdmin(adminUser) ? adminUser : null)
+    : customerUser;
+  if (!user) return next(new Error('Bạn cần đăng nhập để sử dụng tin nhắn realtime.'));
+  socket.data.user = user;
+  socket.data.isStaff = isStaffAudience;
+  socket.data.messageTimes = [];
+  return next();
+});
+
+io.on('connection', (socket) => {
+  const user = socket.data.user;
+  socket.join(`user:${user.id}`);
+  if (socket.data.isStaff) socket.join('staff');
+
+  socket.on('conversation:join', ({ conversationId } = {}, acknowledge = () => {}) => {
+    const conversation = getConversationById(Number(conversationId));
+    if (!canAccessConversation(conversation, user, socket.data.isStaff)) {
+      acknowledge({ ok: false, message: 'Bạn không có quyền xem cuộc hội thoại này.' });
+      return;
+    }
+    socket.join(`conversation:${conversation.id}`);
+    markConversationRead(conversation.id, socket.data.isStaff ? 'staff' : 'customer');
+    acknowledge({ ok: true, conversationId: conversation.id });
+  });
+
+  socket.on('message:send', ({ conversationId, content } = {}, acknowledge = () => {}) => {
+    const now = Date.now();
+    socket.data.messageTimes = socket.data.messageTimes.filter((time) => now - time < 60000);
+    if (socket.data.messageTimes.length >= 30) {
+      acknowledge({ ok: false, message: 'Bạn gửi tin nhắn quá nhanh. Vui lòng chờ một chút.' });
+      return;
+    }
+    const conversation = getConversationById(Number(conversationId));
+    if (!canAccessConversation(conversation, user, socket.data.isStaff)) {
+      acknowledge({ ok: false, message: 'Bạn không có quyền gửi tin nhắn vào cuộc hội thoại này.' });
+      return;
+    }
+    const normalizedContent = normalizeChatContent(content);
+    if (!normalizedContent) {
+      acknowledge({ ok: false, message: 'Vui lòng nhập nội dung tin nhắn.' });
+      return;
+    }
+    const message = createConversationMessage(conversation.id, user, normalizedContent);
+    socket.data.messageTimes.push(now);
+    emitConversationRefresh(conversation.id, message);
+    acknowledge({ ok: true, message });
+  });
+
+  socket.on('message:read', ({ conversationId } = {}) => {
+    const conversation = getConversationById(Number(conversationId));
+    if (!canAccessConversation(conversation, user, socket.data.isStaff)) return;
+    markConversationRead(conversation.id, socket.data.isStaff ? 'staff' : 'customer');
+    io.to(`user:${conversation.userId}`).to('staff').emit('conversations:refresh', { conversationId: conversation.id });
+  });
+});
+
 app.use((error, req, res, next) => {
   if (error?.type === 'entity.too.large') {
     res.status(413).json({ message: 'Dữ liệu gửi lên quá lớn.' });
@@ -6312,6 +6681,6 @@ app.use((error, req, res, next) => {
   next(error);
 });
 
-app.listen(port, () => {
+httpServer.listen(port, () => {
   console.log(`Server is running at http://localhost:${port}`);
 });

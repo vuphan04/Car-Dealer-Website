@@ -7,7 +7,7 @@
     position: sticky;
     top: 0;
     z-index: 120;
-    width: 100vw;
+    width: 100%;
     border-top: 3px solid #243523;
     border-bottom: 1px solid rgba(8, 21, 74, 0.06);
     color: #08154a;
@@ -22,7 +22,7 @@
 }
 
 .okxe-site-header__nav {
-    width: min(1760px, calc(100vw - 48px));
+    width: min(1760px, calc(100% - 48px));
     min-height: 86px;
     margin: 0 auto;
     display: flex;
@@ -399,7 +399,7 @@
 
 @media (max-width: 640px) {
     .okxe-site-header__nav {
-        width: min(calc(100vw - 28px), 1480px);
+        width: min(calc(100% - 28px), 1480px);
         min-height: 72px;
     }
 
@@ -427,5 +427,78 @@
 
     .okxe-site-header__action {
         width: 100%;
+    }
+}
+
+@media (max-width: 1680px) {
+    .okxe-site-header .okxe-site-header__toggle {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+}
+
+/* Shared account dropdown polish for every public child page. */
+.okxe-site-header__dropdown {
+    width: min(292px, calc(100vw - 32px));
+    max-height: min(72vh, 620px);
+    padding: 10px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    font-family: var(--font-ui);
+}
+
+.okxe-site-header__summary {
+    grid-template-columns: 50px minmax(0, 1fr);
+}
+
+.okxe-site-header__avatar {
+    width: 50px;
+    height: 50px;
+}
+
+.okxe-site-header__summary strong {
+    font-size: 15px;
+    line-height: 1.4;
+    font-weight: 800;
+}
+
+.okxe-site-header__dropdown-link {
+    min-height: 46px;
+    gap: 10px;
+    padding: 10px 12px;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.okxe-site-header__dropdown-link .bx {
+    width: 24px;
+    flex: 0 0 24px;
+    font-size: 20px;
+    line-height: 1;
+    text-align: center;
+}
+
+.okxe-site-header__dropdown-link:hover,
+.okxe-site-header__dropdown-link:focus-visible {
+    box-shadow: inset 3px 0 0 #f15a29;
+}
+
+.okxe-site-header__account-trigger:hover,
+.okxe-site-header__account-trigger:focus-visible,
+.okxe-site-header__account.is-open .okxe-site-header__account-trigger {
+    transform: none;
+}
+
+@media (max-width: 1680px) {
+    .okxe-site-header__dropdown {
+        width: 100%;
+        max-height: none;
+        overflow: visible;
+        border-color: rgba(241, 90, 41, 0.14);
+        background: #ffffff;
     }
 }

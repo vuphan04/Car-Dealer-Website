@@ -650,7 +650,7 @@ input {
 
     .promo-nav {
         position: relative;
-        width: min(100% - 32px, 1180px);
+        width: min(calc(100% - 32px), 1180px);
     }
 
     .promo-nav__links {
@@ -686,7 +686,7 @@ input {
     .promo-hero,
     .promo-toolbar,
     .promotion-list-section {
-        width: min(100% - 32px, 1180px);
+        width: min(calc(100% - 32px), 1180px);
     }
 
     .promo-hero {
@@ -706,4 +706,270 @@ input {
     .promotion-detail__media {
         min-height: 220px;
     }
+}
+
+/* 2026 promotions polish: unified typography, hero, cards and detail modal. */
+body {
+    background:
+        radial-gradient(circle at 10% 8%, rgba(241, 90, 41, 0.06), transparent 28rem),
+        linear-gradient(180deg, #ffffff 0, #f6f8fc 38rem);
+    font-family: var(--font-ui);
+    line-height: 1.5;
+}
+
+.promo-hero {
+    position: relative;
+    min-height: clamp(370px, 36vw, 460px);
+    margin-top: 1.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.34);
+    border-radius: 26px;
+    align-items: center;
+    background:
+        radial-gradient(circle at 82% 18%, rgba(241, 90, 41, 0.22), transparent 26%),
+        linear-gradient(90deg, rgba(5, 14, 48, 0.94) 0%, rgba(5, 14, 48, 0.75) 43%, rgba(5, 14, 48, 0.16) 82%),
+        url("/images/promotions-hero-v2.png?v=20260711b") center / cover no-repeat;
+    box-shadow: 0 22px 58px rgba(8, 21, 74, 0.15);
+}
+
+.promo-hero::after {
+    position: absolute;
+    inset: auto 0 0;
+    height: 44%;
+    content: "";
+    background: linear-gradient(180deg, transparent, rgba(3, 10, 35, 0.22));
+    pointer-events: none;
+}
+
+.promo-hero__content,
+.promo-hero__panel {
+    position: relative;
+    z-index: 1;
+}
+
+.promo-hero__content {
+    max-width: 660px;
+}
+
+.promo-hero__content span,
+.promotion-list-heading span {
+    font-weight: 700;
+}
+
+.promo-hero h1 {
+    max-width: 630px;
+    font-size: clamp(2rem, 4vw, 3.35rem);
+    line-height: 1.12;
+    font-weight: 800;
+}
+
+.promo-hero p {
+    max-width: 610px;
+    color: rgba(255, 255, 255, 0.84);
+    font-weight: 500;
+}
+
+.promo-primary-link,
+.promo-secondary-link {
+    min-height: 48px;
+    border-radius: 13px;
+    font-weight: 700;
+}
+
+.promo-hero__panel {
+    min-width: 230px;
+    border-color: rgba(255, 255, 255, 0.24);
+    border-radius: 20px;
+    padding: 1.25rem;
+    background: rgba(8, 21, 74, 0.3);
+    box-shadow: 0 20px 48px rgba(3, 10, 35, 0.24);
+    backdrop-filter: blur(14px);
+}
+
+.promo-hero__panel .bx {
+    box-shadow: 0 10px 24px rgba(241, 90, 41, 0.24);
+}
+
+.promo-hero__panel strong {
+    font-weight: 800;
+}
+
+.promo-hero__panel span {
+    font-weight: 500;
+}
+
+.promo-toolbar {
+    margin-top: 1.25rem;
+    border: 1px solid rgba(8, 21, 74, 0.075);
+    border-radius: 20px;
+    padding: 1.1rem 1.25rem;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 12px 32px rgba(8, 21, 74, 0.07);
+    backdrop-filter: blur(10px);
+}
+
+.promo-search {
+    min-height: 50px;
+    border-radius: 14px;
+}
+
+.promo-search input {
+    font-weight: 500;
+}
+
+.promo-search input::placeholder {
+    color: #9aa3b8;
+    opacity: 1;
+}
+
+.promo-toolbar__hint {
+    font-weight: 500;
+}
+
+.promotion-list-section {
+    margin-top: 2.25rem;
+}
+
+.promotion-list-heading h2 {
+    font-weight: 700;
+}
+
+.promotion-grid {
+    gap: 1.35rem;
+}
+
+.promotion-card {
+    border-color: rgba(8, 21, 74, 0.075);
+    border-radius: 20px;
+    box-shadow: 0 12px 32px rgba(8, 21, 74, 0.075);
+}
+
+.promotion-card:hover,
+.promotion-card:focus-visible {
+    border-color: rgba(241, 90, 41, 0.2);
+    transform: translateY(-5px);
+    box-shadow: 0 22px 46px rgba(8, 21, 74, 0.12);
+}
+
+.promotion-card__media {
+    overflow: hidden;
+}
+
+.promotion-card__media img {
+    transition: transform 0.38s ease;
+}
+
+.promotion-card:hover .promotion-card__media img,
+.promotion-card:focus-visible .promotion-card__media img {
+    transform: scale(1.04);
+}
+
+.promotion-card__body {
+    padding: 1.15rem;
+}
+
+.promotion-card__meta span,
+.promotion-card__footer button {
+    font-weight: 700;
+}
+
+.promotion-card h3 {
+    font-weight: 700;
+}
+
+.promotion-card p,
+.promotion-card__meta small,
+.promotion-card__footer small {
+    font-weight: 500;
+}
+
+.promotion-card__footer button {
+    min-height: 42px;
+    border-radius: 12px;
+    box-shadow: 0 8px 18px rgba(241, 90, 41, 0.16);
+}
+
+.promotion-detail-modal__dialog {
+    border: 1px solid rgba(255, 255, 255, 0.58);
+    border-radius: 24px;
+    box-shadow: 0 30px 80px rgba(8, 21, 74, 0.28);
+}
+
+.promotion-detail-modal__dialog::before {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 2;
+    height: 5px;
+    content: "";
+    background: linear-gradient(90deg, var(--main-color), #ff9c68);
+}
+
+.promotion-detail__body {
+    padding: 1.5rem;
+}
+
+.promotion-detail__meta span,
+.promotion-detail__button {
+    font-weight: 700;
+}
+
+.promotion-detail h2 {
+    font-weight: 800;
+}
+
+.promotion-detail__summary,
+.promotion-detail__content,
+.promotion-detail__meta small {
+    font-weight: 500;
+}
+
+.promotion-detail__button {
+    min-height: 48px;
+    border-radius: 13px;
+    box-shadow: 0 10px 24px rgba(241, 90, 41, 0.2);
+}
+
+.promo-hero :where(a):focus-visible,
+.promo-toolbar :where(input):focus-visible,
+.promotion-card:focus-visible,
+.promotion-detail-modal :where(a, button):focus-visible {
+    outline: 3px solid rgba(241, 90, 41, 0.24);
+    outline-offset: 3px;
+}
+
+@media (max-width: 980px) {
+    .promo-hero {
+        min-height: 540px;
+        align-content: end;
+        background-position: 62% center;
+    }
+}
+
+@media (max-width: 760px) {
+    .promo-hero {
+        min-height: 560px;
+        border-radius: 20px;
+        background-position: 66% center;
+    }
+
+    .promo-hero h1 {
+        font-size: clamp(1.85rem, 9vw, 2.5rem);
+    }
+
+    .promo-hero__panel {
+        width: 100%;
+    }
+
+    .promo-toolbar {
+        padding: 1rem;
+    }
+
+    .promotion-detail__body {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 720px) {
+    .promo-main, .promo-hero, .promo-toolbar, .promo-section { width: min(calc(100% - 28px), 1180px); max-width: 100%; }
+    .promo-hero__inner, .promo-hero__content, .promo-hero__summary { min-width: 0; max-width: 100%; }
+    .promo-hero :where(h1, p) { overflow-wrap: anywhere; }
 }

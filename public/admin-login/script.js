@@ -72,7 +72,7 @@ const redirectIfAlreadyEmployee = async () => {
     try {
         const { response, data } = await requestJson('/api/auth/admin-me');
 
-        if (response.ok && data.user?.isAdmin) {
+        if (response.ok && data.user?.canAccessAdmin) {
             window.location.replace('/admin');
         }
     } catch (error) {

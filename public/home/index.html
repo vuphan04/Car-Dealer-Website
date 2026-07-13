@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mua xe cu gia re</title>
-    <link href="https://cdn.boxicons.com/3.0.8/css/boxicons.min.css" rel="stylesheet">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link rel="stylesheet" href="/global/typography.css">
+    <link rel="stylesheet" href="/global/typography.css?v=responsive-font-20260711">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/global/site.css?v=deposit-bank-info-20260708">
+    <link rel="stylesheet" href="/global/site.css?v=carousel-controls-outside-20260712">
     <link rel="stylesheet" href="/global/footer.css">
 </head>
 <body>
@@ -93,20 +92,39 @@
         </div>
     </header>
 
-    <section class="carousel">
-        <div id="carouselExample" class="carousel slide" data-bs-ride="carousel">
+    <section class="carousel home-hero-carousel" aria-label="Không gian và bộ sưu tập xe tại OkXe">
+        <div id="carouselExample" class="carousel slide carousel-fade" data-bs-ride="carousel" data-bs-interval="5000">
+            <div class="carousel-indicators">
+                <button type="button" data-bs-target="#carouselExample" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Banner OkXe"></button>
+                <button type="button" data-bs-target="#carouselExample" data-bs-slide-to="1" aria-label="Showroom xe cao cấp"></button>
+                <button type="button" data-bs-target="#carouselExample" data-bs-slide-to="2" aria-label="Dàn xe tại Đà Nẵng"></button>
+                <button type="button" data-bs-target="#carouselExample" data-bs-slide-to="3" aria-label="Bàn giao xe tại showroom"></button>
+                <button type="button" data-bs-target="#carouselExample" data-bs-slide-to="4" aria-label="Đại lý ô tô xanh hiện đại"></button>
+            </div>
             <div class="carousel-inner">
                 <div class="carousel-item active">
-                    <img src="/images/homepage-carousel-car.png" class="d-block w-100" alt="Xe 1">
+                    <img src="/images/okxe-brand-showroom-banner.jpg" class="d-block w-100" width="1600" height="900" fetchpriority="high" alt="Showroom OkXe với nhiều mẫu ô tô chính hãng và dịch vụ chăm sóc khách hàng">
+                </div>
+                <div class="carousel-item">
+                    <img src="/images/okxe-showroom-premium-cars.jpg" class="d-block w-100" width="1600" height="900" loading="lazy" decoding="async" alt="Showroom ô tô cao cấp với nhiều xe SUV và sedan đẹp tại OkXe">
+                </div>
+                <div class="carousel-item">
+                    <img src="/images/okxe-car-lineup-da-nang.jpg" class="d-block w-100" width="1600" height="900" loading="lazy" decoding="async" alt="Dàn ô tô SUV sedan MPV và bán tải trước đại lý hiện đại tại Đà Nẵng">
+                </div>
+                <div class="carousel-item">
+                    <img src="/images/okxe-car-delivery-showroom.jpg" class="d-block w-100" width="1600" height="900" loading="lazy" decoding="async" alt="Khách hàng nhận bàn giao xe mới trong showroom ô tô chuyên nghiệp">
+                </div>
+                <div class="carousel-item">
+                    <img src="/images/okxe-eco-car-dealership.jpg" class="d-block w-100" width="1600" height="900" loading="lazy" decoding="async" alt="Bộ sưu tập nhiều ô tô đẹp tại khu trưng bày xe xanh và hiện đại">
                 </div>
             </div>
             <button class="carousel-control-prev" type="button" data-bs-target="#carouselExample" data-bs-slide="prev">
                 <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                <span class="visually-hidden">Previous</span>
+                <span class="visually-hidden">Ảnh trước</span>
             </button>
             <button class="carousel-control-next" type="button" data-bs-target="#carouselExample" data-bs-slide="next">
                 <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                <span class="visually-hidden">Next</span>
+                <span class="visually-hidden">Ảnh tiếp theo</span>
             </button>
         </div>
     </section>
@@ -685,6 +703,13 @@
                 </div>
 
                 <div class="profile-deposits__toolbar">
+                    <label class="profile-deposits__search">
+                        <span>Tìm đơn đặt cọc</span>
+                        <span class="profile-deposits__search-control">
+                            <i class="bx bx-search" aria-hidden="true"></i>
+                            <input type="search" id="profile-deposits-search" placeholder="Mã đơn, tên xe hoặc số điện thoại" autocomplete="off">
+                        </span>
+                    </label>
                     <button type="button" class="profile-deposits__refresh" id="profile-deposits-refresh">
                         <i class="bx bx-refresh" aria-hidden="true"></i>
                         <span>Làm mới</span>
@@ -874,8 +899,8 @@
 
 <!-- Link đến js -->
 <script src="/blog/data.js"></script>
-<script src="/home/script.js?v=deposit-bank-info-20260708"></script>
-<script src="/global/app.js?v=deposit-auth-20260706"></script>
+<script src="/home/script.js?v=sold-listing-sync-20260712"></script>
+<script src="/global/app.js?v=chat-motion-polish-20260712"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -4,13 +4,31 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OkXe Quản trị</title>
-    <link rel="stylesheet" href="/global/typography.css">
-    <link rel="stylesheet" href="/admin/style.css?v=admin-stat-counters-repair-20260710">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/global/typography.css?v=admin-font-sync-20260713">
+    <link rel="stylesheet" href="/admin/style.css?v=admin-responsive-polish-20260713">
+    <link rel="stylesheet" href="/admin/chat.css?v=admin-responsive-polish-20260713">
+    <style>
+        .admin-chat-message { border: 1px solid #dce4f7; }
+        .admin-chat-message.is-customer { background: #eef3ff; }
+        .admin-chat-message.is-staff { border-color: #243b85; }
+        .admin-chat-message__sender { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; color: #3150ae; font-size: 11px; font-weight: 800; }
+        .admin-chat-message.is-staff .admin-chat-message__sender { color: #fff; opacity: .9; }
+        .admin-chat-message time { display: block; margin-top: 5px; opacity: .68; font-size: 11px; }
+        .admin-chat-composer { align-items: end; }
+        .admin-chat-composer textarea { box-sizing: border-box; width: 100%; height: 48px; min-height: 48px; margin: 0; }
+        .admin-chat-composer button { box-sizing: border-box; width: 48px; height: 48px; margin: 0; padding: 0; display: grid; place-items: center; }
+    </style>
     <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
 </head>
 <body>
+    <button type="button" class="admin-mobile-menu-toggle" id="admin-mobile-menu-toggle" aria-controls="admin-sidebar" aria-expanded="false" aria-label="Mở danh mục quản trị">
+        <i class="bx bx-menu" aria-hidden="true"></i>
+        <span>Danh mục quản trị</span>
+    </button>
+    <button type="button" class="admin-sidebar-overlay" id="admin-sidebar-overlay" aria-label="Đóng danh mục quản trị" tabindex="-1" hidden></button>
     <div class="admin-layout">
-        <aside class="admin-sidebar" aria-label="Điều hướng quản trị">
+        <aside class="admin-sidebar" id="admin-sidebar" aria-label="Điều hướng quản trị">
             <div class="admin-sidebar__brand" aria-label="OkXe Admin">
                 Ok<span>Xe</span>
                 <strong>Admin</strong>
@@ -28,6 +46,11 @@
                     <i class="bx bxs-phone-call" aria-hidden="true"></i>
                     <span>Yêu cầu tư vấn</span>
                 </a>
+                <a href="#" class="admin-sidebar__link" data-admin-nav="messages">
+                    <i class="bx bxs-message-rounded-dots" aria-hidden="true"></i>
+                    <span>Tin nhắn khách hàng</span>
+                    <span class="admin-chat-nav-badge" id="admin-chat-nav-badge" hidden>0</span>
+                </a>
                 <a href="#" class="admin-sidebar__link" data-admin-nav="deposit-orders">
                     <i class="bx bxs-credit-card" aria-hidden="true"></i>
                     <span>Quản lý đặt cọc</span>
@@ -40,7 +63,7 @@
                     <i class="bx bxs-car" aria-hidden="true"></i>
                     <span>Quản lý đăng bán xe</span>
                 </a>
-                <a href="#" class="admin-sidebar__link" data-admin-nav="sales-kpi" data-requires-admin hidden>
+                <a href="#" class="admin-sidebar__link" data-admin-nav="sales-kpi">
                     <i class="bx bxs-bar-chart-alt-2" aria-hidden="true"></i>
                     <span>KPI / Hiệu quả kinh doanh</span>
                 </a>
@@ -97,6 +120,20 @@
         </aside>
 
         <main class="admin-page">
+            <section class="admin-view" data-admin-view="messages" hidden>
+                <section class="admin-overview">
+                    <div class="admin-overview__copy"><p class="eyebrow">Hỗ trợ realtime</p><h1>Tin nhắn khách hàng</h1><p>Tiếp nhận, phân công và trả lời các cuộc hội thoại từ khách hàng ngay trên hệ thống OkXe.</p></div>
+                </section>
+                <section class="admin-chat-workspace">
+                    <aside class="admin-chat-inbox">
+                        <div class="admin-chat-inbox__toolbar"><select id="admin-chat-filter"><option value="all">Tất cả</option><option value="open">Chưa xử lý</option><option value="in_progress">Đang hỗ trợ</option><option value="closed">Đã đóng</option></select><button id="admin-chat-refresh" type="button"><i class="bx bx-refresh"></i></button></div>
+                        <div class="admin-chat-list" id="admin-chat-list"><p class="admin-chat-empty">Đang tải tin nhắn...</p></div>
+                    </aside>
+                    <section class="admin-chat-thread" id="admin-chat-thread">
+                        <div class="admin-chat-placeholder"><i class="bx bx-conversation"></i><strong>Chọn một cuộc hội thoại</strong><p>Nội dung trao đổi sẽ hiển thị tại đây.</p></div>
+                    </section>
+                </section>
+            </section>
             <section class="admin-view is-active" data-admin-view="cars">
                 <section class="admin-overview">
                     <div class="admin-overview__copy">
@@ -400,7 +437,7 @@
                         </article>
                     </div>
 
-                    <section class="employee-card deposit-report-card">
+                    <section class="employee-card deposit-report-card" data-requires-admin hidden>
                         <div class="employee-card__header">
                             <div>
                                 <p class="eyebrow">Báo cáo đặt cọc</p>
@@ -457,7 +494,7 @@
                         </div>
                     </section>
 
-                    <section class="employee-card deposit-config-card">
+                    <section class="employee-card deposit-config-card" data-requires-admin hidden>
                         <div class="employee-card__header">
                             <div>
                                 <p class="eyebrow">Cấu hình thanh toán</p>
@@ -765,34 +802,89 @@
                         </div>
                     </header>
 
+                    <section class="employee-card sales-kpi-filter-card" aria-label="Bộ lọc báo cáo KPI">
+                        <div class="sales-kpi-section-heading">
+                            <div><p class="eyebrow">Báo cáo quản trị</p><h2>Tổng quan theo kỳ</h2><p id="sales-kpi-report-period-label">Dữ liệu trong tháng hiện tại</p></div>
+                            <div class="sales-kpi-filter-actions">
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="sales-kpi-reset-filter"><i class="bx bx-reset"></i><span>Tháng này</span></button>
+                                <button type="button" class="toolbar-btn toolbar-btn--soft" id="sales-kpi-export-button"><i class="bx bx-download"></i><span>Xuất CSV</span></button>
+                            </div>
+                        </div>
+                        <form class="sales-kpi-filter-grid" id="sales-kpi-filter-form">
+                            <label><span>Từ ngày</span><input type="date" id="sales-kpi-filter-from" required></label>
+                            <label><span>Đến ngày</span><input type="date" id="sales-kpi-filter-to" required></label>
+                            <label><span>Nhân viên</span><select id="sales-kpi-filter-sale"><option value="">Tất cả sale</option></select></label>
+                            <label><span>Loại KPI</span><select id="sales-kpi-filter-type"><option value="">Tất cả loại</option><option value="acquisition">Nhập xe</option><option value="sale">Bán qua đặt cọc</option><option value="direct_sale">Bán trực tiếp</option></select></label>
+                            <label><span>Trạng thái thưởng</span><select id="sales-kpi-filter-reward"><option value="">Tất cả trạng thái</option><option value="pending">Chờ chi</option><option value="paid">Đã chi</option></select></label>
+                            <button type="submit" class="toolbar-btn toolbar-btn--primary"><i class="bx bx-filter-alt"></i><span>Áp dụng</span></button>
+                        </form>
+                    </section>
+
                     <div class="sales-kpi-stats" aria-label="Thống kê KPI sale">
-                        <article class="sales-kpi-stat sales-kpi-stat--primary">
-                            <span class="sales-kpi-stat__icon"><i class="bx bx-award"></i></span>
-                            <div><span>Tổng KPI hợp lệ</span><strong id="sales-kpi-stat-total">0</strong><small>Thành tích đang được tính</small></div>
+                        <article class="sales-kpi-stat sales-kpi-stat--primary"><span class="sales-kpi-stat__icon"><i class="bx bx-car"></i></span><div><span>Xe bán thành công</span><strong id="sales-kpi-stat-sales">0</strong><small id="sales-kpi-compare-sales">Chưa có dữ liệu kỳ trước</small></div></article>
+                        <article class="sales-kpi-stat sales-kpi-stat--revenue"><span class="sales-kpi-stat__icon"><i class="bx bx-wallet"></i></span><div><span>Doanh số</span><strong id="sales-kpi-stat-sales-value">0 VNĐ</strong><small id="sales-kpi-compare-revenue">Chưa có dữ liệu kỳ trước</small></div></article>
+                        <article class="sales-kpi-stat sales-kpi-stat--profit"><span class="sales-kpi-stat__icon"><i class="bx bx-trending-up"></i></span><div><span>Chênh lệch mua–bán</span><strong id="sales-kpi-stat-profit">0 VNĐ</strong><small id="sales-kpi-compare-profit">Đã chốt khi xe nhập được bán</small></div></article>
+                        <article class="sales-kpi-stat sales-kpi-stat--margin"><span class="sales-kpi-stat__icon"><i class="bx bx-pie-chart-alt-2"></i></span><div><span>Biên chênh lệch</span><strong id="sales-kpi-stat-margin">0%</strong><small>Chưa trừ chi phí vận hành</small></div></article>
+                        <article class="sales-kpi-stat sales-kpi-stat--reward"><span class="sales-kpi-stat__icon"><i class="bx bx-gift"></i></span><div><span>Tổng thưởng chờ chi</span><strong id="sales-kpi-stat-reward">0 VNĐ</strong><small>Hoa hồng bán + thưởng nhập xe</small></div></article>
+                        <article class="sales-kpi-stat sales-kpi-stat--acquisition"><span class="sales-kpi-stat__icon"><i class="bx bx-import"></i></span><div><span>Xe nhập thành công</span><strong id="sales-kpi-stat-acquisition">0</strong><small id="sales-kpi-stat-total">0 KPI hợp lệ trong kỳ</small></div></article>
+                    </div>
+
+                    <div class="sales-kpi-role-reports">
+                        <article class="sales-kpi-role-report sales-kpi-role-report--sales">
+                            <header><span><i class="bx bx-car"></i></span><div><p class="eyebrow">Báo cáo bán xe</p><h2>Hiệu suất bán hàng</h2></div></header>
+                            <div class="sales-kpi-role-report__metrics"><div><span>Tiến độ đội ngũ</span><strong id="sales-kpi-sales-report-progress">Chưa đặt mục tiêu</strong></div><div><span>Doanh số</span><strong id="sales-kpi-sales-report-revenue">0 VNĐ</strong></div><div><span>Hoa hồng phát sinh</span><strong id="sales-kpi-sales-report-commission">0 VNĐ</strong></div></div>
                         </article>
-                        <article class="sales-kpi-stat sales-kpi-stat--acquisition">
-                            <span class="sales-kpi-stat__icon"><i class="bx bx-import"></i></span>
-                            <div><span>Xe nhập thành công</span><strong id="sales-kpi-stat-acquisition">0</strong><small>Nguồn xe đã vào kho</small></div>
-                        </article>
-                        <article class="sales-kpi-stat sales-kpi-stat--sale">
-                            <span class="sales-kpi-stat__icon"><i class="bx bx-car"></i></span>
-                            <div><span>Xe bán thành công</span><strong id="sales-kpi-stat-sales">0</strong><small>Đã hoàn tất bàn giao</small></div>
-                        </article>
-                        <article class="sales-kpi-stat sales-kpi-stat--revenue">
-                            <span class="sales-kpi-stat__icon"><i class="bx bx-wallet"></i></span>
-                            <div><span>Doanh số đã chốt</span><strong id="sales-kpi-stat-sales-value">0 VNĐ</strong><small>Chỉ tính xe đã bán</small></div>
-                        </article>
-                        <article class="sales-kpi-stat sales-kpi-stat--reward">
-                            <span class="sales-kpi-stat__icon"><i class="bx bx-gift"></i></span>
-                            <div><span>Tổng thưởng</span><strong id="sales-kpi-stat-reward">0 VNĐ</strong><small>Đã ghi nhận trong KPI</small></div>
+                        <article class="sales-kpi-role-report sales-kpi-role-report--acquisition">
+                            <header><span><i class="bx bx-import"></i></span><div><p class="eyebrow">Báo cáo nhập xe</p><h2>Hiệu quả nguồn xe</h2></div></header>
+                            <div class="sales-kpi-role-report__metrics"><div><span>Xe đang chờ bán</span><strong id="sales-kpi-acquisition-report-pending">0 xe</strong></div><div><span>Đã chốt chênh lệch</span><strong id="sales-kpi-acquisition-report-realized">0 xe</strong></div><div><span>Chênh lệch mua–bán</span><strong id="sales-kpi-acquisition-report-spread">0 VNĐ</strong></div><div><span>Thưởng nhập phát sinh</span><strong id="sales-kpi-acquisition-report-reward">0 VNĐ</strong></div></div>
+                            <p class="sales-kpi-role-report__policy"><i class="bx bx-calculator"></i> Thưởng nhập cố định được ghi nhận ngay khi xe của khách được duyệt vào kho.</p>
                         </article>
                     </div>
 
-                    <div class="sales-kpi-workspace">
+                    <section class="employee-card sales-kpi-action-center" id="sales-kpi-data-warning" hidden>
+                        <div class="sales-kpi-section-heading"><div><p class="eyebrow">Cần xử lý</p><h2>Trung tâm cảnh báo KPI</h2><p>Nhấn hành động để mở đúng giao dịch hoặc chính sách cần bổ sung.</p></div><span class="sales-kpi-action-center__count" id="sales-kpi-alert-count">0 việc</span></div>
+                        <div class="sales-kpi-alert-list" id="sales-kpi-alert-list"></div>
+                    </section>
+
+                    <div class="sales-kpi-analytics-grid">
+                        <section class="employee-card sales-kpi-chart-card">
+                            <div class="sales-kpi-section-heading"><div><p class="eyebrow">Xu hướng</p><h2>Doanh số theo ngày</h2></div><span class="sales-kpi-chart-legend"><i></i> Doanh số</span></div>
+                            <div class="sales-kpi-chart" id="sales-kpi-trend-chart"><p class="table-empty">Chưa có dữ liệu bán xe trong kỳ.</p></div>
+                        </section>
+                        <section class="employee-card sales-kpi-ranking-card">
+                            <div class="sales-kpi-section-heading"><div><p class="eyebrow">Hiệu suất đội ngũ</p><h2>Bảng xếp hạng theo vai trò</h2></div><span class="sales-kpi-ledger__badge"><i class="bx bx-trophy"></i> Công bằng theo nhiệm vụ</span></div>
+                            <div class="sales-kpi-ranking-tabs" role="tablist" aria-label="Chọn bảng xếp hạng"><button type="button" class="is-active" data-kpi-ranking-mode="sales" role="tab" aria-selected="true">Bán xe</button><button type="button" data-kpi-ranking-mode="acquisition" role="tab" aria-selected="false">Nhập xe</button><button type="button" data-kpi-ranking-mode="combined" role="tab" aria-selected="false">Kiêm nhiệm</button></div>
+                            <div class="sales-kpi-ranking-list" id="sales-kpi-ranking-list"><p class="table-empty">Chưa có dữ liệu xếp hạng.</p></div>
+                        </section>
+                    </div>
+
+                    <section class="employee-card sales-kpi-summary-card" id="sales-kpi-summary-card">
+                        <div class="sales-kpi-section-heading">
+                            <div><p class="eyebrow">Tổng kết theo kỳ</p><h2>Báo cáo & xếp loại KPI</h2><p id="sales-kpi-summary-period-label">Tổng hợp kết quả nhân viên trong kỳ đang chọn.</p></div>
+                            <div class="sales-kpi-filter-actions sales-kpi-summary-actions"><button type="button" class="toolbar-btn toolbar-btn--soft" id="sales-kpi-summary-export"><i class="bx bx-download"></i><span>Xuất tổng kết CSV</span></button><button type="button" class="toolbar-btn toolbar-btn--primary" id="sales-kpi-summary-print"><i class="bx bx-printer"></i><span>In / Lưu PDF</span></button></div>
+                        </div>
+                        <div class="sales-kpi-summary-stats"><div><span>Nhân viên</span><strong id="sales-kpi-summary-employees">0</strong></div><div><span>Xe đã bán</span><strong id="sales-kpi-summary-sales">0</strong></div><div><span>Tổng thưởng</span><strong id="sales-kpi-summary-reward">0 VNĐ</strong></div><div><span>Đã chi</span><strong id="sales-kpi-summary-paid">0 VNĐ</strong></div><div><span>Còn phải chi</span><strong id="sales-kpi-summary-outstanding">0 VNĐ</strong></div></div>
+                        <div class="inventory-table-wrap"><table class="inventory-table sales-kpi-summary-table"><thead><tr><th>Nhân viên</th><th>Vai trò</th><th>Kết quả bán</th><th>Kết quả nhập</th><th>Hoàn thành</th><th>Xếp loại</th><th>Tổng thưởng</th><th>Đã chi</th><th>Còn phải chi</th></tr></thead><tbody id="sales-kpi-summary-table-body"><tr><td colspan="9" class="table-empty">Đang tải báo cáo tổng kết...</td></tr></tbody></table></div>
+                        <p class="sales-kpi-summary-note"><i class="bx bx-info-circle"></i> Xếp loại: Xuất sắc ≥ 120% · Tốt ≥ 100% · Đạt ≥ 80% · Cần cải thiện ≥ 60% · Không đạt &lt; 60%.</p>
+                    </section>
+
+                    <section class="employee-card sales-kpi-target-card" data-requires-admin hidden>
+                        <div class="sales-kpi-section-heading">
+                            <div><p class="eyebrow">Kế hoạch kinh doanh</p><h2>Vai trò & mục tiêu theo tháng</h2><p>Chỉ tiêu không thuộc vai trò sẽ không tham gia tính mức hoàn thành.</p></div>
+                            <div class="sales-kpi-period-actions"><span class="sales-kpi-period-status" id="sales-kpi-period-status">Kỳ đang mở</span><button type="button" class="toolbar-btn toolbar-btn--soft" id="sales-kpi-period-lock-button"><i class="bx bx-lock-open-alt"></i><span>Khóa kỳ</span></button><label class="sales-kpi-target-period"><span>Kỳ mục tiêu</span><input type="month" id="sales-kpi-target-period"></label></div>
+                        </div>
+                        <div class="inventory-table-wrap"><table class="inventory-table sales-kpi-target-table"><thead><tr><th>Nhân viên</th><th>Vai trò KPI</th><th>Xe bán mục tiêu</th><th>Hoa hồng bán/xe</th><th>Thưởng nhập/xe</th><th><span class="sales-kpi-target-heading">Mục tiêu chênh giá xe nhập<small>Tổng giá bán − giá nhập cần đạt trong tháng</small></span></th><th>Tiến độ</th><th>Thao tác</th></tr></thead><tbody id="sales-kpi-target-table-body"><tr><td colspan="8" class="table-empty">Đang tải mục tiêu...</td></tr></tbody></table></div>
+                        <p class="admin-feedback" id="sales-kpi-target-feedback" aria-live="polite"></p>
+                        <details class="sales-kpi-policy-history"><summary>Lịch sử thay đổi chính sách</summary><div id="sales-kpi-policy-history-list"><p class="table-empty">Chưa có lịch sử thay đổi.</p></div></details>
+                    </section>
+
+                    <div class="sales-kpi-subsection-title" data-requires-admin hidden><span>Vận hành KPI</span><h2>Ghi nhận và đối soát giao dịch</h2><p>Form ghi nhận luôn lấy giao dịch đủ điều kiện; sổ đối soát bên dưới hiển thị theo bộ lọc báo cáo.</p></div>
+
+                    <div class="sales-kpi-workspace" data-requires-admin hidden>
                         <section class="employee-card sales-kpi-entry-card">
                             <div class="sales-kpi-card-heading">
                                 <span class="sales-kpi-card-heading__step">01</span>
-                                <div><p class="eyebrow">Ghi nhận thành tích</p><h2>Chọn giao dịch và sale</h2><p>Chỉ cần chọn giao dịch thành công, sale phụ trách và mức thưởng cần ghi nhận.</p></div>
+                                <div><p class="eyebrow">Ghi nhận thành tích</p><h2>Chọn giao dịch và người phụ trách</h2><p>Hoa hồng bán và thưởng nhập được lấy tự động từ chính sách tháng; giao dịch đủ điều kiện được đưa vào nguồn chờ để admin gắn đúng nhân viên.</p></div>
                             </div>
                             <form class="employee-form sales-kpi-form" id="sales-kpi-form">
                                 <div class="sales-kpi-form__fields">
@@ -809,16 +901,16 @@
                                         <p>Chọn giao dịch để xem nhanh xe và giá trị ghi nhận.</p>
                                     </div>
                                     <label>
-                                        <span><i class="bx bx-user-check"></i> Sale chịu trách nhiệm</span>
+                                        <span><i class="bx bx-user-check"></i> Nhân viên phụ trách</span>
                                         <select id="sales-kpi-sale" name="saleUserId" required><option value="">Chọn sale</option></select>
                                     </label>
                                     <label>
-                                        <span><i class="bx bx-money"></i> Tiền thưởng (VNĐ)</span>
-                                        <input type="number" id="sales-kpi-reward" name="rewardAmount" min="0" step="100000" value="0">
+                                        <span><i class="bx bx-money"></i> Thưởng / hoa hồng tự động (VNĐ)</span>
+                                        <input type="number" id="sales-kpi-reward" name="rewardAmount" min="0" step="100000" value="0" readonly>
                                     </label>
                                     <label>
-                                        <span><i class="bx bx-credit-card-front"></i> Trạng thái thưởng</span>
-                                        <select id="sales-kpi-reward-status" name="rewardStatus"><option value="pending">Chờ chi</option><option value="paid">Đã chi</option></select>
+                                        <span><i class="bx bx-credit-card-front"></i> Trạng thái chi thưởng</span>
+                                        <select id="sales-kpi-reward-status" name="rewardStatus" disabled><option value="pending">Chờ duyệt</option><option value="approved">Đã duyệt</option><option value="paid">Đã chi</option></select>
                                     </label>
                                     <label class="sales-kpi-form__note">
                                         <span><i class="bx bx-notepad"></i> Ghi chú nội bộ <small>Không bắt buộc</small></span>
@@ -837,8 +929,8 @@
                             <div class="sales-kpi-guide__top"><span class="sales-kpi-guide__icon"><i class="bx bx-bulb"></i></span><div><p class="eyebrow">Quy trình</p><h2>Ghi nhận đúng thời điểm</h2></div></div>
                             <ol class="sales-kpi-guide__steps">
                                 <li><span>1</span><div><strong>Giao dịch hoàn tất</strong><p>Xe được nhập kho hoặc đơn bán xe chuyển sang hoàn tất.</p></div></li>
-                                <li><span>2</span><div><strong>Chọn sale phụ trách</strong><p>Admin xác nhận người trực tiếp tạo thành tích.</p></div></li>
-                                <li><span>3</span><div><strong>Chốt thưởng & lưu</strong><p>KPI xuất hiện ngay trong sổ theo dõi bên dưới.</p></div></li>
+                                <li><span>2</span><div><strong>Đúng vai trò KPI</strong><p>Hệ thống chỉ hiển thị nhân viên phù hợp với nhập xe hoặc bán xe.</p></div></li>
+                                <li><span>3</span><div><strong>Tự tính hoa hồng</strong><p>Xe bán lấy mức cố định của nhân viên trong tháng.</p></div></li>
                             </ol>
                             <div class="sales-kpi-guide__notice"><i class="bx bx-info-circle"></i><p>Đơn mới xác nhận đặt cọc chưa được tính doanh số hoặc thưởng bán xe.</p></div>
                         </aside>
@@ -846,12 +938,12 @@
 
                     <section class="employee-card sales-kpi-ledger">
                         <div class="sales-kpi-ledger__header">
-                            <div><p class="eyebrow">Sổ KPI</p><h2>Thành tích đã ghi nhận</h2><p>Kiểm tra sale, giá trị giao dịch và trạng thái chi thưởng của từng xe.</p></div>
+                            <div><p class="eyebrow">Sổ KPI</p><h2>Thành tích đã ghi nhận</h2><p>Kiểm tra người phụ trách, giao dịch và trạng thái thưởng của từng xe.</p></div>
                             <span class="sales-kpi-ledger__badge"><i class="bx bx-history"></i> Lưu lịch sử điều chỉnh</span>
                         </div>
                         <div class="inventory-table-wrap">
                             <table class="inventory-table car-buy-request-table sales-kpi-table">
-                                <thead><tr><th>Thành tích / xe</th><th>Sale phụ trách</th><th>Giá trị giao dịch</th><th>Thưởng</th><th>Ghi nhận</th><th>Thao tác</th></tr></thead>
+                                <thead><tr><th>Thành tích / xe</th><th>Nhân viên phụ trách</th><th>Giá trị giao dịch</th><th>Thưởng / hoa hồng</th><th>Ghi nhận</th><th>Thao tác</th></tr></thead>
                                 <tbody id="sales-kpi-table-body"><tr><td colspan="6" class="table-empty">Đang tải dữ liệu KPI...</td></tr></tbody>
                             </table>
                         </div>
@@ -869,7 +961,7 @@
                         </div>
                     </div>
 
-                    <section class="employee-card promotion-card">
+                    <section class="employee-card promotion-card" data-requires-admin hidden>
                         <div class="employee-card__header">
                             <div>
                                 <p class="eyebrow">Bài viết</p>
@@ -1021,7 +1113,7 @@
                         </div>
                     </div>
 
-                    <section class="employee-card blog-admin-card">
+                    <section class="employee-card blog-admin-card" data-requires-admin hidden>
                         <div class="employee-card__header">
                             <div>
                                 <p class="eyebrow">Bài viết</p>
@@ -1494,6 +1586,12 @@
                     </select>
                 </label>
 
+                <label>
+                    <span>Nhân viên bán xe trực tiếp</span>
+                    <select name="kpiSaleUserId" id="car-kpi-sale-user"><option value="">Chọn khi chuyển xe sang đã bán</option></select>
+                    <small>Hệ thống tự tạo KPI khi xe chuyển từ “Còn xe” sang “Xe đã bán”.</small>
+                </label>
+
                 <label class="editor-form__field--wide">
                     <span>Mô tả xe</span>
                     <textarea name="description" rows="4" maxlength="1500" placeholder="Nhập thông tin mô tả xe, tình trạng thực tế, tiện nghi, bảo dưỡng..."></textarea>
@@ -1919,6 +2017,8 @@
         </section>
     </div>
 
-    <script src="/admin/script.js?v=direct-sale-kpi-20260710"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/admin/script.js?v=manual-kpi-queue-20260712"></script>
+    <script src="/admin/chat.js?v=chat-role-fix-20260712"></script>
 </body>
 </html>

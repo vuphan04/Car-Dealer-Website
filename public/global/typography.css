@@ -9,12 +9,16 @@ html {
     font-family: var(--font-ui);
     text-rendering: optimizeLegibility;
     -webkit-text-size-adjust: 100%;
+    max-width: 100%;
+    overflow-x: clip;
 }
 
 body {
     font-family: var(--font-ui);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    max-width: 100%;
+    overflow-x: clip;
 }
 
 button,
@@ -22,4 +26,31 @@ input,
 select,
 textarea {
     font-family: inherit;
+}
+
+main,
+section,
+article,
+aside,
+form,
+fieldset,
+nav,
+header,
+footer {
+    min-width: 0;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+    max-width: 100%;
+}
+
+input,
+select,
+textarea,
+button {
+    max-width: 100%;
 }

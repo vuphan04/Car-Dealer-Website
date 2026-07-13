@@ -254,4 +254,29 @@ const renderSharedLayout = () => {
     renderSharedSiteFooter();
 };
 
+const loadSharedChat = () => {
+    if (document.querySelector('[data-okxe-chat-assets]')) return;
+    const style = document.createElement('link');
+    style.rel = 'stylesheet';
+    style.href = '/global/chat.css?v=chat-motion-polish-20260712';
+    style.dataset.okxeChatAssets = 'true';
+    document.head.append(style);
+
+    const loadChatClient = () => {
+        const chatScript = document.createElement('script');
+        chatScript.src = '/global/chat.js?v=chat-motion-polish-20260712';
+        chatScript.defer = true;
+        document.body.append(chatScript);
+    };
+    if (window.io) {
+        loadChatClient();
+        return;
+    }
+    const socketScript = document.createElement('script');
+    socketScript.src = '/socket.io/socket.io.js';
+    socketScript.onload = loadChatClient;
+    document.body.append(socketScript);
+};
+
 renderSharedLayout();
+loadSharedChat();

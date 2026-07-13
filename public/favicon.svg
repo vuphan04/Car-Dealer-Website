@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="OkXe">
+  <defs>
+    <linearGradient id="okxe-accent" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff744d"/>
+      <stop offset="1" stop-color="#ff4510"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="18" fill="url(#okxe-accent)"/>
+  <path d="M17 38.5h30l-3.4-9.2a5 5 0 0 0-4.7-3.3H25.1a5 5 0 0 0-4.7 3.3L17 38.5Z" fill="#fff"/>
+  <path d="M13 39.5a4 4 0 0 1 4-4h30a4 4 0 0 1 4 4v7.2a2.3 2.3 0 0 1-2.3 2.3h-3.4a2.3 2.3 0 0 1-2.3-2.3V45H21v1.7a2.3 2.3 0 0 1-2.3 2.3h-3.4a2.3 2.3 0 0 1-2.3-2.3v-7.2Z" fill="#fff"/>
+  <circle cx="21" cy="40" r="2.5" fill="#ff5b2e"/>
+  <circle cx="43" cy="40" r="2.5" fill="#ff5b2e"/>
+</svg>
